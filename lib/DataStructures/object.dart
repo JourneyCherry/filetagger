@@ -1,12 +1,16 @@
 import 'package:filetagger/DataStructures/tag.dart';
 
-class TrackedObject {
+abstract class TrackedObject {
+  String path;
   List<TrackedTag> tags;
-  TrackedObject() : tags = [];
-  TrackedObject.tagged(this.tags);
+  TrackedObject({
+    required this.path,
+  }) : tags = [];
+  TrackedObject.tagged({
+    required this.path,
+    required this.tags,
+  });
 
-  String getName() {
-    //TODO : 이름 표시 태그가 있는지 확인
-    return "";
-  }
+  String getName();
+  String getPath() => path;
 }

@@ -13,7 +13,15 @@ class ListWidgetState extends State<ListWidget> {
   final List<TrackedObject> _objects = [];
 
   void addObjects(Iterable<TrackedObject> objects) {
-    _objects.addAll(objects);
+    setState(() {
+      _objects.addAll(objects);
+    });
+  }
+
+  void removeObjects(Iterable<String> paths) {
+    setState(() {
+      _objects.removeWhere((object) => paths.contains(object.path));
+    });
   }
 
   @override

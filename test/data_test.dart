@@ -1,18 +1,17 @@
-import 'package:filetagger/DataStructures/directory.dart';
-import 'package:filetagger/DataStructures/file.dart';
 import 'package:filetagger/DataStructures/object.dart';
 import 'package:filetagger/DataStructures/tag.dart';
+import 'package:filetagger/DataStructures/tag_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
-class TestTag extends TrackedTag {
-  TestTag(super.name);
-}
-
 void tagTest() {
   String tagName = 'testTag';
+  TagManager().makeTag(
+    name: tagName,
+    type: TagType.tagonly,
+  );
   List<TrackedTag> tags = [
-    TestTag(tagName),
+    TrackedTag(name: tagName),
   ];
   test('initializer test', () {
     for (var tag in tags) {
@@ -43,44 +42,44 @@ void objectTest() {
         path: './local/test.txt',
         name: 'test.txt',
         isDir: false,
-      ): (key) => TrackedFile(path: key.path),
+      ): (key) => TrackedObject.makeFile(path: key.path),
     if (isWindows)
       PathTester(
         // Windows Style File Path
         path: r'./ProgramFiles(x86)/FileTagger/test.txt',
         name: 'test.txt',
         isDir: false,
-      ): (key) => TrackedFile(path: key.path),
+      ): (key) => TrackedObject.makeFile(path: key.path),
     if (isPosix)
       PathTester(
         // Linux Style Directory Path
         path: './local/',
         name: 'local',
         isDir: true,
-      ): (key) => TrackedDirectory(path: key.path),
+      ): (key) => TrackedObject.makeDir(path: key.path),
     if (isWindows)
       PathTester(
         // Window Style Directory Path
         path: r'./Program Files(x86)/FileTagger/',
         name: 'FileTagger',
         isDir: true,
-      ): (key) => TrackedDirectory(path: key.path),
+      ): (key) => TrackedObject.makeDir(path: key.path),
     if (isWeb)
       PathTester(
         path: "host.name/test/file.txt",
         name: "file.txt",
         isDir: false,
-      ): (key) => TrackedFile(path: key.path),
+      ): (key) => TrackedObject.makeFile(path: key.path),
     if (isWeb)
       PathTester(
         path: "host.name/test/",
         name: "test",
         isDir: true,
-      ): (key) => TrackedDirectory(path: key.path),
+      ): (key) => TrackedObject.makeDir(path: key.path),
   }.map((key, valueFunc) => MapEntry(key, valueFunc(key)));
 
   test('initializer test', () {
-    testMap.forEach((key, value) => expect(value.getName(), key.name));
+    testMap.forEach((key, value) => expect(value.name, key.name));
   });
 }
 

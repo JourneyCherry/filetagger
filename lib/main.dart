@@ -1,3 +1,4 @@
+import 'package:filetagger/Widgets/list_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:multi_split_view/multi_split_view.dart';
 
@@ -25,8 +26,7 @@ class MyApp extends StatelessWidget {
         child: MultiSplitView(
           initialAreas: [
             Area(builder: (context, area) => Draft.blue()),
-            Area(builder: (context, area) => Draft.yellow()),
-            Area(builder: (context, area) => Draft.green()),
+            Area(builder: (context, area) => ListWidget()),
           ],
         ),
       ),

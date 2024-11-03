@@ -1,25 +1,39 @@
+import 'dart:async';
+
 import 'package:filetagger/DataStructures/object.dart';
-import 'package:flutter/widgets.dart';
+import 'package:filetagger/DataStructures/tag.dart';
+import 'package:flutter/material.dart';
 
 class ListElementWidget extends StatefulWidget {
-  final TrackedObject initialObject;
-  const ListElementWidget({super.key, required this.initialObject});
+  final TrackedObject item;
+  const ListElementWidget({super.key, required this.item});
 
   @override
   State<ListElementWidget> createState() => _ListElementWidgetState();
 }
 
 class _ListElementWidgetState extends State<ListElementWidget> {
-  late final TrackedObject trackedObject;
+  late final TrackedObject _trackedObject;
+  late final StreamSubscription<TrackedTag> addSubscription;
+  late final StreamSubscription<void> delSubscription;
 
   @override
   void initState() {
     super.initState();
-    trackedObject = widget.initialObject;
+    _trackedObject = widget.item;
+    addSubscription = _trackedObject.addEvent.listen((_) => setState(() {}));
+    delSubscription = _trackedObject.delEvent.listen((_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    addSubscription.cancel();
+    delSubscription.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return const ListTile();
   }
 }

@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:filetagger/DataStructures/object.dart';
+import 'package:filetagger/DataStructures/object_manager.dart';
+import 'package:filetagger/Widgets/list_element_widget.dart';
 import 'package:flutter/material.dart';
 
 class ListWidget extends StatefulWidget {
@@ -9,39 +13,44 @@ class ListWidget extends StatefulWidget {
 }
 
 class ListWidgetState extends State<ListWidget> {
-  final ScrollController _scrollController = ScrollController();
   final List<TrackedObject> _objects = [];
+  late final StreamSubscription<TrackedObject> addSubscription;
+  late final StreamSubscription<String> delSubscription;
 
-  void addObjects(Iterable<TrackedObject> objects) {
+  @override
+  void initState() {
+    super.initState();
+    addSubscription = ObjectManager().addEvent.listen(addObjects);
+    delSubscription = ObjectManager().delEvent.listen(removeObjects);
+  }
+
+  @override
+  void dispose() {
+    addSubscription.cancel();
+    delSubscription.cancel();
+    super.dispose();
+  }
+
+  void addObjects(TrackedObject object) {
     setState(() {
-      _objects.addAll(objects);
+      _objects.add(object);
     });
   }
 
-  void removeObjects(Iterable<String> paths) {
+  void removeObjects(String path) {
     setState(() {
-      _objects.removeWhere((object) => paths.contains(object.path));
+      _objects.removeWhere((object) => (object.path == path));
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: <Widget>[
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (BuildContext context, int index) {
-              if (index < _objects.length) {
-                return ListTile(title: Text(_objects[index].getName()));
-              } else {
-                return null;
-              }
-            },
-            childCount: _objects.length,
-          ),
-        ),
-      ],
+    return ListView.builder(
+      key: const PageStorageKey('Widgets/list_widget'),
+      itemCount: _objects.length,
+      itemBuilder: (context, index) => ListElementWidget(
+        item: _objects[index],
+      ),
     );
   }
 }

@@ -86,4 +86,6 @@ void objectTest() {
 void main() {
   group('Tag Unit Test', tagTest);
   group('Object Unit Test', objectTest);
+
+  //TODO : 임시 디렉토리를 만들어 DirectoryReader()가 정상적으로 파일을 읽는지 확인
 }

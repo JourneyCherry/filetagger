@@ -11,8 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('test ListView Widget', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
-    expect(
-        find.text('test'), findsNothing); //요소 찾기. 아직 없으므로 findsNothing이 나와야 한다.
-    //TODO : ListWidget에 아이템들을 넣어 제대로 데이터를 표시하는지 확인
+    expect(find.byType(MyMainWidget), findsOne); //메인 위젯이 등장해야함.
+
+    tester.pumpAndSettle(); //모든 애니메이션과 타이머가 완료될 때까지 대기
+
+    //TODO : 디렉토리 읽은 뒤, listviewitem이 등장하는지 확인
   });
 }

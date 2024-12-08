@@ -10,18 +10,17 @@ class DirectoryReader {
 
   DirectoryReader._internal();
 
-  String? path;
+  String path = '';
   Future<List<FileSystemEntity>> fileList = Future<List<FileSystemEntity>>(
     () => [],
   );
   CancelableOperation? _operation;
 
-  void readDirectory(String? path) async {
+  void readDirectory(String path) async {
     if (_operation != null) {
       await _operation!.cancel();
     }
     this.path = path;
-    if (path == null) return;
 
     _operation = CancelableOperation.fromFuture(
       fileList,

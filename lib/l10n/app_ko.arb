@@ -1,0 +1,19 @@
+{
+	"@@locale": "ko",
+	"openDir": "디렉토리 열기",
+	"@openDir":{
+		"description": "\"디렉토리 열기\" 버튼의 설명문"
+	},
+	"appTitle": "파일 태거",
+	"@appTitle":{
+		"description": "어플리케이션 타이틀 이름"
+	},
+	"emptyContent": "파일이 없습니다",
+	"@emptyContent":{
+		"description": "아직 디렉토리를 로드하지 않았거나, 빈 디렉토리인 경우 출력 문구"
+	},
+	"errorOccur": "에러 발생",
+	"@errorOccur":{
+		"description": "에러 발생한 경우 출력 문구"
+	}
+}

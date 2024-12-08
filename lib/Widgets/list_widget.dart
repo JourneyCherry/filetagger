@@ -1,9 +1,7 @@
-import 'dart:async';
-
-import 'package:filetagger/DataStructures/object.dart';
-import 'package:filetagger/DataStructures/object_manager.dart';
+import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/Widgets/list_element_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ListWidget extends StatefulWidget {
   const ListWidget({super.key});
@@ -13,44 +11,62 @@ class ListWidget extends StatefulWidget {
 }
 
 class ListWidgetState extends State<ListWidget> {
-  final List<TrackedObject> _objects = [];
-  late final StreamSubscription<TrackedObject> addSubscription;
-  late final StreamSubscription<String> delSubscription;
+  bool isSingleSelect = true;
+  Set<int> selectedIndices = {};
 
   @override
   void initState() {
     super.initState();
-    addSubscription = ObjectManager().addEvent.listen(addObjects);
-    delSubscription = ObjectManager().delEvent.listen(removeObjects);
   }
 
   @override
   void dispose() {
-    addSubscription.cancel();
-    delSubscription.cancel();
     super.dispose();
   }
 
-  void addObjects(TrackedObject object) {
-    setState(() {
-      _objects.add(object);
-    });
-  }
-
-  void removeObjects(String path) {
-    setState(() {
-      _objects.removeWhere((object) => (object.path == path));
-    });
-  }
+  Widget getEmptyWidget(BuildContext context) => Center(
+        child: Text(AppLocalizations.of(context)!.emptyContent),
+      );
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      key: const PageStorageKey('Widgets/list_widget'),
-      itemCount: _objects.length,
-      itemBuilder: (context, index) => ListElementWidget(
-        item: _objects[index],
-      ),
+    return FutureBuilder(
+      future: DirectoryReader().fileList,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(
+              child: Text(
+                  '${AppLocalizations.of(context)!.errorOccur}: ${snapshot.error}'));
+        } else if (snapshot.hasData) {
+          return ListView.builder(
+            itemCount: snapshot.data!.length,
+            itemBuilder: (context, index) {
+              return ListElementWidget(
+                file: snapshot.data![index],
+                onTap: () {
+                  setState(() {
+                    if (isSingleSelect) {
+                      selectedIndices.clear();
+                      selectedIndices.add(index);
+                      return;
+                    }
+                    if (selectedIndices.contains(index)) {
+                      selectedIndices.remove(index);
+                    } else {
+                      selectedIndices.add(index);
+                    }
+                  });
+                },
+                isSelected: selectedIndices.contains(index),
+              );
+            },
+          );
+        } else {
+          return getEmptyWidget(context);
+        }
+      },
     );
   }
 }

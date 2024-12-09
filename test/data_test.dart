@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/DataStructures/object.dart';
 import 'package:filetagger/DataStructures/tag.dart';
 import 'package:filetagger/DataStructures/tag_manager.dart';
@@ -83,9 +86,48 @@ void objectTest() {
   });
 }
 
+void directoryTest() {
+  //TODO : 임시 디렉토리를 만들어 DirectoryReader()가 정상적으로 파일을 읽는지 확인
+  late Directory tempDir;
+  const int fileCount = 5;
+  const int subDirCount = 1;
+  const int totalEntity = fileCount + subDirCount;
+
+  setUp(() async {
+    //임시 디렉토리 및 파일 생성
+    tempDir = await Directory.systemTemp.createTemp('directory_test_');
+
+    for (int i = 0; i < fileCount; ++i) {
+      await File(p.join(tempDir.path, 'file$i.txt'))
+          .writeAsString('Test Content $i');
+    }
+
+    Directory subDir = await tempDir.createTemp('subdir_test_');
+
+    for (int i = 0; i < fileCount; ++i) {
+      await File(p.join(subDir.path, 'file$i.txt'))
+          .writeAsString('Test Content $i');
+    }
+  });
+
+  tearDown(() async {
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  test('DirectoryReader Test', () async {
+    DirectoryReader().readDirectory(tempDir.path);
+
+    List<FileSystemEntity> fileList = await DirectoryReader().fetchDirectory();
+
+    expect(fileList.length,
+        totalEntity); //내부 디렉토리를 읽으라는 설정이 되어있지 않으면 서브 디렉토리 내부 파일은 읽지 않음.
+  });
+}
+
 void main() {
   group('Tag Unit Test', tagTest);
   group('Object Unit Test', objectTest);
-
-  //TODO : 임시 디렉토리를 만들어 DirectoryReader()가 정상적으로 파일을 읽는지 확인
+  group('Directory Read Test', directoryTest);
 }

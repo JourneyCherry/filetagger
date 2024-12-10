@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/Widgets/list_widget.dart';
@@ -46,8 +48,42 @@ class MyMainWidget extends StatefulWidget {
   State<MyMainWidget> createState() => _MyMainWidgetState();
 }
 
+enum ViewType { list, icon }
+
 class _MyMainWidgetState extends State<MyMainWidget> {
   String? appTitle;
+  ViewType viewType = ViewType.list;
+  List<FileSystemEntity> files = [];
+  bool isSingleSelect = true;
+  Set<int> selectedIndices = {};
+
+  void _loadItems(String path) async {
+    files.clear();
+    selectedIndices.clear();
+    DirectoryReader().clear();
+    final stream = DirectoryReader().readDirectory(path);
+
+    await for (var entity in stream) {
+      setState(() {
+        files.add(entity);
+      });
+    }
+  }
+
+  void _selectItem(int index) {
+    setState(() {
+      if (isSingleSelect) {
+        selectedIndices.clear();
+        selectedIndices.add(index);
+      } else {
+        if (selectedIndices.contains(index)) {
+          selectedIndices.remove(index);
+        } else {
+          selectedIndices.add(index);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +97,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
             onPressed: () async {
               final path = await FilePicker.platform.getDirectoryPath();
               if (path != null) {
-                DirectoryReader().readDirectory(path);
+                _loadItems(path);
                 setState(() {
                   appTitle = path;
                 });
@@ -79,7 +115,24 @@ class _MyMainWidgetState extends State<MyMainWidget> {
         child: MultiSplitView(
           initialAreas: [
             Area(builder: (context, area) => Draft.blue()),
-            Area(builder: (context, area) => ListWidget()),
+            Area(
+              builder: (context, area) {
+                switch (viewType) {
+                  case ViewType.list:
+                    return ListWidget(
+                      files: files,
+                      selectedIndices: selectedIndices,
+                      onTap: _selectItem,
+                    );
+                  case ViewType.icon:
+                    return ListWidget(
+                      files: files,
+                      selectedIndices: selectedIndices,
+                      onTap: _selectItem,
+                    ); //TODO : GridWidget으로 바꾸기
+                }
+              },
+            ),
           ],
         ),
       ),

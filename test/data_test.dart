@@ -117,13 +117,18 @@ void directoryTest() {
   });
 
   test('DirectoryReader Test', () async {
-    DirectoryReader().readDirectory(tempDir.path);
+    final stream = DirectoryReader().readDirectory(tempDir.path);
+    int count = 0;
+    stream.listen((_) => ++count);
 
-    List<FileSystemEntity> fileList = await DirectoryReader().fetchDirectory();
+    DirectoryReader().clear();
 
-    expect(fileList.length,
-        totalEntity); //내부 디렉토리를 읽으라는 설정이 되어있지 않으면 서브 디렉토리 내부 파일은 읽지 않음.
-  });
+    await DirectoryReader().waitForIdle();
+
+    expect(DirectoryReader().isClosed(), true);
+    expect(
+        count, totalEntity); //내부 디렉토리를 읽으라는 설정이 되어있지 않으면 서브 디렉토리 내부 파일은 읽지 않음.
+  }, timeout: const Timeout(Duration(seconds: 5)));
 }
 
 void main() {

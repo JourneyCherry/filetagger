@@ -1,17 +1,21 @@
-enum DataType {
+enum ValueType {
   label,
   numeric,
   string,
 }
 
 class Types {
-  static bool verify(int type, dynamic value) {
+  static int bool2int(bool value) => value ? 1 : 0;
+
+  static bool int2bool(int value) => (value == 1);
+
+  static bool verify(ValueType type, dynamic value) {
     switch (type) {
-      case 0:
+      case ValueType.label:
         return (value == null);
-      case 1:
+      case ValueType.numeric:
         return (value is int);
-      case 2:
+      case ValueType.string:
         return (value is String);
       default:
         return false;

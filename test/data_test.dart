@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/DataStructures/object.dart';
 import 'package:filetagger/DataStructures/tag.dart';
 import 'package:filetagger/DataStructures/tag_manager.dart';
+import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -16,7 +18,7 @@ void tagTest() {
   List<TrackedTag> tags = [
     TrackedTag(name: tagName),
   ];
-  test('initializer test', () {
+  test('tag test', () {
     for (var tag in tags) {
       expect(tag.name, tagName);
     }
@@ -81,7 +83,7 @@ void objectTest() {
       ): (key) => TrackedObject.makeDir(path: key.path),
   }.map((key, valueFunc) => MapEntry(key, valueFunc(key)));
 
-  test('initializer test', () {
+  test('object test', () {
     testMap.forEach((key, value) => expect(value.name, key.name));
   });
 }
@@ -131,8 +133,78 @@ void directoryTest() {
   }, timeout: const Timeout(Duration(seconds: 5)));
 }
 
+void sqfliteTest() {
+  test('Sqflite Test', () async {
+    final filePath = './.tagdb';
+
+    if (await File(filePath).exists()) {
+      await File(filePath).delete();
+    }
+
+    await DBManager().initializeDatabase();
+    expect(await File(filePath).exists(), true);
+
+    final labelId = await DBManager().createTag(
+      name: 'label',
+      type: ValueType.label,
+    );
+    expect(labelId, isNotNull);
+    final numId = await DBManager().createTag(
+      name: 'numeric',
+      type: ValueType.numeric,
+      defaultValue: 0,
+    );
+    expect(numId, isNotNull);
+    final strId = await DBManager().createTag(
+      name: 'string',
+      type: ValueType.string,
+      defaultValue: '',
+    );
+
+    final Map<String, List<(int, dynamic)>> data = {
+      './a': [(labelId!, null), (numId!, 3), (strId!, 'str')],
+      './b': [(labelId, null)],
+      './c': [(numId, 5), (strId, 'string')],
+    };
+
+    List<(int, String)> fileData = [];
+    for (var kvp in data.entries) {
+      final pid = await DBManager().addFile(kvp.key);
+      expect(pid, isNotNull);
+      for (var item in kvp.value) {
+        expect(
+          await DBManager().addTagValue(
+            pid: pid!,
+            tid: item.$1,
+            value: item.$2,
+          ),
+          true,
+        );
+      }
+      fileData.add((pid!, kvp.key));
+    }
+
+    for (var item in fileData) {
+      final (:path, :pid, :recursive) =
+          await DBManager().getFileFromId(item.$1);
+      expect(path, item.$2);
+      expect(pid, 0);
+      expect(recursive, false);
+
+      final tags = await DBManager().getTagValueFromId(pid);
+      for (var tag in tags) {
+        expect(Types.verify(tag.type, tag.value), true);
+      }
+    }
+
+    DBManager().closeDatabase();
+    File(filePath).delete();
+  });
+}
+
 void main() {
   group('Tag Unit Test', tagTest);
   group('Object Unit Test', objectTest);
   group('Directory Read Test', directoryTest);
+  group('Sqflite Test', sqfliteTest);
 }

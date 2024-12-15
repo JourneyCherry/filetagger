@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:filetagger/DataStructures/datas.dart';
+import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
+import 'package:filetagger/DataStructures/path_manager.dart';
 import 'package:filetagger/Widgets/list_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:multi_split_view/multi_split_view.dart';
@@ -53,20 +56,54 @@ enum ViewType { list, icon }
 class _MyMainWidgetState extends State<MyMainWidget> {
   String? appTitle;
   ViewType viewType = ViewType.list;
-  List<FileSystemEntity> files = [];
+  Map<String, PathData> pathData = {};
+  Map<int, TagInfoData> tagData = {};
+  Set<String> trackingPath = {};
   bool isSingleSelect = true;
   Set<int> selectedIndices = {};
 
-  void _loadItems(String path) async {
-    files.clear();
+  void _loadItems(String rootPath) async {
+    PathManager().setRootPath(rootPath);
     selectedIndices.clear();
-    DirectoryReader().clear();
-    final stream = DirectoryReader().readDirectory(path);
-
-    await for (var entity in stream) {
-      setState(() {
-        files.add(entity);
+    final paths = await DBManager().initializeDatabase(rootPath);
+    setState(() {
+      paths.forEach((key, value) {
+        pathData[key] = PathData(
+          path: key,
+          pid: value,
+        );
       });
+    });
+    tagData = await DBManager().getTagsInfo();
+
+    DirectoryReader().clear();
+    final stream = DirectoryReader().readDirectory(rootPath);
+    await for (var entity in stream) {
+      final path = PathManager().getPath(entity.path);
+      setState(() {
+        trackingPath.add(path);
+      });
+      if (!pathData.containsKey(path)) {
+        final pid = await DBManager().addFile(path);
+        if (pid != null) {
+          setState(() {
+            pathData[path] = PathData(
+              path: path,
+              pid: pid,
+            );
+          });
+        } //추가 실패하면 이미 존재한다는 의미.
+      }
+      final tags = await DBManager().getTagsFromFile(pid);
+      for (var (id: tid, type: _, value: value) in tags) {
+        setState(() {
+          pathData[path]!.tags.add(TagData(
+                pid: pid,
+                tid: tid,
+                value: value,
+              )); //태그 추가
+        });
+      }
     }
   }
 
@@ -120,13 +157,17 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                 switch (viewType) {
                   case ViewType.list:
                     return ListWidget(
-                      files: files,
+                      pathData: pathData,
+                      tagData: tagData,
+                      trackingPath: trackingPath,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
                     );
                   case ViewType.icon:
                     return ListWidget(
-                      files: files,
+                      pathData: pathData,
+                      tagData: tagData,
+                      trackingPath: trackingPath,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
                     ); //TODO : GridWidget으로 바꾸기

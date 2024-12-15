@@ -1,41 +1,30 @@
-import 'dart:io';
+import 'package:filetagger/DataStructures/datas.dart';
 import 'package:flutter/material.dart';
 
-class ListElementWidget extends StatefulWidget {
-  final FileSystemEntity file;
+class ListElementWidget extends StatelessWidget {
+  final PathData pathData;
   final VoidCallback? onTap;
   final bool isSelected;
+  final bool isExist;
   const ListElementWidget({
     super.key,
-    required this.file,
-    this.onTap,
-    this.isSelected = false,
+    required this.pathData,
+    required this.onTap,
+    required this.isSelected,
+    required this.isExist,
   });
 
   @override
-  State<ListElementWidget> createState() => _ListElementWidgetState();
-}
-
-class _ListElementWidgetState extends State<ListElementWidget> {
-  late final FileSystemEntity file;
-
-  @override
-  void initState() {
-    super.initState();
-    file = widget.file; //TODO : widget.file로부터 태그 정보 가져오기.(LocalDB)
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    Color notExistColor =
+        isExist ? Colors.red.withOpacity(0.3) : Colors.transparent;
+    Color selectColor =
+        isSelected ? Colors.blue.withOpacity(0.3) : Colors.transparent;
+    Color color = Color.alphaBlend(selectColor, notExistColor);
     return ListTile(
-      title: Text(file.path),
-      onTap: widget.onTap,
-      tileColor: widget.isSelected ? Colors.blue.withOpacity(0.3) : null,
+      title: Text(pathData.path),
+      onTap: onTap,
+      tileColor: (isExist || isSelected) ? color : null,
     );
   }
 }

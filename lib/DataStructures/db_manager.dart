@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:filetagger/DataStructures/datas.dart';
+import 'package:filetagger/DataStructures/path_manager.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -11,7 +13,6 @@ class DBManager {
   static const String fileTableName = 'files';
   static const String taginfoTableName = 'taginfo';
   static const String tagTableName = 'tags';
-  String rootPath = '.';
   late Database _database;
 
   static final DBManager _instance = DBManager._internal();
@@ -23,22 +24,18 @@ class DBManager {
     databaseFactory = databaseFactoryFfi;
   }
 
-  Future<void> initializeDatabase({String path = '.'}) async {
-    rootPath = path;
-
-    if (!await Directory(rootPath).exists()) {
+  Future<Map<String, int>> initializeDatabase([String path = '.']) async {
+    if (!await Directory(path).exists()) {
       throw Exception('Directory Doesn\'t exists');
     }
-    final dbPath = p.join(Directory(rootPath).absolute.path, fileName);
+    final dbPath = p.join(Directory(path).absolute.path, fileName);
 
     _database = await openDatabase(
       dbPath,
       version: 1,
+      onConfigure: (db) async =>
+          await db.execute('PRAGMA foreign_keys = 1'), //외래키 활성화
       onCreate: (db, version) async {
-        //외래키 활성화
-        await db.execute('''
-          PRAGMA foreign_keys = 1
-        ''');
         await db.execute('''
           CREATE TABLE $fileTableName (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,6 +66,15 @@ class DBManager {
         ''');
       },
     );
+    Map<String, int> result = {};
+    final query = await _database.rawQuery('''
+      SELECT path, id
+      FROM $fileTableName
+    ''');
+    for (var row in query) {
+      result[row['path'] as String] = row['id'] as int;
+    }
+    return result;
   }
 
   Future<void> closeDatabase() async {
@@ -78,8 +84,8 @@ class DBManager {
   /// 파일 추가
   Future<int?> addFile(String filePath) async {
     //p.relative()는 동일 경로만 '.'을, 그 외에는 ./를 접두어로 붙이지 않는다.
-    final path = './${p.relative(filePath, from: rootPath)}';
-    final parentPath = p.relative(Directory(path).parent.path, from: rootPath);
+    final path = PathManager().getPath(filePath);
+    final parentPath = PathManager().getParent(filePath);
     return await _database.transaction((txn) async {
       int ppid = 0;
       if (parentPath != '.') {
@@ -211,6 +217,34 @@ class DBManager {
     ''', [id]);
   }
 
+  Future<Map<int, TagInfoData>> getTagsInfo() async {
+    Map<int, TagInfoData> tagInfoData = {};
+
+    final result = await _database.rawQuery('''
+      SELECT id, name, type, default_value, duplicable, necessary
+      FROM $taginfoTableName
+    ''');
+    for (var row in result) {
+      final tid = row['id'] as int;
+      final name = row['name'] as String;
+      final type = row['type'] as ValueType;
+      final defaultValue = row['default_value'];
+      final duplicable = Types.int2bool(row['duplicable'] as int);
+      final necessary = Types.int2bool(row['necessary'] as int);
+
+      tagInfoData[tid] = TagInfoData(
+        tid: tid,
+        name: name,
+        type: type,
+        defaultValue: defaultValue,
+        duplicable: duplicable,
+        necessary: necessary,
+      );
+    }
+
+    return tagInfoData;
+  }
+
   Future<
       ({
         String? name,
@@ -322,7 +356,8 @@ class DBManager {
     ''', [id]);
   }
 
-  Future<List<({int id, ValueType type, dynamic value})>> getTagValueFromId(
+  /// 대상 파일(id)에 대한 모든 태그 값 가져오기
+  Future<List<({int id, ValueType type, dynamic value})>> getTagsFromFile(
     int pid,
   ) async {
     final result = await _database.rawQuery('''

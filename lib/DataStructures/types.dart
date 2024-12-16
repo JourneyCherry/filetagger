@@ -7,7 +7,8 @@ enum ValueType {
 class Types {
   static int bool2int(bool value) => value ? 1 : 0;
 
-  static bool int2bool(int value) => (value == 1);
+  static bool int2bool(dynamic value) =>
+      (value == null) ? false : (value as int == 1);
 
   static bool verify(ValueType type, dynamic value) {
     switch (type) {

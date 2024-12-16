@@ -4,16 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ListWidget extends StatelessWidget {
-  final Map<String, PathData> pathData;
-  final Map<int, TagInfoData> tagData;
-  final Set<String> trackingPath;
+  final GlobalData globalData;
   final Set<int> selectedIndices;
   final void Function(int)? onTap;
   const ListWidget({
     super.key,
-    required this.pathData,
-    required this.tagData,
-    required this.trackingPath,
+    required this.globalData,
     this.selectedIndices = const {},
     this.onTap,
   });
@@ -24,17 +20,17 @@ class ListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (pathData.isEmpty) return getEmptyWidget(context);
+    if (globalData.pathData.isEmpty) return getEmptyWidget(context);
     return ListView.builder(
-      itemCount: pathData.length,
+      itemCount: globalData.pathData.length,
       itemBuilder: (context, index) {
-        final pData = pathData.values.elementAt(index);
-        final pid = pData.pid;
+        final data = globalData.pathData.values.elementAt(index);
         return ListElementWidget(
-          pathData: pData,
-          onTap: () => onTap?.call(pid),
-          isSelected: selectedIndices.contains(pid),
-          isNotExist: !trackingPath.contains(pData.path),
+          pid: data.pid,
+          globalData: globalData,
+          onTap: () => onTap?.call(data.pid),
+          isSelected: selectedIndices.contains(data.pid),
+          isNotExist: !globalData.trackingPath.contains(data.path),
         );
       },
     );

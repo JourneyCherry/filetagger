@@ -24,10 +24,8 @@ class DBManager {
     databaseFactory = databaseFactoryFfi;
   }
 
-  Future<Map<String, int>> initializeDatabase([String path = '.']) async {
-    if (!await Directory(path).exists()) {
-      throw Exception('Directory Doesn\'t exists');
-    }
+  Future<bool> initializeDatabase([String path = '.']) async {
+    if (!await Directory(path).exists()) return false;
     final dbPath = p.join(Directory(path).absolute.path, dbMgrFileName);
 
     closeDatabase();
@@ -68,15 +66,8 @@ class DBManager {
         ''');
       },
     );
-    Map<String, int> result = {};
-    final query = await _database!.rawQuery('''
-      SELECT path, id
-      FROM $_fileTableName
-    ''');
-    for (var row in query) {
-      result[row['path'] as String] = row['id'] as int;
-    }
-    return result;
+
+    return true;
   }
 
   Future<void> closeDatabase() async {
@@ -155,6 +146,26 @@ class DBManager {
     });
   }
 
+  Future<Map<int, PathData>?> getPaths() async {
+    if (_database == null) return null;
+
+    Map<int, PathData> map = {};
+    final query = await _database!.rawQuery('''
+      SELECT id, path, pid, recursive
+      FROM $_fileTableName
+    ''');
+    for (var row in query) {
+      final pid = row['id'] as int;
+      map[pid] = PathData(
+        pid: pid,
+        path: row['path'] as String,
+        ppid: row['pid'] as int,
+        recursive: Types.int2bool(row['recursive']),
+      );
+    }
+    return map;
+  }
+
   Future<
       ({
         String? path,
@@ -170,7 +181,7 @@ class DBManager {
     if (result.isEmpty) return null;
     final path = result.first['path'] as String;
     final pid = result.first['pid'] as int;
-    final recursive = Types.int2bool(result.first['recursive'] as int);
+    final recursive = Types.int2bool(result.first['recursive']);
     return (
       path: path,
       pid: pid,
@@ -219,33 +230,27 @@ class DBManager {
     ''', [id]);
   }
 
-  Future<Map<int, TagInfoData>?> getTagsInfo() async {
+  Future<Map<int, TagInfoData>?> getTags() async {
     if (_database == null) return null;
 
-    Map<int, TagInfoData> tagInfoData = {};
+    Map<int, TagInfoData> map = {};
     final result = await _database!.rawQuery('''
       SELECT id, name, type, default_value, duplicable, necessary
       FROM $_taginfoTableName
     ''');
     for (var row in result) {
       final tid = row['id'] as int;
-      final name = row['name'] as String;
-      final type = row['type'] as ValueType;
-      final defaultValue = row['default_value'];
-      final duplicable = Types.int2bool(row['duplicable'] as int);
-      final necessary = Types.int2bool(row['necessary'] as int);
-
-      tagInfoData[tid] = TagInfoData(
+      map[tid] = TagInfoData(
         tid: tid,
-        name: name,
-        type: type,
-        defaultValue: defaultValue,
-        duplicable: duplicable,
-        necessary: necessary,
+        name: row['name'] as String,
+        type: row['type'] as ValueType,
+        defaultValue: row['default_value'],
+        duplicable: Types.int2bool(row['duplicable']),
+        necessary: Types.int2bool(row['necessary']),
       );
     }
 
-    return tagInfoData;
+    return map;
   }
 
   Future<
@@ -266,8 +271,8 @@ class DBManager {
     final name = result.first['name'] as String;
     final type = result.first['type'] as ValueType;
     final defaultValue = result.first['default_value'];
-    final duplicable = Types.int2bool(result.first['duplicable'] as int);
-    final necessary = Types.int2bool(result.first['necessary'] as int);
+    final duplicable = Types.int2bool(result.first['duplicable']);
+    final necessary = Types.int2bool(result.first['necessary']);
     return (
       name: name,
       type: type,
@@ -294,8 +299,7 @@ class DBManager {
         if (result.isEmpty) {
           throw Exception('there is no tag in (pid: $pid, tid: $tid)');
         }
-        final bool duplicable =
-            Types.int2bool(result.first['duplicable'] as int);
+        final bool duplicable = Types.int2bool(result.first['duplicable']);
         value ??= result.first['default_value'];
         if (!duplicable) {
           int count = Sqflite.firstIntValue(await txn.rawQuery('''
@@ -353,6 +357,25 @@ class DBManager {
       DELETE FROM $_tagTableName
       WHERE id = ?
     ''', [id]);
+  }
+
+  Future<Map<int, ValueData>?> getValues() async {
+    if (_database == null) return null;
+    final result = await _database!.rawQuery('''
+      SELECT id, pid, tid, value
+      FROM $_tagTableName
+    ''');
+    Map<int, ValueData> map = {};
+    for (var value in result) {
+      final vid = value['id'] as int;
+      map[vid] = ValueData(
+        vid: vid,
+        pid: value['pid'] as int,
+        tid: value['tid'] as int,
+        value: value['value'],
+      );
+    }
+    return map;
   }
 
   /// 대상 파일(id)에 대한 모든 태그 값 가져오기

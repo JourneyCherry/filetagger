@@ -113,3 +113,6 @@ lib/generated_plugin_registrant.dart
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode
+
+# sqlite db 파일. 개발 디렉토리로 테스트 할 때 생성되는 것.
+.tagdb

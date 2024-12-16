@@ -18,12 +18,14 @@ class TagInfoData {
   });
 }
 
-class TagData {
+class ValueData {
+  int vid;
   int pid;
   int tid;
   dynamic value;
 
-  TagData({
+  ValueData({
+    required this.vid,
     required this.pid,
     required this.tid,
     this.value,
@@ -31,13 +33,42 @@ class TagData {
 }
 
 class PathData {
-  String path;
   int pid;
-  List<TagData> tags;
+  String path;
+  int ppid;
+  bool recursive;
+  List<int> tags;
 
   PathData({
-    required this.path,
     required this.pid,
+    required this.path,
+    required this.ppid,
+    this.recursive = false,
     this.tags = const [],
   });
+}
+
+class GlobalData {
+  Map<int, PathData> pathData = {};
+  Map<int, TagInfoData> tagData = {};
+  Map<int, ValueData> valueData = {};
+  Set<String> trackingPath = {};
+
+  GlobalData();
+
+  String? getPathName(int? pid) => pathData[pid]?.path;
+  String? getTagName(int? tid) => tagData[tid]?.name;
+  String? getTagValue(int? vid) => valueData[vid]?.value;
+  int? getPath(String path) {
+    for (var pData in pathData.values) {
+      if (pData.path == path) return pData.pid;
+    }
+    return null;
+  }
+
+  void clear() {
+    pathData.clear();
+    tagData.clear();
+    tagData.clear();
+  }
 }

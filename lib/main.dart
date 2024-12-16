@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
@@ -56,32 +54,37 @@ enum ViewType { list, icon }
 class _MyMainWidgetState extends State<MyMainWidget> {
   String? appTitle;
   ViewType viewType = ViewType.list;
-  Map<String, PathData> pathData = {};
-  Map<int, TagInfoData> tagData = {};
-  Set<String> trackingPath = {};
+  GlobalData globalData = GlobalData();
   bool isSingleSelect = true;
   Set<int> selectedIndices = {};
 
   /// 트래킹할 root path를 가져오는 메소드. 첫 디렉토리 로드에 사용
   void _loadItems(String rootPath) async {
     PathManager().setRootPath(rootPath);
+    globalData.clear();
     selectedIndices.clear();
-    pathData.clear();
-    tagData.clear();
-    trackingPath.clear();
     DirectoryReader().close();
     await DBManager().closeDatabase();
 
-    final paths = await DBManager().initializeDatabase(rootPath);
+    if (await DBManager().initializeDatabase(rootPath) == false) {
+      debugPrint('Failed to read Database');
+      return; //TODO : 에러 표시하기.
+    }
+    globalData.pathData = await DBManager().getPaths() ?? {};
+    globalData.tagData = await DBManager().getTags() ?? {};
+    globalData.valueData = await DBManager().getValues() ?? {};
+
     setState(() {
-      paths.forEach((key, value) {
-        pathData[key] = PathData(
-          path: key,
-          pid: value,
-        );
-      });
+      for (var kvp in globalData.valueData.entries) {
+        final vid = kvp.value.vid;
+        final pid = kvp.value.pid;
+        if (globalData.pathData.containsKey(pid)) {
+          globalData.pathData[pid]!.tags.add(vid);
+        } else {
+          //TODO : valueData 제거하기.
+        }
+      }
     });
-    tagData = await DBManager().getTagsInfo() ?? {};
 
     final fileList = await DirectoryReader().readDirectory(rootPath);
 
@@ -92,30 +95,13 @@ class _MyMainWidgetState extends State<MyMainWidget> {
         continue;
       }
       setState(() {
-        trackingPath.add(path);
+        globalData.trackingPath.add(path);
       });
-      if (!pathData.containsKey(path)) {
-        final pid = await DBManager().addFile(path);
-        if (pid != null) {
-          setState(() {
-            pathData[path] = PathData(
-              path: path,
-              pid: pid,
-            );
-          });
-        } //추가 실패하면 이미 존재한다는 의미.
-      }
-      final tags = await DBManager().getTagsFromFile(pid);
-      for (var (id: tid, type: _, value: value) in tags) {
-        setState(() {
-          pathData[path]!.tags.add(TagData(
-                pid: pid,
-                tid: tid,
-                value: value,
-              )); //태그 추가
-        });
-      }
+      final pid = globalData.getPath(path);
+      if (pid == null) await DBManager().addFile(path);
     }
+
+    setState(() {});
   }
 
   void _selectItem(int index) {
@@ -168,17 +154,13 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                 switch (viewType) {
                   case ViewType.list:
                     return ListWidget(
-                      pathData: pathData,
-                      tagData: tagData,
-                      trackingPath: trackingPath,
+                      globalData: globalData,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
                     );
                   case ViewType.icon:
                     return ListWidget(
-                      pathData: pathData,
-                      tagData: tagData,
-                      trackingPath: trackingPath,
+                      globalData: globalData,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
                     ); //TODO : GridWidget으로 바꾸기

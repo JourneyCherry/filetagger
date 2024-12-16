@@ -9,11 +9,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DBManager {
-  static const String fileName = '.tagdb';
-  static const String fileTableName = 'files';
-  static const String taginfoTableName = 'taginfo';
-  static const String tagTableName = 'tags';
-  late Database _database;
+  static const String dbMgrFileName = '.tagdb';
+  static const String _fileTableName = 'files';
+  static const String _taginfoTableName = 'taginfo';
+  static const String _tagTableName = 'tags';
+  Database? _database;
 
   static final DBManager _instance = DBManager._internal();
   factory DBManager() {
@@ -28,7 +28,9 @@ class DBManager {
     if (!await Directory(path).exists()) {
       throw Exception('Directory Doesn\'t exists');
     }
-    final dbPath = p.join(Directory(path).absolute.path, fileName);
+    final dbPath = p.join(Directory(path).absolute.path, dbMgrFileName);
+
+    closeDatabase();
 
     _database = await openDatabase(
       dbPath,
@@ -37,7 +39,7 @@ class DBManager {
           await db.execute('PRAGMA foreign_keys = 1'), //외래키 활성화
       onCreate: (db, version) async {
         await db.execute('''
-          CREATE TABLE $fileTableName (
+          CREATE TABLE $_fileTableName (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             path TEXT NOT NULL UNIQUE,
             pid INTEGER NOT NULL,
@@ -45,7 +47,7 @@ class DBManager {
           )
         ''');
         await db.execute('''
-          CREATE TABLE $taginfoTableName (
+          CREATE TABLE $_taginfoTableName (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             type INTEGER NOT NULL DEFAULT 0,
@@ -55,21 +57,21 @@ class DBManager {
           )
         ''');
         await db.execute('''
-          CREATE TABLE $tagTableName (
+          CREATE TABLE $_tagTableName (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             pid INTEGER,
             tid INTEGER,
             value TEXT,
-            FOREIGN KEY ( tid ) REFERENCES $taginfoTableName ( id ) ON DELETE CASCADE,
-            FOREIGN KEY ( pid ) REFERENCES $fileTableName ( id ) ON DELETE CASCADE
+            FOREIGN KEY ( tid ) REFERENCES $_taginfoTableName ( id ) ON DELETE CASCADE,
+            FOREIGN KEY ( pid ) REFERENCES $_fileTableName ( id ) ON DELETE CASCADE
           )
         ''');
       },
     );
     Map<String, int> result = {};
-    final query = await _database.rawQuery('''
+    final query = await _database!.rawQuery('''
       SELECT path, id
-      FROM $fileTableName
+      FROM $_fileTableName
     ''');
     for (var row in query) {
       result[row['path'] as String] = row['id'] as int;
@@ -78,7 +80,10 @@ class DBManager {
   }
 
   Future<void> closeDatabase() async {
-    await _database.close();
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
   }
 
   /// 파일 추가
@@ -86,12 +91,13 @@ class DBManager {
     //p.relative()는 동일 경로만 '.'을, 그 외에는 ./를 접두어로 붙이지 않는다.
     final path = PathManager().getPath(filePath);
     final parentPath = PathManager().getParent(filePath);
-    return await _database.transaction((txn) async {
+    if (_database == null) return null;
+    return await _database!.transaction((txn) async {
       int ppid = 0;
       if (parentPath != '.') {
         final parentResult = await txn.rawQuery('''
           SELECT id 
-          FROM $fileTableName
+          FROM $_fileTableName
           WHERE path = ?
         ''', ['./$parentPath']);
         if (parentResult.isNotEmpty) {
@@ -99,7 +105,7 @@ class DBManager {
         }
       }
       final insertResult = await txn.rawInsert('''
-        INSERT INTO $fileTableName(path, pid) 
+        INSERT INTO $_fileTableName(path, pid) 
         VALUES(?, ?)
       ''', [path, ppid]);
       if (insertResult == 0) {
@@ -112,12 +118,12 @@ class DBManager {
           await txn.rawQuery('SELECT last_insert_rowid()'))!;
       final tags = await txn.rawQuery('''
         SELECT id, default_value, necessary
-        FROM $taginfoTableName
+        FROM $_taginfoTableName
       ''');
       for (var tag in tags) {
         if (tag['necessary'] as int > 0) {
           await txn.rawInsert('''
-            INSERT INTO $tagTableName ( pid, tid, value )
+            INSERT INTO $_tagTableName ( pid, tid, value )
             VALUES( ?, ?, ? )
           ''', [pid, tag['id'] as int, tag['default_value']]);
         }
@@ -127,21 +133,22 @@ class DBManager {
   }
 
   Future<void> removeFile(int startId) async {
-    await _database.transaction((txn) async {
+    if (_database == null) return;
+    await _database!.transaction((txn) async {
       List<int> q = [startId]; //모든 서브 디렉토리의 파일도 같이 삭제되어야 한다.
       while (q.isNotEmpty) {
         int id = q.first;
         q.removeAt(0);
         final result = await txn.rawQuery('''
           SELECT id
-          FROM $fileTableName
+          FROM $_fileTableName
           WHERE pid = ?
         ''', [id]);
         for (var child in result) {
           q.insert(q.length, child['id'] as int);
         }
         await txn.rawDelete('''
-          DELETE FROM $fileTableName
+          DELETE FROM $_fileTableName
           WHERE id = ?
         ''', [id]);
       }
@@ -153,19 +160,14 @@ class DBManager {
         String? path,
         int pid,
         bool recursive,
-      })> getFileFromId(int id) async {
-    final result = await _database.rawQuery('''
+      })?> getFileFromId(int id) async {
+    if (_database == null) return null;
+    final result = await _database!.rawQuery('''
       SELECT path, pid, recursive
-      FROM $fileTableName
+      FROM $_fileTableName
       WHERE id = ?
     ''', [id]);
-    if (result.isEmpty) {
-      return (
-        path: null,
-        pid: 0,
-        recursive: false,
-      );
-    }
+    if (result.isEmpty) return null;
     final path = result.first['path'] as String;
     final pid = result.first['pid'] as int;
     final recursive = Types.int2bool(result.first['recursive'] as int);
@@ -184,13 +186,12 @@ class DBManager {
     bool duplicable = false,
     bool necessary = false,
   }) async {
-    if (!Types.verify(type, defaultValue)) {
-      //디폴트 값은 타입이 일치해야 한다.
-      return null;
-    }
+    if (_database == null) return null;
+    //디폴트 값은 타입이 일치해야 한다.
+    if (!Types.verify(type, defaultValue)) return null;
     try {
-      await _database.execute('''
-        INSERT INTO $taginfoTableName ( name, type, default_value, duplicable, necessary )
+      await _database!.execute('''
+        INSERT INTO $_taginfoTableName ( name, type, default_value, duplicable, necessary )
         VALUES( ?, ?, ?, ?, ? )
       ''', [
         name,
@@ -200,7 +201,7 @@ class DBManager {
         Types.bool2int(necessary),
       ]);
       return Sqflite.firstIntValue(
-          await _database.rawQuery('SELECT last_insert_rowid()'))!;
+          await _database!.rawQuery('SELECT last_insert_rowid()'))!;
     } catch (e, st) {
       if (kDebugMode) {
         debugPrintStack(stackTrace: st, label: e.toString());
@@ -211,18 +212,20 @@ class DBManager {
 
   /// 태그 종류 제거
   Future<void> removeTag(int id) async {
-    await _database.execute('''
-      DELETE FROM $taginfoTableName
+    if (_database == null) return;
+    await _database!.execute('''
+      DELETE FROM $_taginfoTableName
       WHERE id = ?
     ''', [id]);
   }
 
-  Future<Map<int, TagInfoData>> getTagsInfo() async {
-    Map<int, TagInfoData> tagInfoData = {};
+  Future<Map<int, TagInfoData>?> getTagsInfo() async {
+    if (_database == null) return null;
 
-    final result = await _database.rawQuery('''
+    Map<int, TagInfoData> tagInfoData = {};
+    final result = await _database!.rawQuery('''
       SELECT id, name, type, default_value, duplicable, necessary
-      FROM $taginfoTableName
+      FROM $_taginfoTableName
     ''');
     for (var row in result) {
       final tid = row['id'] as int;
@@ -252,21 +255,14 @@ class DBManager {
         dynamic defaultValue,
         bool duplicable,
         bool necessary,
-      })> getTagFromId(int id) async {
-    final result = await _database.rawQuery('''
+      })?> getTagFromId(int id) async {
+    if (_database == null) return null;
+    final result = await _database!.rawQuery('''
       SELECT name, type, default_value, duplicable, necessary
-      FROM $taginfoTableName
+      FROM $_taginfoTableName
       WHERE id = ?
     ''', [id]);
-    if (result.isEmpty) {
-      return (
-        name: null,
-        type: ValueType.label,
-        defaultValue: null,
-        duplicable: false,
-        necessary: false,
-      );
-    }
+    if (result.isEmpty) return null;
     final name = result.first['name'] as String;
     final type = result.first['type'] as ValueType;
     final defaultValue = result.first['default_value'];
@@ -287,11 +283,12 @@ class DBManager {
     required int tid,
     dynamic value,
   }) async {
+    if (_database == null) return false;
     try {
-      await _database.transaction((txn) async {
+      await _database!.transaction((txn) async {
         final result = await txn.rawQuery('''
           SELECT default_value, duplicable
-          FROM $taginfoTableName
+          FROM $_taginfoTableName
           WHERE id = ?
         ''', [tid]);
         if (result.isEmpty) {
@@ -303,13 +300,13 @@ class DBManager {
         if (!duplicable) {
           int count = Sqflite.firstIntValue(await txn.rawQuery('''
             SELECT COUNT(tid)
-            FROM $tagTableName
+            FROM $_tagTableName
             WHERE pid = ? AND tid = ?
           ''', [pid, tid]))!;
           if (count >= 1) return false;
         }
         await txn.execute('''
-          INSERT INTO $tagTableName ( pid, tid, value )
+          INSERT INTO $_tagTableName ( pid, tid, value )
           VALUES ( ?, ?, ? )
         ''', [pid, tid, value]);
       });
@@ -324,20 +321,21 @@ class DBManager {
 
   /// 파일에 연결된 태그 값 변경
   Future<bool> setTagValue(int id, dynamic value) async {
+    if (_database == null) return false;
     try {
       final ValueType type =
-          ValueType.values[Sqflite.firstIntValue(await _database.rawQuery('''
+          ValueType.values[Sqflite.firstIntValue(await _database!.rawQuery('''
         SELECT type
-        FROM $taginfoTableName
+        FROM $_taginfoTableName
         WHERE id IN (
           SELECT id
-          FROM $tagTableName
+          FROM $_tagTableName
           WHERE id = ?
         )
       ''', [id]))!];
       if (!Types.verify(type, value)) return false;
-      await _database.rawUpdate('''
-        UPDATE $tagTableName
+      await _database!.rawUpdate('''
+        UPDATE $_tagTableName
         SET value = ?
         WHERE id = ?
       ''', [value, id]);
@@ -350,8 +348,9 @@ class DBManager {
 
   /// 파일에 연결된 태그 제거
   Future<void> deleteTagValue(int id) async {
-    await _database.execute('''
-      DELETE FROM $tagTableName
+    if (_database == null) return;
+    await _database!.execute('''
+      DELETE FROM $_tagTableName
       WHERE id = ?
     ''', [id]);
   }
@@ -360,10 +359,11 @@ class DBManager {
   Future<List<({int id, ValueType type, dynamic value})>> getTagsFromFile(
     int pid,
   ) async {
-    final result = await _database.rawQuery('''
+    if (_database == null) return [];
+    final result = await _database!.rawQuery('''
       SELECT tag.id as id, info.type as type, tag.value as value
-      FROM $taginfoTableName as info
-      RIGHT JOIN $tagTableName as tag
+      FROM $_taginfoTableName as info
+      RIGHT JOIN $_tagTableName as tag
       ON info.id = tag.tid
       WHERE tag.pid = ?
     ''', [pid]);

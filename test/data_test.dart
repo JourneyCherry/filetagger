@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
+import 'package:filetagger/DataStructures/path_manager.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 void directoryTest() {
-  //TODO : 임시 디렉토리를 만들어 DirectoryReader()가 정상적으로 파일을 읽는지 확인
   late Directory tempDir;
   const int fileCount = 5;
   const int subDirCount = 1;
@@ -37,17 +37,11 @@ void directoryTest() {
   });
 
   test('DirectoryReader Test', () async {
-    final stream = DirectoryReader().readDirectory(tempDir.path);
-    int count = 0;
-    stream.listen((_) => ++count);
+    final list = await DirectoryReader().readDirectory(tempDir.path);
+    DirectoryReader().close();
 
-    DirectoryReader().clear();
-
-    await DirectoryReader().waitForIdle();
-
-    expect(DirectoryReader().isClosed(), true);
-    expect(
-        count, totalEntity); //내부 디렉토리를 읽으라는 설정이 되어있지 않으면 서브 디렉토리 내부 파일은 읽지 않음.
+    //내부 디렉토리를 읽으라는 설정이 되어있지 않으면 서브 디렉토리 내부 파일은 읽지 않음.
+    expect(list.length, totalEntity);
   }, timeout: const Timeout(Duration(seconds: 5)));
 }
 
@@ -103,8 +97,9 @@ void sqfliteTest() {
     }
 
     for (var item in fileData) {
-      final (:path, :pid, :recursive) =
-          await DBManager().getFileFromId(item.$1);
+      final file = await DBManager().getFileFromId(item.$1);
+      expect(file, isNotNull);
+      final (:path, :pid, :recursive) = file!;
       expect(path, item.$2);
       expect(pid, 0);
       expect(recursive, false);
@@ -120,7 +115,20 @@ void sqfliteTest() {
   });
 }
 
+void pathTest() {
+  final curPath = File('.').absolute.path;
+  test('PathManager Test', () {
+    PathManager().setRootPath(curPath);
+    expect(PathManager().getPath(curPath), '.');
+    expect(
+      PathManager().getParent(curPath),
+      PathManager().getPath(File('.').parent.path),
+    );
+  });
+}
+
 void main() {
-  group('Directory Read Test', directoryTest);
-  group('Sqflite Test', sqfliteTest);
+  group('Data Test', () => pathTest());
+  group('File Test', () => directoryTest());
+  group('DB Test', () => sqfliteTest());
 }

@@ -62,9 +62,16 @@ class _MyMainWidgetState extends State<MyMainWidget> {
   bool isSingleSelect = true;
   Set<int> selectedIndices = {};
 
+  /// 트래킹할 root path를 가져오는 메소드. 첫 디렉토리 로드에 사용
   void _loadItems(String rootPath) async {
     PathManager().setRootPath(rootPath);
     selectedIndices.clear();
+    pathData.clear();
+    tagData.clear();
+    trackingPath.clear();
+    DirectoryReader().close();
+    await DBManager().closeDatabase();
+
     final paths = await DBManager().initializeDatabase(rootPath);
     setState(() {
       paths.forEach((key, value) {
@@ -74,12 +81,16 @@ class _MyMainWidgetState extends State<MyMainWidget> {
         );
       });
     });
-    tagData = await DBManager().getTagsInfo();
+    tagData = await DBManager().getTagsInfo() ?? {};
 
-    DirectoryReader().clear();
-    final stream = DirectoryReader().readDirectory(rootPath);
-    await for (var entity in stream) {
+    final fileList = await DirectoryReader().readDirectory(rootPath);
+
+    for (var entity in fileList) {
       final path = PathManager().getPath(entity.path);
+      if (path == DBManager.dbMgrFileName) {
+        //관리용 파일은 추가하지 않음
+        continue;
+      }
       setState(() {
         trackingPath.add(path);
       });

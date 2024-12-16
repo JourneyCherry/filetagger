@@ -30,6 +30,12 @@ class PathManager {
     return p.isWithin(_rootPath, path);
   }
 
+  bool isSame(String lhs, String rhs) {
+    lhs = p.relative(lhs, from: _rootPath);
+    rhs = p.relative(rhs, from: _rootPath);
+    return (lhs == rhs);
+  }
+
   String getParent(String path) {
     return getPath(File(path).parent.path);
   }

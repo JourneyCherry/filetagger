@@ -24,6 +24,7 @@ class ListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (pathData.isEmpty) return getEmptyWidget(context);
     return ListView.builder(
       itemCount: pathData.length,
       itemBuilder: (context, index) {
@@ -33,7 +34,7 @@ class ListWidget extends StatelessWidget {
           pathData: pData,
           onTap: () => onTap?.call(pid),
           isSelected: selectedIndices.contains(pid),
-          isExist: trackingPath.contains(pData.path),
+          isNotExist: !trackingPath.contains(pData.path),
         );
       },
     );

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/DataStructures/path_manager.dart';
@@ -56,27 +57,35 @@ void sqfliteTest() {
     await DBManager().initializeDatabase();
     expect(await File(filePath).exists(), true);
 
-    final labelId = await DBManager().createTag(
-      name: 'label',
-      type: ValueType.label,
-    );
-    expect(labelId, isNotNull);
-    final numId = await DBManager().createTag(
-      name: 'numeric',
-      type: ValueType.numeric,
-      defaultValue: 0,
-    );
-    expect(numId, isNotNull);
-    final strId = await DBManager().createTag(
-      name: 'string',
-      type: ValueType.string,
-      defaultValue: '',
-    );
+    List<TagData> tags = [
+      TagData.partial(
+        tid: 0,
+        name: 'label',
+        type: ValueType.label,
+      ),
+      TagData.partial(
+        tid: 1,
+        name: 'numeric',
+        type: ValueType.numeric,
+        defaultValue: 1,
+      ),
+      TagData.partial(
+        tid: 2,
+        name: 'string',
+        type: ValueType.string,
+        defaultValue: 'str',
+      ),
+    ];
+
+    for (int i = 0; i < tags.length; ++i) {
+      final tid = DBManager().createTag(tags[i]);
+      expect(tid, tags[i].tid);
+    }
 
     final Map<String, List<(int, dynamic)>> data = {
-      './a': [(labelId!, null), (numId!, 3), (strId!, 'str')],
-      './b': [(labelId, null)],
-      './c': [(numId, 5), (strId, 'string')],
+      './a': [(0, null), (1, 3), (2, 'str')],
+      './b': [(0, null)],
+      './c': [(1, 5), (2, 'string')],
     };
 
     List<(int, String)> fileData = [];

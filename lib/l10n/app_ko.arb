@@ -15,5 +15,49 @@
 	"errorOccur": "에러 발생",
 	"@errorOccur":{
 		"description": "에러 발생한 경우 출력 문구"
+	},
+	"tagList": "태그 목록",
+	"@tagList":{
+		"description": "Drawer 메뉴, 태그 수정 다이얼로그 등에서 사용되는 태그 목록 문구"
+	},
+	"settings": "설정",
+	"@settings":{
+		"description": "앱 설정 메뉴 이름"
+	},
+	"tag_add": "추가",
+	"@tag_add":{
+		"description": "태그 추가 버튼"
+	},
+	"tag_reset": "초기화",
+	"@tag_reset":{
+		"description": "태그 초기화 버튼"
+	},
+	"tag_name": "태그 이름",
+	"@tag_name": {
+		"description": "태그의 이름"
+	},
+	"tag_type": "태그 타입",
+	"@tag_type":{
+		"description": "태그의 타입"
+	},
+	"tag_bgColor": "배경색",
+	"@tag_bgColor":{
+		"description": "태그의 배경색"
+	},
+	"tag_txtColor": "글자색",
+	"@tag_txtColor":{
+		"description": "태그의 글자색"
+	},
+	"tag_default": "기본값",
+	"@tag_default":{
+		"description": "태그의 기본값"
+	},
+	"tag_duplicable": "여러개",
+	"@tag_duplicable":{
+		"description": "태그의 여러개 허용 옵션"
+	},
+	"tag_necessary": "필수",
+	"@tag_necessary":{
+		"description": "태그의 필수 소유 옵션"
 	}
 }

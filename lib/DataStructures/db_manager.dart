@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/path_manager.dart';
@@ -51,7 +52,10 @@ class DBManager {
             type INTEGER NOT NULL DEFAULT 0,
             default_value TEXT,
             duplicable INTEGER NOT NULL DEFAULT 0,
-            necessary INTEGER NOT NULL DEFAULT 0
+            necessary INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL,
+            bg_color INTEGER NOT NULL,
+            txt_color INTEGER NOT NULL
           )
         ''');
         await db.execute('''
@@ -190,26 +194,25 @@ class DBManager {
   }
 
   /// 태그 종류 생성
-  Future<int?> createTag({
-    required String name,
-    required ValueType type,
-    dynamic defaultValue,
-    bool duplicable = false,
-    bool necessary = false,
-  }) async {
+  Future<int?> createTag(TagData tag) async {
     if (_database == null) return null;
     //디폴트 값은 타입이 일치해야 한다.
-    if (!Types.verify(type, defaultValue)) return null;
+    if (!Types.verify(tag.type, tag.defaultValue)) return null;
     try {
       await _database!.execute('''
-        INSERT INTO $_taginfoTableName ( name, type, default_value, duplicable, necessary )
-        VALUES( ?, ?, ?, ?, ? )
+        INSERT INTO $_taginfoTableName ( 
+          name, type, default_value, duplicable, necessary, sort_order, bg_color, txt_color
+        )
+        VALUES( ?, ?, ?, ?, ?, ?, ?, ? )
       ''', [
-        name,
-        type.index,
-        defaultValue,
-        Types.bool2int(duplicable),
-        Types.bool2int(necessary),
+        tag.name,
+        tag.type.index,
+        tag.defaultValue,
+        Types.bool2int(tag.duplicable),
+        Types.bool2int(tag.necessary),
+        tag.order,
+        Types.color2int(tag.bgColor),
+        Types.color2int(tag.txtColor),
       ]);
       return Sqflite.firstIntValue(
           await _database!.rawQuery('SELECT last_insert_rowid()'))!;
@@ -230,23 +233,26 @@ class DBManager {
     ''', [id]);
   }
 
-  Future<Map<int, TagInfoData>?> getTags() async {
+  Future<Map<int, TagData>?> getTags() async {
     if (_database == null) return null;
 
-    Map<int, TagInfoData> map = {};
+    Map<int, TagData> map = {};
     final result = await _database!.rawQuery('''
-      SELECT id, name, type, default_value, duplicable, necessary
+      SELECT id, name, type, default_value, duplicable, necessary, sort_order, bg_color, txt_color
       FROM $_taginfoTableName
     ''');
     for (var row in result) {
       final tid = row['id'] as int;
-      map[tid] = TagInfoData(
+      map[tid] = TagData(
         tid: tid,
         name: row['name'] as String,
         type: row['type'] as ValueType,
         defaultValue: row['default_value'],
         duplicable: Types.int2bool(row['duplicable']),
         necessary: Types.int2bool(row['necessary']),
+        order: row['sort_order'] as int,
+        bgColor: Color(row['bg_color'] as int),
+        txtColor: Color(row['txt_color'] as int),
       );
     }
 

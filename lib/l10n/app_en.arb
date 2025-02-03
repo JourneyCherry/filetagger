@@ -3,5 +3,16 @@
 	"openDir": "Open Directory",
 	"appTitle": "File Tagger",
 	"emptyContent": "Empty Directory",
-	"errorOccur": "Error Occurred"
+	"errorOccur": "Error Occurred",
+	"tagList": "Tag List",
+	"settings": "Settings",
+	"tag_add": "Tag Add",
+	"tag_reset": "Tag Reset",
+	"tag_name": "Tag Name",
+	"tag_type": "Tag Type",
+	"tag_bgColor": "Background Color",
+	"tag_txtColor": "Text Color",
+	"tag_default": "Default Value",
+	"tag_duplicable": "Duplicable",
+	"tag_necessary": "Necessary"
 }

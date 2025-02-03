@@ -4,6 +4,7 @@ import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/DataStructures/path_manager.dart';
 import 'package:filetagger/Widgets/list_widget.dart';
+import 'package:filetagger/Widgets/tag_list_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:multi_split_view/multi_split_view.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -126,7 +127,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
         title: Text(appTitle ?? AppLocalizations.of(context)!.appTitle),
         centerTitle: true,
         leading: Tooltip(
-          message: '',
+          message: AppLocalizations.of(context)!.openDir,
           child: IconButton(
             onPressed: () async {
               final path = await FilePicker.platform.getDirectoryPath();
@@ -139,6 +140,48 @@ class _MyMainWidgetState extends State<MyMainWidget> {
             },
             icon: Icon(Icons.file_copy),
           ),
+        ),
+      ),
+      endDrawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text(
+                '메뉴',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.tag),
+              title: Text(AppLocalizations.of(context)!.tagList),
+              onTap: () {
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return TagListDialog(
+                      globalData: globalData,
+                    );
+                  },
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text(AppLocalizations.of(context)!.settings),
+              onTap: () {
+                Navigator.pop(context);
+                //TODO : 세팅 다이얼로그 띄우기
+              },
+            ),
+          ],
         ),
       ),
       body: MultiSplitViewTheme(

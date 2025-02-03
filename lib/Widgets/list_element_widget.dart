@@ -3,8 +3,8 @@ import 'package:filetagger/Widgets/tag_widget.dart';
 import 'package:flutter/material.dart';
 
 class ListElementWidget extends StatelessWidget {
-  static final Color notExistColor = Colors.red.withOpacity(0.3);
-  static final Color selectedColor = Colors.blue.withOpacity(0.3);
+  static final Color notExistColor = Colors.red.withValues(alpha: 0.3);
+  static final Color selectedColor = Colors.blue.withValues(alpha: 0.3);
   final int pid;
   final GlobalData globalData;
   final VoidCallback? onTap;
@@ -44,7 +44,7 @@ class ListElementWidget extends StatelessWidget {
                 itemBuilder: (context, index) {
                   return TagWidget(
                     globalData: globalData,
-                    bgColor: Colors.blue.withOpacity(0.7),
+                    bgColor: Colors.blue.withValues(alpha: 0.7),
                     ftColor: Colors.white,
                     valueId: pathData.tags.contains(index)
                         ? pathData.tags[index]

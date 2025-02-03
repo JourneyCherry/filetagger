@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 enum ValueType {
   label,
   numeric,
@@ -10,6 +12,12 @@ class Types {
   static bool int2bool(dynamic value) =>
       (value == null) ? false : (value as int == 1);
 
+  static int color2int(Color value) =>
+      (value.a * 255).round() << 24 |
+      (value.r * 255).round() << 16 |
+      (value.g * 255).round() << 8 |
+      (value.b * 255).round();
+
   static bool verify(ValueType type, dynamic value) {
     switch (type) {
       case ValueType.label:
@@ -18,8 +26,6 @@ class Types {
         return (value is int);
       case ValueType.string:
         return (value is String);
-      default:
-        return false;
     }
   }
 }

@@ -46,6 +46,7 @@ dependencies:
   sqflite: ^2.4.1
   sqflite_common_ffi: ^2.3.4+4
   sqlite3_flutter_libs: ^0.5.27
+  flutter_colorpicker: ^1.1.0
 
 dev_dependencies:
   flutter_test:

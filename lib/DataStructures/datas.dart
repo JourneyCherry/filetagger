@@ -1,17 +1,58 @@
 import 'package:filetagger/DataStructures/types.dart';
+import 'package:flutter/material.dart';
 
-class TagInfoData {
+class TagData {
   int tid;
   String name;
   ValueType type;
+  int order;
+  Color bgColor;
+  Color txtColor;
   dynamic defaultValue;
   bool duplicable;
   bool necessary;
 
-  TagInfoData({
+  TagData({
     required this.tid,
     required this.name,
     required this.type,
+    required this.order,
+    required this.bgColor,
+    required this.txtColor,
+    required this.defaultValue,
+    required this.duplicable,
+    required this.necessary,
+  });
+
+  TagData.copy(TagData other)
+      : tid = other.tid,
+        name = other.name,
+        type = other.type,
+        order = other.order,
+        bgColor = other.bgColor,
+        txtColor = other.txtColor,
+        defaultValue = other.defaultValue,
+        duplicable = other.duplicable,
+        necessary = other.necessary;
+
+  TagData.empty()
+      : tid = -1,
+        name = 'New Tag',
+        type = ValueType.label,
+        order = -1,
+        bgColor = Colors.blue,
+        txtColor = Colors.white,
+        defaultValue = null,
+        duplicable = false,
+        necessary = false;
+
+  TagData.partial({
+    this.tid = -1,
+    this.name = 'New Tag',
+    this.type = ValueType.label,
+    this.order = -1,
+    this.bgColor = Colors.blue,
+    this.txtColor = Colors.white,
     this.defaultValue,
     this.duplicable = false,
     this.necessary = false,
@@ -30,6 +71,12 @@ class ValueData {
     required this.tid,
     this.value,
   });
+
+  ValueData.copy(ValueData other)
+      : vid = other.vid,
+        pid = other.pid,
+        tid = other.tid,
+        value = other.value;
 }
 
 class PathData {
@@ -46,11 +93,18 @@ class PathData {
     this.recursive = false,
     this.tags = const [],
   });
+
+  PathData.copy(PathData other)
+      : pid = other.pid,
+        path = other.path,
+        ppid = other.ppid,
+        recursive = other.recursive,
+        tags = other.tags.toList();
 }
 
 class GlobalData {
   Map<int, PathData> pathData = {};
-  Map<int, TagInfoData> tagData = {};
+  Map<int, TagData> tagData = {};
   Map<int, ValueData> valueData = {};
   Set<String> trackingPath = {};
 

@@ -99,6 +99,7 @@ lib/generated_plugin_registrant.dart
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode
 
 ### VisualStudioCode ###
+.vscode
 .vscode/*
 
 # Local History for Visual Studio Code

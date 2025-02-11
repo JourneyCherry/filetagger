@@ -57,7 +57,7 @@ class _TagListDialogState extends State<TagListDialog> {
         width: 500, // 부모 위젯이 해당 크기보다 작은 경우, 알아서 그 크기에 맞게 작아진다.
         height: 500,
         child: ListView.builder(
-          //TODO : 내부적으로 스크롤 가능한 ListView
+          physics: ClampingScrollPhysics(),
           //TODO : 각 요소의 순서를 변경할 수 있는 방법 필요
           itemCount: _curData.length,
           itemBuilder: (context, index) => TagEditWidget(

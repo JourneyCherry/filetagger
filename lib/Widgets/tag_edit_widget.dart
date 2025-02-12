@@ -32,7 +32,7 @@ class TagEditWidget extends StatelessWidget {
                 initialText: tag.name,
                 onSaved: (String str) {
                   tag.name = str;
-                  if (onChanged != null) onChanged!(tag);
+                  onChanged?.call(tag);
                 },
               ),
             ),
@@ -67,11 +67,23 @@ class TagEditWidget extends StatelessWidget {
             ),
             Expanded(
               flex: 1,
-              child: Text(tag.duplicable.toString()),
+              child: Checkbox(
+                value: tag.duplicable,
+                onChanged: (value) {
+                  tag.duplicable = value!;
+                  onChanged?.call(tag);
+                },
+              ),
             ),
             Expanded(
               flex: 1,
-              child: Text(tag.necessary.toString()),
+              child: Checkbox(
+                value: tag.necessary,
+                onChanged: (value) {
+                  tag.necessary = value!;
+                  onChanged?.call(tag);
+                },
+              ),
             ),
           ],
         ),

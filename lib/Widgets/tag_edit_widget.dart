@@ -1,6 +1,7 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/Widgets/editable_text_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class TagEditWidget extends StatelessWidget {
   final TagData tag;
@@ -21,9 +22,9 @@ class TagEditWidget extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              //태그 번호 //TODO : 유저에겐 보여줄 필요 없음
+              //TODO : 드래그 핸들러 기능 추가
               flex: 1,
-              child: Text(tag.tid.toString()),
+              child: Icon(Icons.drag_indicator),
             ),
             Expanded(
               //태그 이름
@@ -38,26 +39,52 @@ class TagEditWidget extends StatelessWidget {
             ),
             Expanded(
               //태그 타입
-              flex: 2,
+              flex: 3,
               child: Text(tag.type.toString()),
             ),
             Expanded(
-              //태그 글자 색  //TODO : 선택을 없애고 배경색의 보색 또는 무채색인데 잘 보이는 색상으로 조정 필요
+              //태그 배경 색  //TODO : 글자 색을 auto로 둔 경우, 그 예시를 보여주기 위해 TagWidget을 그대로 가져와서 보여주자.
               flex: 1,
-              child: Text(tag.txtColor.toString()),
+              child: IconButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (buildContext) {
+                      return AlertDialog(
+                        titlePadding: const EdgeInsets.all(0),
+                        contentPadding: const EdgeInsets.all(0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(500),
+                            bottom: Radius.circular(100),
+                          ),
+                        ),
+                        content: SingleChildScrollView(
+                          child: HueRingPicker(
+                            portraitOnly: true,
+                            pickerColor: tag.bgColor,
+                            onColorChanged: (value) {
+                              tag.bgColor = value;
+                              onChanged?.call(tag);
+                            },
+                            enableAlpha: false,
+                            displayThumbColor: true,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                padding: EdgeInsets.zero,
+                alignment: Alignment.center,
+                icon: Icon(
+                  Icons.circle,
+                  color: tag.bgColor,
+                ),
+              ),
             ),
             Expanded(
-              //태그 배경 색
-              flex: 1,
-              child: Text(tag.bgColor.toString()),
-            ),
-            Expanded(
-              //태그 순서 //TODO : 유저에겐 보여줄 필요 없음
-              flex: 1,
-              child: Text(tag.order.toString()),
-            ),
-            Expanded(
-              flex: 3,
+              flex: 4,
               child: EditableTextWidget(
                 initialText: tag.defaultValue ?? '',
                 onSaved: (str) {

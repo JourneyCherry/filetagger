@@ -59,5 +59,37 @@
 	"tag_necessary": "필수",
 	"@tag_necessary":{
 		"description": "태그의 필수 소유 옵션"
+	},
+	"type_label": "레이블",
+	"@type_label":{
+		"description": "타입 이름. Label"
+	},
+	"type_label_description": "이름만 가지고 값은 없는 태그입니다.",
+	"@type_label_description":{
+		"description": "타입 설명문. Label"
+	},
+	"type_numeric": "정수",
+	"@type_numeric":{
+		"description": "타입 이름. Numeric"
+	},
+	"type_numeric_description": "숫자값을 갖는 태그입니다.",
+	"@type_numeric_description":{
+		"description": "타입 설명문. Numeric"
+	},
+	"type_string": "문자열",
+	"@type_string":{
+		"description": "타입 이름. String"
+	},
+	"type_string_description": "문자열 값을 갖는 태그입니다.",
+	"@type_string_description":{
+		"description": "타입 설명문. String"
+	},
+	"type_datetime": "시간",
+	"@type_datetime":{
+		"description": "타입 이름. DateTime"
+	},
+	"type_datetime_description": "시간 값을 갖는 태그입니다.",
+	"@type_datetime_description":{
+		"description": "타입 설명문. DateTime"
 	}
 }

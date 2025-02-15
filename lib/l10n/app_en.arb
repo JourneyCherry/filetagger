@@ -14,5 +14,13 @@
 	"tag_txtColor": "Text Color",
 	"tag_default": "Default Value",
 	"tag_duplicable": "Duplicable",
-	"tag_necessary": "Necessary"
+	"tag_necessary": "Necessary",
+	"type_label": "Label",
+	"type_label_description": "Tag with only its name.",
+	"type_numeric": "Numeric",
+	"type_numeric_description": "Tag with numeric value.",
+	"type_string": "String",
+	"type_string_description": "Tag with string value.",
+	"type_datetime": "Time",
+	"type_datetime_description": "Tag with time value."
 }

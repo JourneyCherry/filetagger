@@ -18,12 +18,13 @@ class TagEditWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => SizedBox(
+      builder: (layoutBuilderContext, constraints) => SizedBox(
         width: constraints.maxWidth,
         height: 50,
         child: Row(
           children: [
             Expanded(
+              //드래그 핸들러
               //TODO : 드래그 핸들러 기능 추가
               flex: 1,
               child: Icon(Icons.drag_indicator),
@@ -51,7 +52,8 @@ class TagEditWidget extends StatelessWidget {
                         (type) => DropdownMenuItem(
                           value: type,
                           child: Text(
-                            TypeLocalizations.getTypeName(context, type),
+                            TypeLocalizations.getTypeName(
+                                layoutBuilderContext, type),
                           ),
                         ),
                       )
@@ -71,8 +73,8 @@ class TagEditWidget extends StatelessWidget {
                 backgroundColor: tag.bgColor,
                 onPressed: () {
                   showDialog(
-                    context: context,
-                    builder: (buildContext) {
+                    context: layoutBuilderContext,
+                    builder: (dialogContext) {
                       return AlertDialog(
                         titlePadding: const EdgeInsets.all(0),
                         contentPadding: const EdgeInsets.all(0),

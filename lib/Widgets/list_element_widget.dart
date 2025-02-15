@@ -44,11 +44,14 @@ class ListElementWidget extends StatelessWidget {
                 itemCount: pathData.values.length + 1,
                 itemBuilder: (context, index) {
                   if (index >= pathData.values.length) {
-                    return TagIconWidget(
-                      texts: [RichString('+', bold: true)],
-                      onPressed: () {
-                        //TODO : 태그 추가 다이얼로그 띄우기
-                      },
+                    return SizedBox(
+                      width: 20,
+                      child: TagIconWidget(
+                        texts: [RichString('+', bold: true)],
+                        onPressed: () {
+                          //TODO : 태그 추가 다이얼로그 띄우기
+                        },
+                      ),
                     );
                   } else {
                     final vid = pathData.values[index];

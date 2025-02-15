@@ -46,7 +46,8 @@ class TagEditWidget extends StatelessWidget {
             Expanded(
               //태그 배경 색
               flex: 0,
-              child: IntrinsicWidth(
+              child: SizedBox(
+                width: 50,
                 child: TagIconWidget(
                   texts: [RichString('Color')],
                   backgroundColor: tag.bgColor,

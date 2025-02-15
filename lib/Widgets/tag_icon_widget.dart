@@ -47,32 +47,28 @@ class TagIconWidget extends StatelessWidget {
         ),
       ),
     );
-    return IntrinsicWidth(
-      child: IntrinsicHeight(
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(50),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            minimumSize: Size(minWidth, height),
-            maximumSize: Size(maxWidth, height),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            backgroundColor: backgroundColor,
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(50),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        minimumSize: Size(minWidth, height),
+        maximumSize: Size(maxWidth, height),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: backgroundColor,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: RichText(
+          text: TextSpan(
+            children: spannedTexts,
           ),
-          child: SizedBox(
-            width: double.infinity,
-            child: RichText(
-              text: TextSpan(
-                children: spannedTexts,
-              ),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              textScaler: TextScaler.linear(1.0),
-              maxLines: 1,
-            ),
-          ),
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          textScaler: TextScaler.linear(1.0),
+          maxLines: 1,
         ),
       ),
     );

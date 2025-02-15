@@ -59,17 +59,14 @@ class TagIconWidget extends StatelessWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: backgroundColor,
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: RichText(
-          text: TextSpan(
-            children: spannedTexts,
-          ),
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          textScaler: TextScaler.linear(1.0),
-          maxLines: 1,
+      child: RichText(
+        text: TextSpan(
+          children: spannedTexts,
         ),
+        textAlign: TextAlign.center,
+        overflow: TextOverflow.ellipsis,
+        textScaler: TextScaler.linear(1.0),
+        maxLines: 1,
       ),
     );
   }

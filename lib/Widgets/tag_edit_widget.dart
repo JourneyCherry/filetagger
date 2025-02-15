@@ -46,41 +46,38 @@ class TagEditWidget extends StatelessWidget {
             Expanded(
               //태그 배경 색
               flex: 0,
-              child: SizedBox(
-                width: 50,
-                child: TagIconWidget(
-                  texts: [RichString('Color')],
-                  backgroundColor: tag.bgColor,
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (buildContext) {
-                        return AlertDialog(
-                          titlePadding: const EdgeInsets.all(0),
-                          contentPadding: const EdgeInsets.all(0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(500),
-                              bottom: Radius.circular(100),
-                            ),
+              child: TagIconWidget(
+                texts: [RichString('Color')],
+                backgroundColor: tag.bgColor,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (buildContext) {
+                      return AlertDialog(
+                        titlePadding: const EdgeInsets.all(0),
+                        contentPadding: const EdgeInsets.all(0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(500),
+                            bottom: Radius.circular(100),
                           ),
-                          content: SingleChildScrollView(
-                            child: HueRingPicker(
-                              portraitOnly: true,
-                              pickerColor: tag.bgColor,
-                              onColorChanged: (value) {
-                                tag.bgColor = value;
-                                onChanged?.call(tag);
-                              },
-                              enableAlpha: false,
-                              displayThumbColor: true,
-                            ),
+                        ),
+                        content: SingleChildScrollView(
+                          child: HueRingPicker(
+                            portraitOnly: true,
+                            pickerColor: tag.bgColor,
+                            onColorChanged: (value) {
+                              tag.bgColor = value;
+                              onChanged?.call(tag);
+                            },
+                            enableAlpha: false,
+                            displayThumbColor: true,
                           ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
             Expanded(

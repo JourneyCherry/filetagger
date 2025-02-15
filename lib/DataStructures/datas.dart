@@ -84,14 +84,14 @@ class PathData {
   String path;
   int ppid;
   bool recursive;
-  List<int> tags;
+  List<int> values;
 
   PathData({
     required this.pid,
     required this.path,
     required this.ppid,
     this.recursive = false,
-    this.tags = const [],
+    this.values = const [],
   });
 
   PathData.copy(PathData other)
@@ -99,7 +99,7 @@ class PathData {
         path = other.path,
         ppid = other.ppid,
         recursive = other.recursive,
-        tags = other.tags.toList();
+        values = other.values.toList();
 }
 
 class GlobalData {
@@ -110,10 +110,10 @@ class GlobalData {
 
   GlobalData();
 
-  String? getPathName(int? pid) => pathData[pid]?.path;
-  String? getTagName(int? tid) => tagData[tid]?.name;
-  String? getTagValue(int? vid) => valueData[vid]?.value;
-  int? getPath(String path) {
+  PathData? getPath(int pid) => pathData[pid];
+  TagData? getTag(int tid) => tagData[tid];
+  ValueData? getValue(int vid) => valueData[vid];
+  int? getDataFromPath(String path) {
     for (var pData in pathData.values) {
       if (pData.path == path) return pData.pid;
     }

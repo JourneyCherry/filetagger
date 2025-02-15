@@ -80,7 +80,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
         final vid = kvp.value.vid;
         final pid = kvp.value.pid;
         if (globalData.pathData.containsKey(pid)) {
-          globalData.pathData[pid]!.tags.add(vid);
+          globalData.pathData[pid]!.values.add(vid);
         } else {
           //TODO : valueData 제거하기.
         }
@@ -98,7 +98,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
       setState(() {
         globalData.trackingPath.add(path);
       });
-      final pid = globalData.getPath(path);
+      final pid = globalData.getDataFromPath(path);
       if (pid == null) await DBManager().addFile(path);
     }
 

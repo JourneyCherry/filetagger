@@ -36,10 +36,17 @@ class _TagListDialogState extends State<TagListDialog> {
     _curData.sort((lhs, rhs) => lhs.order.compareTo(rhs.order));
   }
 
+  void reorder() {
+    for (int i = 0; i < _curData.length; ++i) {
+      _curData[i].order = i;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     reset();
+    reorder();
   }
 
   @override
@@ -55,21 +62,30 @@ class _TagListDialogState extends State<TagListDialog> {
       content: SizedBox(
         width: 500, // 부모 위젯이 해당 크기보다 작은 경우, 알아서 그 크기에 맞게 작아진다.
         height: 500,
-        //TODO : ListView 위에 Column이름 표시용으로 TagEditWidget과 동일한 요소 수, 비율을 갖지만 수정이 불가능한 Widget을 하나 놓자.
         child: Column(
           children: [
             TagColumnNameWidget(),
             Expanded(
-              child: ListView.builder(
+              child: ReorderableListView.builder(
+                buildDefaultDragHandles: false,
                 physics: ClampingScrollPhysics(),
-                //TODO : 각 요소의 순서를 변경할 수 있는 방법 필요
                 itemCount: _curData.length,
                 itemBuilder: (context, index) => TagEditWidget(
+                  key: ValueKey(_curData[index]),
+                  index: index,
                   tag: _curData[index],
                   onChanged: (changedTag) => setState(() {
                     _curData[index] = changedTag;
                   }),
                 ),
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    if (oldIndex < newIndex) newIndex -= 1;
+                    TagData item = _curData.removeAt(oldIndex);
+                    _curData.insert(newIndex, item);
+                    reorder();
+                  });
+                },
               ),
             ),
           ],
@@ -79,12 +95,14 @@ class _TagListDialogState extends State<TagListDialog> {
         TextButton(
           onPressed: () => setState(() {
             _curData.add(TagData.empty());
+            reorder();
           }),
           child: Text(AppLocalizations.of(context)!.tag_add),
         ),
         TextButton(
           onPressed: () => setState(() {
             reset();
+            reorder();
           }),
           child: Text(AppLocalizations.of(context)!.tag_reset),
         ),

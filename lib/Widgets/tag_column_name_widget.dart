@@ -14,10 +14,7 @@ class TagColumnNameWidget extends StatelessWidget {
             Expanded(
               //드래그 핸들러
               flex: 1,
-              child: Text(
-                'order',
-                textAlign: TextAlign.center,
-              ),
+              child: Container(),
             ),
             Expanded(
               //태그 이름

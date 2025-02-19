@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class EditableTextWidget extends StatefulWidget {
-  final String initialText;
+  ///초기값. controller를 입력받으면 무시
+  final String? initialText;
   final Function(String)? onSaved;
-  final List<TextInputFormatter>? inputFormatter;
   final bool Function(String)? isValid;
   final String? defaultString;
 
+  ///텍스트용 컨트롤러. 설정하면 initialText 필드를 무시하고 controller의 값을 초기값으로 사용
+  final TextEditingController? controller;
+
   const EditableTextWidget({
     super.key,
-    required this.initialText,
+    this.initialText,
     this.onSaved,
-    this.inputFormatter,
     this.isValid,
     this.defaultString,
+    this.controller,
   });
 
   @override
@@ -30,7 +32,8 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    _controller = TextEditingController(text: widget.initialText);
+    _controller =
+        widget.controller ?? TextEditingController(text: widget.initialText);
 
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus && _isEditing) {
@@ -68,7 +71,6 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
               ? SizedBox(
                   width: 200,
                   child: TextFormField(
-                    inputFormatters: widget.inputFormatter,
                     style: Theme.of(context).textTheme.titleMedium,
                     controller: _controller,
                     focusNode: _focusNode,
@@ -120,7 +122,11 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   @override
   void dispose() {
     _focusNode.dispose();
-    _controller.dispose();
+    if (widget.controller == null) {
+      //widget.controller가 null이면 자체 생산 컨트롤러임.
+      //controller의 소멸 책임은 생성한 위젯에 있으므로, 주입된 controller는 소멸시키지 않음
+      _controller.dispose();
+    }
     super.dispose();
   }
 }

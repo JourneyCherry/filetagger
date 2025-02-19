@@ -17,13 +17,13 @@ class TagWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String? valueStr;
-    valueStr = value.value; //TODO : tag.type에 따라서 value.value를 문자열로 변경하기.
+    valueStr = value.value?.toString();
     return TagIconWidget(
       onPressed: () => onClick?.call(value),
       backgroundColor: tag.bgColor,
       texts: [
         RichString(tag.name, bold: true),
-        if (valueStr != null) RichString(': $valueStr'),
+        RichString(': $valueStr'),
       ],
     );
   }

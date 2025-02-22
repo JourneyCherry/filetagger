@@ -3,13 +3,13 @@ import 'package:filetagger/Widgets/editable_text_widget.dart';
 import 'package:flutter/material.dart';
 
 class ValueEditWidget extends StatefulWidget {
-  final GlobalData globalData;
   final int? initTid;
   final dynamic initValue;
+  final Map<int, TagData>? tags;
   final void Function(int, String)? onChanged;
   const ValueEditWidget({
     super.key,
-    required this.globalData,
+    this.tags,
     this.initTid,
     this.initValue,
     this.onChanged,
@@ -43,7 +43,7 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
             Expanded(
               flex: 1,
               child: DropdownButton(
-                items: widget.globalData.tagData.entries
+                items: widget.tags?.entries
                     .map(
                       (entry) => DropdownMenuItem(
                         value: entry.key,

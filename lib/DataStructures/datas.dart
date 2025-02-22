@@ -77,6 +77,19 @@ class ValueData {
         pid = other.pid,
         tid = other.tid,
         value = other.value;
+
+  ValueData.empty()
+      : vid = -1,
+        tid = -1,
+        pid = -1,
+        value = null;
+
+  ValueData.partial({
+    this.tid = -1,
+    this.vid = -1,
+    this.pid = -1,
+    this.value,
+  });
 }
 
 class PathData {

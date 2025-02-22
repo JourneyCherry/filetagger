@@ -1,6 +1,7 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/Widgets/tag_icon_widget.dart';
 import 'package:filetagger/Widgets/tag_widget.dart';
+import 'package:filetagger/Widgets/value_edit_dialog.dart';
 import 'package:flutter/material.dart';
 
 class ListElementWidget extends StatelessWidget {
@@ -42,14 +43,27 @@ class ListElementWidget extends StatelessWidget {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: pathData.values.length + 1,
-                itemBuilder: (context, index) {
+                itemBuilder: (itemBuilderContext, index) {
                   if (index >= pathData.values.length) {
                     return SizedBox(
                       width: 20,
                       child: TagIconWidget(
                         texts: [RichString('+', bold: true)],
                         onPressed: () {
-                          //TODO : 태그 추가 다이얼로그 띄우기
+                          //태그 추가 다이얼로그 띄우기
+                          showDialog(
+                            context: itemBuilderContext,
+                            builder: (dialogBuildContext) => ValueEditDialog(
+                              buttonText: 'add',
+                              globalData: globalData,
+                              onPressed: (value) {
+                                //TODO : 다음 과정 수행
+                                //       1. 새 vid 생성
+                                //       2. globalData.values[newVid] = value
+                                //       3. 현재 목록 다시 빌드.
+                              },
+                            ),
+                          );
                         },
                       ),
                     );
@@ -60,8 +74,21 @@ class ListElementWidget extends StatelessWidget {
                     return TagWidget(
                       tag: tagData,
                       value: valueData,
-                      onClick: (newTag) {
-                        //TODO : 태그 수정 다이얼로그 띄우기
+                      onClick: (curValue) {
+                        //태그 수정 다이얼로그 띄우기
+                        showDialog(
+                          context: itemBuilderContext,
+                          builder: (dialogBuildContext) => ValueEditDialog(
+                            buttonText: 'add',
+                            globalData: globalData,
+                            valueData: curValue,
+                            onPressed: (newValue) {
+                              //TODO : 다음 과정 수행
+                              //       1. globalData.values[newValue.vid] = newValue
+                              //       2. 현재 목록 다시 빌드.
+                            },
+                          ),
+                        );
                       },
                     );
                   }

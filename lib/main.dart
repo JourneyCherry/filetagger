@@ -151,7 +151,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                 color: Colors.blue,
               ),
               child: Text(
-                '메뉴',
+                '메뉴', //TODO : Localization
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -161,16 +161,15 @@ class _MyMainWidgetState extends State<MyMainWidget> {
             ListTile(
               leading: Icon(Icons.tag),
               title: Text(AppLocalizations.of(context)!.tagList),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                showDialog(
+                await showDialog(
                   context: context,
                   builder: (BuildContext context) {
-                    return TagListDialog(
-                      globalData: globalData,
-                    );
+                    return TagListDialog(initTagMap: globalData.tagData);
                   },
                 );
+                //TODO : TagListDialog에서 수정된 TagList를 가져와서 globalData.tagData와 비교하여 tid가 음수면 새 태그로, 변경된 값이 없으면 유지, 해당 tid의 태그가 없으면 삭제하여 globalData를 갱신
               },
             ),
             ListTile(

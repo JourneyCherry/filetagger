@@ -14,14 +14,14 @@ class ValueColumnNameWidget extends StatelessWidget {
             Expanded(
               flex: 1,
               child: Text(
-                'Tag',
+                'Tag', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
             ),
             Expanded(
               flex: 1,
               child: Text(
-                'value',
+                'value', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
             ),

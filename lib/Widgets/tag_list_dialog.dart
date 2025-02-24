@@ -5,8 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TagListDialog extends StatefulWidget {
-  final GlobalData globalData;
-  final void Function(List<TagData>)? onSaveTag;
+  final Map<int, TagData> initTagMap;
 
   static const Map<int, int> columnWidths = {
     0: 3, //이름
@@ -20,8 +19,7 @@ class TagListDialog extends StatefulWidget {
 
   const TagListDialog({
     super.key,
-    required this.globalData,
-    this.onSaveTag,
+    required this.initTagMap,
   });
 
   @override
@@ -32,7 +30,7 @@ class _TagListDialogState extends State<TagListDialog> {
   final List<TagData> _curData = []; //order 순서로 정렬된 태그 순서 리스트
 
   void reset() {
-    widget.globalData.tagData.forEach((key, value) => _curData.add(value));
+    widget.initTagMap.forEach((key, value) => _curData.add(value));
     _curData.sort((lhs, rhs) => lhs.order.compareTo(rhs.order));
   }
 
@@ -94,7 +92,7 @@ class _TagListDialogState extends State<TagListDialog> {
       actions: [
         TextButton(
           onPressed: () => setState(() {
-            _curData.add(TagData.empty());
+            _curData.add(TagData.partial(order: _curData.length));
             reorder();
           }),
           child: Text(AppLocalizations.of(context)!.tag_add),

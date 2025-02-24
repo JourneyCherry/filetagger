@@ -50,20 +50,32 @@ class ListElementWidget extends StatelessWidget {
                       child: TagIconWidget(
                         texts: [RichString('+', bold: true)],
                         onPressed: () {
-                          //태그 추가 다이얼로그 띄우기
-                          showDialog(
-                            context: itemBuilderContext,
-                            builder: (dialogBuildContext) => ValueEditDialog(
-                              buttonText: 'add',
-                              globalData: globalData,
-                              onPressed: (value) {
-                                //TODO : 다음 과정 수행
-                                //       1. 새 vid 생성
-                                //       2. globalData.values[newVid] = value
-                                //       3. 현재 목록 다시 빌드.
-                              },
-                            ),
-                          );
+                          if (globalData.tagData.isEmpty) {
+                            // 태그가 없으면 값을 등록할 수 없으니 경고창 띄우기
+                            showDialog(
+                              context: itemBuilderContext,
+                              builder: (dialogBuilderContext) =>
+                                  AlertDialog.adaptive(
+                                content: Text(
+                                    'Any tag needed'), //TODO : Localization
+                              ),
+                            );
+                          } else {
+                            //태그 추가 다이얼로그 띄우기
+                            showDialog(
+                              context: itemBuilderContext,
+                              builder: (dialogBuildContext) => ValueEditDialog(
+                                buttonText: 'add', //TODO : Localization
+                                globalData: globalData,
+                                onPressed: (value) {
+                                  //TODO : 다음 과정 수행
+                                  //       1. 새 vid 생성
+                                  //       2. globalData.values[newVid] = value
+                                  //       3. 현재 목록 다시 빌드.
+                                },
+                              ),
+                            );
+                          }
                         },
                       ),
                     );

@@ -12,7 +12,7 @@ class ValueEditDialog extends StatefulWidget {
   /// 다이얼로그에서 처리하는 ValueData가 의존하는 PathData. [valueData]가 입력되면 해당 값의 pid를 우선한다.
   final PathData? pathData;
 
-  /// 다이얼로그에서 처리하는 ValueData.
+  /// 다이얼로그에서 처리하는 ValueData. 이 값이 입력되면 [pathData]의 pid는 무시한다.
   final ValueData? valueData;
   const ValueEditDialog({
     super.key,
@@ -48,7 +48,7 @@ class _ValueEditDialogState extends State<ValueEditDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
       ),
-      title: Text('ValueEditDialog'),
+      title: Text('ValueEditDialog'), //TODO : Localization
       elevation: 16,
       content: SizedBox(
         width: 300,

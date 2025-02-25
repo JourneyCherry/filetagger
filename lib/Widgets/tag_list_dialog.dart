@@ -1,11 +1,12 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/Widgets/tag_column_name_widget.dart';
 import 'package:filetagger/Widgets/tag_edit_widget.dart';
+import 'package:filetagger/Widgets/tag_list_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class TagListDialog extends StatefulWidget {
-  final Map<int, TagData> initTagMap;
+  final TagListController controller;
 
   static const Map<int, int> columnWidths = {
     0: 3, //이름
@@ -19,7 +20,7 @@ class TagListDialog extends StatefulWidget {
 
   const TagListDialog({
     super.key,
-    required this.initTagMap,
+    required this.controller,
   });
 
   @override
@@ -27,16 +28,14 @@ class TagListDialog extends StatefulWidget {
 }
 
 class _TagListDialogState extends State<TagListDialog> {
-  final List<TagData> _curData = []; //order 순서로 정렬된 태그 순서 리스트
-
   void reset() {
-    widget.initTagMap.forEach((key, value) => _curData.add(value));
-    _curData.sort((lhs, rhs) => lhs.order.compareTo(rhs.order));
+    widget.controller.revertData();
+    widget.controller.value.sort((lhs, rhs) => lhs.order.compareTo(rhs.order));
   }
 
   void reorder() {
-    for (int i = 0; i < _curData.length; ++i) {
-      _curData[i].order = i;
+    for (int i = 0; i < widget.controller.value.length; ++i) {
+      widget.controller.value[i].order = i;
     }
   }
 
@@ -67,20 +66,20 @@ class _TagListDialogState extends State<TagListDialog> {
               child: ReorderableListView.builder(
                 buildDefaultDragHandles: false,
                 physics: ClampingScrollPhysics(),
-                itemCount: _curData.length,
+                itemCount: widget.controller.value.length,
                 itemBuilder: (context, index) => TagEditWidget(
-                  key: ValueKey(_curData[index]),
+                  key: ValueKey(widget.controller.value[index]),
                   index: index,
-                  tag: _curData[index],
+                  tag: widget.controller.value[index],
                   onChanged: (changedTag) => setState(() {
-                    _curData[index] = changedTag;
+                    widget.controller.value[index] = changedTag;
                   }),
                 ),
                 onReorder: (oldIndex, newIndex) {
                   setState(() {
                     if (oldIndex < newIndex) newIndex -= 1;
-                    TagData item = _curData.removeAt(oldIndex);
-                    _curData.insert(newIndex, item);
+                    TagData item = widget.controller.value.removeAt(oldIndex);
+                    widget.controller.value.insert(newIndex, item);
                     reorder();
                   });
                 },
@@ -92,7 +91,8 @@ class _TagListDialogState extends State<TagListDialog> {
       actions: [
         TextButton(
           onPressed: () => setState(() {
-            _curData.add(TagData.partial(order: _curData.length));
+            widget.controller.value
+                .add(TagData.partial(order: widget.controller.value.length));
             reorder();
           }),
           child: Text(AppLocalizations.of(context)!.tag_add),

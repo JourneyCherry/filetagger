@@ -4,6 +4,7 @@ import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/DataStructures/path_manager.dart';
 import 'package:filetagger/Widgets/list_widget.dart';
+import 'package:filetagger/Widgets/tag_list_controller.dart';
 import 'package:filetagger/Widgets/tag_list_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:multi_split_view/multi_split_view.dart';
@@ -161,15 +162,56 @@ class _MyMainWidgetState extends State<MyMainWidget> {
             ListTile(
               leading: Icon(Icons.tag),
               title: Text(AppLocalizations.of(context)!.tagList),
-              onTap: () async {
+              onTap: () {
+                TagListController controller =
+                    TagListController(globalData.tagData.values.toList());
+                TagListDialog dialog = TagListDialog(controller: controller);
                 Navigator.pop(context);
-                await showDialog(
+                showDialog(
                   context: context,
                   builder: (BuildContext context) {
-                    return TagListDialog(initTagMap: globalData.tagData);
+                    return dialog;
                   },
-                );
-                //TODO : TagListDialog에서 수정된 TagList를 가져와서 globalData.tagData와 비교하여 tid가 음수면 새 태그로, 변경된 값이 없으면 유지, 해당 tid의 태그가 없으면 삭제하여 globalData를 갱신
+                ).then((_) {
+                  Set<int> deletedTID =
+                      Set.from(globalData.tagData.keys.toList());
+                  for (var tag in controller.value) {
+                    deletedTID.remove(tag.tid);
+                    if (globalData.tagData
+                        .containsKey(tag.tid)) //이미 존재하는 tid면 태그 정보 수정
+                    {
+                      if (globalData.tagData[tag.tid] != tag) {
+                        //데이터가 달라질 경우에만 DB에 기록
+                        DBManager().modifyTag(tag).then((result) {
+                          if (result) {
+                            setState(() => globalData.tagData[tag.tid] = tag);
+                          } else {
+                            //TODO : 유저에게 DB 저장 실패했다고 notify 띄우기
+                          }
+                        });
+                      }
+                    } else //존재하지 않으면 새 tid 발급 및 태그 추가
+                    {
+                      DBManager().createTag(tag).then((newTid) {
+                        if (newTid != null) {
+                          setState(() {
+                            tag.tid = newTid;
+                            globalData.tagData[newTid] = tag;
+                          });
+                        } else {
+                          //TODO : 유저에게 DB 저장 실패했다고 notify 띄우기
+                        }
+                      });
+                    }
+                  }
+                  for (int delTid in deletedTID) //데이터가 사라졌다면 태그 삭제
+                  {
+                    DBManager().removeTag(delTid).then((_) {
+                      setState(() => globalData.tagData.remove(delTid));
+                    });
+                  }
+                  controller.dispose();
+                });
               },
             ),
             ListTile(

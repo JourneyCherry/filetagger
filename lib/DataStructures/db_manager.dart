@@ -199,28 +199,55 @@ class DBManager {
     //디폴트 값은 타입이 일치해야 한다.
     if (!Types.verify(tag.type, tag.defaultValue)) return null;
     try {
-      await _database!.execute('''
-        INSERT INTO $_taginfoTableName ( 
-          name, type, default_value, duplicable, necessary, sort_order, bg_color, txt_color
-        )
-        VALUES( ?, ?, ?, ?, ?, ?, ?, ? )
-      ''', [
-        tag.name,
-        tag.type.index,
-        tag.defaultValue,
-        Types.bool2int(tag.duplicable),
-        Types.bool2int(tag.necessary),
-        tag.order,
-        Types.color2int(tag.bgColor),
-        Types.color2int(tag.txtColor),
-      ]);
-      return Sqflite.firstIntValue(
-          await _database!.rawQuery('SELECT last_insert_rowid()'))!;
+      final int insertedId = await _database!.insert(_taginfoTableName, {
+        'name': tag.name,
+        'type': tag.type.index,
+        'default_value': tag.defaultValue,
+        'duplicable': Types.bool2int(tag.duplicable),
+        'necessary': Types.bool2int(tag.necessary),
+        'sort_order': tag.order,
+        'bg_color': Types.color2int(tag.bgColor),
+        'txt_color': Types.color2int(tag.txtColor),
+      });
+      return insertedId;
     } catch (e, st) {
       if (kDebugMode) {
         debugPrintStack(stackTrace: st, label: e.toString());
       }
       return null;
+    }
+  }
+
+  Future<bool> modifyTag(TagData tag) async {
+    if (_database == null) return false;
+    //tid는 항상 양의 정수여야 한다.
+    if (tag.tid <= 0)
+    //디폴트 값은 타입이 일치해야 한다.
+    if (!Types.verify(tag.type, tag.defaultValue)) return false;
+
+    try {
+      final updatedRows = await _database!.update(
+        _taginfoTableName,
+        {
+          'name': tag.name,
+          'type': tag.type.index,
+          'default_value': tag.defaultValue,
+          'duplicable': Types.bool2int(tag.duplicable),
+          'necessary': Types.bool2int(tag.necessary),
+          'sort_order': tag.order,
+          'bg_color': Types.color2int(tag.bgColor),
+          'txt_color': Types.color2int(tag.txtColor),
+        },
+        where: 'id = ?',
+        whereArgs: [tag.tid],
+      );
+
+      return updatedRows > 0;
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrintStack(stackTrace: st, label: e.toString());
+      }
+      return false;
     }
   }
 
@@ -246,7 +273,7 @@ class DBManager {
       map[tid] = TagData(
         tid: tid,
         name: row['name'] as String,
-        type: row['type'] as ValueType,
+        type: ValueType.values[row['type'] as int],
         defaultValue: row['default_value'],
         duplicable: Types.int2bool(row['duplicable']),
         necessary: Types.int2bool(row['necessary']),

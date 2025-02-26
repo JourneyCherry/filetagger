@@ -82,7 +82,7 @@ class DBManager {
   }
 
   /// 파일 추가
-  Future<int?> addFile(String filePath) async {
+  Future<int?> createPath(String filePath) async {
     //p.relative()는 동일 경로만 '.'을, 그 외에는 ./를 접두어로 붙이지 않는다.
     final path = PathManager().getPath(filePath);
     final parentPath = PathManager().getParent(filePath);
@@ -99,24 +99,27 @@ class DBManager {
           ppid = parentResult.first['id'] as int;
         }
       }
-      final insertResult = await txn.rawInsert('''
-        INSERT INTO $_fileTableName(path, pid) 
-        VALUES(?, ?)
-      ''', [path, ppid]);
-      if (insertResult == 0) {
-        //중복 경로로 실패 한 경우
+      final int pid = await txn.insert(_fileTableName, {
+        'path': path,
+        'pid': ppid,
+      });
+      if (pid == 0) {
+        //데이터 삽입에 실패 한 경우
         return null;
       }
 
       //필수 태그 기본값으로 채워넣기
-      final int pid = Sqflite.firstIntValue(
-          await txn.rawQuery('SELECT last_insert_rowid()'))!;
       final tags = await txn.rawQuery('''
         SELECT id, default_value, necessary
         FROM $_taginfoTableName
       ''');
       for (var tag in tags) {
         if (tag['necessary'] as int > 0) {
+          txn.insert(_tagTableName, {
+            'pid': pid,
+            'tid': tag['id'] as int,
+            'value': tag['default_value'],
+          });
           await txn.rawInsert('''
             INSERT INTO $_tagTableName ( pid, tid, value )
             VALUES( ?, ?, ? )
@@ -170,36 +173,13 @@ class DBManager {
     return map;
   }
 
-  Future<
-      ({
-        String? path,
-        int pid,
-        bool recursive,
-      })?> getFileFromId(int id) async {
-    if (_database == null) return null;
-    final result = await _database!.rawQuery('''
-      SELECT path, pid, recursive
-      FROM $_fileTableName
-      WHERE id = ?
-    ''', [id]);
-    if (result.isEmpty) return null;
-    final path = result.first['path'] as String;
-    final pid = result.first['pid'] as int;
-    final recursive = Types.int2bool(result.first['recursive']);
-    return (
-      path: path,
-      pid: pid,
-      recursive: recursive,
-    );
-  }
-
   /// 태그 종류 생성
-  Future<int?> createTag(TagData tag) async {
+  Future<TagData?> createTag(TagData tag) async {
     if (_database == null) return null;
     //디폴트 값은 타입이 일치해야 한다.
     if (!Types.verify(tag.type, tag.defaultValue)) return null;
     try {
-      final int insertedId = await _database!.insert(_taginfoTableName, {
+      final insertedId = await _database!.insert(_taginfoTableName, {
         'name': tag.name,
         'type': tag.type.index,
         'default_value': tag.defaultValue,
@@ -209,7 +189,9 @@ class DBManager {
         'bg_color': Types.color2int(tag.bgColor),
         'txt_color': Types.color2int(tag.txtColor),
       });
-      return insertedId;
+      if (insertedId == 0) return null;
+      tag.tid = insertedId;
+      return tag;
     } catch (e, st) {
       if (kDebugMode) {
         debugPrintStack(stackTrace: st, label: e.toString());
@@ -218,7 +200,7 @@ class DBManager {
     }
   }
 
-  Future<bool> modifyTag(TagData tag) async {
+  Future<bool> updateTag(TagData tag) async {
     if (_database == null) return false;
     //tid는 항상 양의 정수여야 한다.
     if (tag.tid <= 0)
@@ -252,7 +234,7 @@ class DBManager {
   }
 
   /// 태그 종류 제거
-  Future<void> removeTag(int id) async {
+  Future<void> deleteTag(int id) async {
     if (_database == null) return;
     await _database!.execute('''
       DELETE FROM $_taginfoTableName
@@ -286,78 +268,52 @@ class DBManager {
     return map;
   }
 
-  Future<
-      ({
-        String? name,
-        ValueType type,
-        dynamic defaultValue,
-        bool duplicable,
-        bool necessary,
-      })?> getTagFromId(int id) async {
-    if (_database == null) return null;
-    final result = await _database!.rawQuery('''
-      SELECT name, type, default_value, duplicable, necessary
-      FROM $_taginfoTableName
-      WHERE id = ?
-    ''', [id]);
-    if (result.isEmpty) return null;
-    final name = result.first['name'] as String;
-    final type = result.first['type'] as ValueType;
-    final defaultValue = result.first['default_value'];
-    final duplicable = Types.int2bool(result.first['duplicable']);
-    final necessary = Types.int2bool(result.first['necessary']);
-    return (
-      name: name,
-      type: type,
-      defaultValue: defaultValue,
-      duplicable: duplicable,
-      necessary: necessary,
-    );
-  }
-
   /// 파일에 태그 추가
-  Future<bool> addTagValue({
-    required int pid,
-    required int tid,
-    dynamic value,
-  }) async {
-    if (_database == null) return false;
+  Future<ValueData?> createValue(ValueData value) async {
+    if (_database == null) return null;
     try {
-      await _database!.transaction((txn) async {
+      final insertedId = await _database!.transaction((txn) async {
         final result = await txn.rawQuery('''
-          SELECT default_value, duplicable
+          SELECT type, default_value, duplicable
           FROM $_taginfoTableName
           WHERE id = ?
-        ''', [tid]);
+        ''', [value.tid]);
         if (result.isEmpty) {
-          throw Exception('there is no tag in (pid: $pid, tid: $tid)');
+          //해당 tid의 존재여부 확인
+          throw Exception('there is no tag with (tid: ${value.tid})');
         }
-        final bool duplicable = Types.int2bool(result.first['duplicable']);
-        value ??= result.first['default_value'];
-        if (!duplicable) {
-          int count = Sqflite.firstIntValue(await txn.rawQuery('''
-            SELECT COUNT(tid)
-            FROM $_tagTableName
-            WHERE pid = ? AND tid = ?
-          ''', [pid, tid]))!;
-          if (count >= 1) return false;
+        final row = result.first;
+        final bool duplicable = Types.int2bool(row['duplicable']);
+        if (!duplicable &&
+            await countDuplicatedValue(pid: value.pid, tid: value.tid) > 0) {
+          // 중복 불가능한 태그로 이미 값이 존재하면 추가 불가능
+          return 0;
         }
-        await txn.execute('''
-          INSERT INTO $_tagTableName ( pid, tid, value )
-          VALUES ( ?, ?, ? )
-        ''', [pid, tid, value]);
+        ValueType valueType = ValueType.values[row['type'] as int];
+        if (!Types.verify(valueType, value.value)) {
+          //입력한 값이 태그 타입과 맞지 않으면 기본값으로 설정
+          value.value =
+              Types.parseString(valueType, row['default_value'] as String?);
+        }
+        return await txn.insert(_tagTableName, {
+          'pid': value.pid,
+          'tid': value.tid,
+          'value': value.value,
+        });
       });
+      if (insertedId == 0) return null;
+      value.vid = insertedId;
+      return value;
     } catch (e, st) {
       if (kDebugMode) {
         debugPrintStack(stackTrace: st, label: e.toString());
       }
-      return false;
+      return null;
     }
-    return true;
   }
 
-  /// 파일에 연결된 태그 값 변경
-  Future<bool> setTagValue(int id, dynamic value) async {
+  /// 파일에 연결된 태그 값 변경(연결된 파일, 태그 타입도 변경 가능)
+  Future<bool> updateValue(ValueData value) async {
     if (_database == null) return false;
     try {
       final ValueType type =
@@ -369,68 +325,72 @@ class DBManager {
           FROM $_tagTableName
           WHERE id = ?
         )
-      ''', [id]))!];
+      ''', [value.vid]))!];
       if (!Types.verify(type, value)) return false;
-      await _database!.rawUpdate('''
-        UPDATE $_tagTableName
-        SET value = ?
-        WHERE id = ?
-      ''', [value, id]);
+      final updatedRows = await _database!.update(
+        _taginfoTableName,
+        {
+          'value': value.value,
+          'tid': value.tid,
+          'pid': value.pid,
+        },
+        where: 'id = ?',
+        whereArgs: [value.vid],
+      );
+      return updatedRows > 0;
     } catch (e, st) {
       if (kDebugMode) debugPrintStack(stackTrace: st, label: e.toString());
       return false;
     }
-    return true;
   }
 
   /// 파일에 연결된 태그 제거
-  Future<void> deleteTagValue(int id) async {
+  Future<void> deleteValue(ValueData value) async {
     if (_database == null) return;
-    await _database!.execute('''
-      DELETE FROM $_tagTableName
-      WHERE id = ?
-    ''', [id]);
+    await _database!.delete(
+      _tagTableName,
+      where: 'id = ?',
+      whereArgs: [value.vid],
+    );
   }
 
   Future<Map<int, ValueData>?> getValues() async {
     if (_database == null) return null;
     final result = await _database!.rawQuery('''
-      SELECT id, pid, tid, value
-      FROM $_tagTableName
+      SELECT vt.id as 'id', vt.pid as 'pid', vt.tid as 'tid', vt.value as 'value', tt.type as 'type'
+      FROM $_tagTableName as vt
+      LEFT JOIN $_taginfoTableName as tt
+      ON vt.tid = tt.id
     ''');
-    Map<int, ValueData> map = {};
-    for (var value in result) {
-      final vid = value['id'] as int;
-      map[vid] = ValueData(
-        vid: vid,
-        pid: value['pid'] as int,
-        tid: value['tid'] as int,
-        value: value['value'],
-      );
-    }
-    return map;
+
+    return Map.fromIterable(
+      result.map(
+        (row) => MapEntry(
+          row['id'] as int,
+          ValueData(
+            vid: row['id'] as int,
+            pid: row['pid'] as int,
+            tid: row['tid'] as int,
+            value: Types.parseString(
+              ValueType.values[row['type'] as int],
+              row['value'] as String?,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  /// 대상 파일(id)에 대한 모든 태그 값 가져오기
-  Future<List<({int id, ValueType type, dynamic value})>> getTagsFromFile(
-    int pid,
-  ) async {
-    if (_database == null) return [];
-    final result = await _database!.rawQuery('''
-      SELECT tag.id as id, info.type as type, tag.value as value
-      FROM $_taginfoTableName as info
-      RIGHT JOIN $_tagTableName as tag
-      ON info.id = tag.tid
-      WHERE tag.pid = ?
-    ''', [pid]);
-    List<({int id, ValueType type, dynamic value})> list = [];
-    for (var tag in result) {
-      list.add((
-        id: tag['id'] as int,
-        type: tag['type'] as ValueType,
-        value: tag['value'],
-      ));
-    }
-    return list;
+  Future<int> countDuplicatedValue({
+    required int pid,
+    required int tid,
+  }) async {
+    final result = await _database!.query(
+      _tagTableName,
+      columns: ['1'],
+      where: 'pid = ? AND tid = ?',
+      whereArgs: [pid, tid],
+    );
+    return result.length;
   }
 }

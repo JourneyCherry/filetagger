@@ -100,7 +100,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
         globalData.trackingPath.add(path);
       });
       final pid = globalData.getDataFromPath(path);
-      if (pid == null) await DBManager().addFile(path);
+      if (pid == null) await DBManager().createPath(path);
     }
 
     setState(() {});
@@ -182,7 +182,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                     {
                       if (globalData.tagData[tag.tid] != tag) {
                         //데이터가 달라질 경우에만 DB에 기록
-                        DBManager().modifyTag(tag).then((result) {
+                        DBManager().updateTag(tag).then((result) {
                           if (result) {
                             setState(() => globalData.tagData[tag.tid] = tag);
                           } else {
@@ -206,7 +206,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                   }
                   for (int delTid in deletedTID) //데이터가 사라졌다면 태그 삭제
                   {
-                    DBManager().removeTag(delTid).then((_) {
+                    DBManager().deleteTag(delTid).then((_) {
                       setState(() => globalData.tagData.remove(delTid));
                     });
                   }

@@ -90,11 +90,11 @@ void sqfliteTest() {
 
     List<(int, String)> fileData = [];
     for (var kvp in data.entries) {
-      final pid = await DBManager().addFile(kvp.key);
+      final pid = await DBManager().createPath(kvp.key);
       expect(pid, isNotNull);
       for (var item in kvp.value) {
         expect(
-          await DBManager().addTagValue(
+          await DBManager().createValue(
             pid: pid!,
             tid: item.$1,
             value: item.$2,

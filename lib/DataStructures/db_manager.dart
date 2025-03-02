@@ -284,8 +284,12 @@ class DBManager {
         }
         final row = result.first;
         final bool duplicable = Types.int2bool(row['duplicable']);
-        if (!duplicable &&
-            await countDuplicatedValue(pid: value.pid, tid: value.tid) > 0) {
+        final int countValue = await countDuplicatedValue(
+          txn: txn,
+          pid: value.pid,
+          tid: value.tid,
+        );
+        if (!duplicable && countValue > 0) {
           // 중복 불가능한 태그로 이미 값이 존재하면 추가 불가능
           return 0;
         }
@@ -356,41 +360,44 @@ class DBManager {
 
   Future<Map<int, ValueData>?> getValues() async {
     if (_database == null) return null;
-    final result = await _database!.rawQuery('''
-      SELECT vt.id as 'id', vt.pid as 'pid', vt.tid as 'tid', vt.value as 'value', tt.type as 'type'
+    final queryResult = await _database!.rawQuery('''
+      SELECT 
+        vt.id as 'id', 
+        vt.pid as 'pid', 
+        vt.tid as 'tid', 
+        vt.value as 'value', 
+        tt.type as 'type'
       FROM $_tagTableName as vt
       LEFT JOIN $_taginfoTableName as tt
       ON vt.tid = tt.id
     ''');
 
-    return Map.fromIterable(
-      result.map(
-        (row) => MapEntry(
-          row['id'] as int,
-          ValueData(
-            vid: row['id'] as int,
-            pid: row['pid'] as int,
-            tid: row['tid'] as int,
-            value: Types.parseString(
-              ValueType.values[row['type'] as int],
-              row['value'] as String?,
-            ),
-          ),
+    Map<int, ValueData> result = {};
+    for (var row in queryResult) {
+      result[row['id'] as int] = ValueData(
+        vid: row['id'] as int,
+        pid: row['pid'] as int,
+        tid: row['tid'] as int,
+        value: Types.parseString(
+          ValueType.values[row['type'] as int],
+          row['value'] as String?,
         ),
-      ),
-    );
+      );
+    }
+    return result;
   }
 
   Future<int> countDuplicatedValue({
+    required DatabaseExecutor txn,
     required int pid,
     required int tid,
   }) async {
-    final result = await _database!.query(
+    final countResult = await txn.query(
       _tagTableName,
-      columns: ['1'],
+      columns: ['COUNT(1)'],
       where: 'pid = ? AND tid = ?',
       whereArgs: [pid, tid],
     );
-    return result.length;
+    return Sqflite.firstIntValue(countResult) ?? 0;
   }
 }

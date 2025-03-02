@@ -192,11 +192,10 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                       }
                     } else //존재하지 않으면 새 tid 발급 및 태그 추가
                     {
-                      DBManager().createTag(tag).then((newTid) {
-                        if (newTid != null) {
+                      DBManager().createTag(tag).then((newTag) {
+                        if (newTag != null) {
                           setState(() {
-                            tag.tid = newTid;
-                            globalData.tagData[newTid] = tag;
+                            globalData.tagData[newTag.tid] = newTag;
                           });
                         } else {
                           //TODO : 유저에게 DB 저장 실패했다고 notify 띄우기

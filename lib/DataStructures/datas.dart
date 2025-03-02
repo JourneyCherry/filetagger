@@ -24,6 +24,18 @@ class TagData {
     required this.necessary,
   });
 
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is TagData &&
+            runtimeType == other.runtimeType &&
+            tid == other.tid &&
+            name == other.name;
+  }
+
+  @override
+  int get hashCode => Object.hash(tid, name);
+
   TagData.copy(TagData other)
       : tid = other.tid,
         name = other.name,
@@ -72,6 +84,19 @@ class ValueData {
     this.value,
   });
 
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is ValueData &&
+            runtimeType == other.runtimeType &&
+            tid == other.tid &&
+            vid == other.vid &&
+            pid == other.pid;
+  }
+
+  @override
+  int get hashCode => Object.hash(vid, tid, pid);
+
   ValueData.copy(ValueData other)
       : vid = other.vid,
         pid = other.pid,
@@ -106,6 +131,18 @@ class PathData {
     this.recursive = false,
     this.values = const [],
   });
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is PathData &&
+            runtimeType == other.runtimeType &&
+            pid == other.pid &&
+            path == other.path;
+  }
+
+  @override
+  int get hashCode => Object.hash(pid, path);
 
   PathData.copy(PathData other)
       : pid = other.pid,

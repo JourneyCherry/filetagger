@@ -36,6 +36,21 @@ class TagData {
   @override
   int get hashCode => Object.hash(tid, name);
 
+  /// 두 태그의 실제 데이터가 동일한지 확인하는 함수.
+  /// tag id는 대상에서 제외한다.
+  bool isSameData(TagData? target) {
+    if (target == null) return false;
+    if (name != target.name) return false;
+    if (type != target.type) return false;
+    if (order != target.order) return false;
+    if (bgColor != target.bgColor) return false;
+    if (txtColor != target.txtColor) return false;
+    if (defaultValue != target.defaultValue) return false;
+    if (duplicable != target.duplicable) return false;
+    if (necessary != target.necessary) return false;
+    return true;
+  }
+
   TagData.copy(TagData other)
       : tid = other.tid,
         name = other.name,

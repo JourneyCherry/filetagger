@@ -34,7 +34,7 @@ class _TagEditWidgetState extends State<TagEditWidget> {
   @override
   void didUpdateWidget(TagEditWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.tag != widget.tag) {
+    if (!oldWidget.tag.isSameData(widget.tag)) {
       setState(() => setValues());
     }
   }
@@ -46,6 +46,8 @@ class _TagEditWidgetState extends State<TagEditWidget> {
     } else {
       defaultValue_ = widget.tag.defaultValue.toString();
     }
+    widget.tag.name = name_;
+    widget.tag.defaultValue = Types.parseString(widget.tag.type, defaultValue_);
   }
 
   @override

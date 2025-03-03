@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:filetagger/DataStructures/datas.dart';
-import 'package:filetagger/DataStructures/types.dart';
 import 'package:filetagger/Widgets/value_column_name_widget.dart';
 import 'package:filetagger/Widgets/value_edit_widget.dart';
 import 'package:flutter/material.dart';
@@ -60,18 +59,10 @@ class _ValueEditDialogState extends State<ValueEditDialog> {
             ValueColumnNameWidget(),
             ValueEditWidget(
               tags: widget.globalData.tagData,
-              initTid: valueData.tid,
-              initValue: valueData.value,
-              onChanged: (newTid, newValue) {
+              value: valueData,
+              onChanged: (newValue) {
                 setState(() {
-                  valueData.tid = newTid;
-                  var tag = widget.globalData.getTag(valueData.tid);
-                  if (tag == null) {
-                    //태그가 없으면 value도 없어야 한다.
-                    valueData.value = null;
-                  } else {
-                    valueData.value = Types.parseString(tag.type, newValue);
-                  }
+                  valueData = newValue;
                 });
               },
             )

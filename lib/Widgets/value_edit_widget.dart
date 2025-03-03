@@ -4,15 +4,13 @@ import 'package:filetagger/Widgets/editable_text_widget.dart';
 import 'package:flutter/material.dart';
 
 class ValueEditWidget extends StatefulWidget {
-  final int? initTid;
-  final dynamic initValue;
+  final ValueData value;
   final Map<int, TagData> tags;
-  final void Function(int, String)? onChanged;
+  final void Function(ValueData)? onChanged;
   const ValueEditWidget({
     super.key,
     required this.tags,
-    this.initTid,
-    this.initValue,
+    required this.value,
     this.onChanged,
   });
 
@@ -21,16 +19,16 @@ class ValueEditWidget extends StatefulWidget {
 }
 
 class _ValueEditWidgetState extends State<ValueEditWidget> {
-  late int tid_;
-  late String value_;
   late final TextEditingController _textEditingController;
 
   @override
   void initState() {
     super.initState();
-    tid_ = widget.initTid ?? -1;
-    value_ = widget.initValue?.toString() ?? '';
-    _textEditingController = TextEditingController(text: value_);
+    if (widget.value.tid <= 0) {
+      widget.value.tid = widget.tags.keys.first;
+    }
+    _textEditingController =
+        TextEditingController(text: widget.value.value?.toString());
   }
 
   @override
@@ -54,10 +52,10 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
                       ),
                     )
                     .toList(),
-                value: tid_ > 0 ? tid_ : widget.tags.keys.first,
+                value: widget.value.tid,
                 onChanged: (value) {
-                  tid_ = value ?? -1;
-                  setState(() => widget.onChanged?.call(tid_, value_));
+                  widget.value.tid = value ?? widget.tags.keys.first;
+                  setState(() => widget.onChanged?.call(widget.value));
                 },
               ),
             ),
@@ -66,13 +64,17 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
               child: EditableTextWidget(
                 controller: _textEditingController,
                 onSaved: (str) {
-                  value_ = str;
-                  setState(() => widget.onChanged?.call(tid_, value_));
+                  widget.value.value = Types.parseString(
+                      widget.tags[widget.value.tid]?.type ?? ValueType.label,
+                      str);
+                  setState(() => widget.onChanged?.call(widget.value));
                 },
                 isValid: (value) => Types.isParsable(
-                    widget.tags[tid_]?.type ?? ValueType.label, value_),
+                    widget.tags[widget.value.tid]?.type ?? ValueType.label,
+                    _textEditingController.text),
                 defaultString: Types.parseString(
-                        widget.tags[tid_]?.type ?? ValueType.label, value_)
+                        widget.tags[widget.value.tid]?.type ?? ValueType.label,
+                        _textEditingController.text)
                     .toString(),
               ),
             ),

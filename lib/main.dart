@@ -182,7 +182,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                     if (globalData.tagData
                         .containsKey(tag.tid)) //이미 존재하는 tid면 태그 정보 수정
                     {
-                      if (globalData.tagData[tag.tid] != tag) {
+                      if (!globalData.tagData[tag.tid]!.isSameData(tag)) {
                         //데이터가 달라질 경우에만 DB에 기록
                         DBManager().updateTag(tag).then((result) {
                           if (result) {

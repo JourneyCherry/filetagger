@@ -320,19 +320,17 @@ class DBManager {
   Future<bool> updateValue(ValueData value) async {
     if (_database == null) return false;
     try {
-      final ValueType type =
-          ValueType.values[Sqflite.firstIntValue(await _database!.rawQuery('''
-        SELECT type
-        FROM $_taginfoTableName
-        WHERE id IN (
-          SELECT id
-          FROM $_tagTableName
-          WHERE id = ?
-        )
-      ''', [value.vid]))!];
-      if (!Types.verify(type, value)) return false;
-      final updatedRows = await _database!.update(
+      final tagQuery = await _database!.query(
         _taginfoTableName,
+        columns: ['type'],
+        where: 'id = ?',
+        whereArgs: [value.tid],
+      );
+      if (tagQuery.isEmpty) throw Exception('No Tag found: ${value.tid}');
+      final ValueType type = ValueType.values[Sqflite.firstIntValue(tagQuery)!];
+      if (!Types.verify(type, value.value)) return false;
+      final updatedRows = await _database!.update(
+        _tagTableName,
         {
           'value': value.value,
           'tid': value.tid,

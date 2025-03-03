@@ -23,7 +23,7 @@ class TagWidget extends StatelessWidget {
       backgroundColor: tag.bgColor,
       texts: [
         RichString(tag.name, bold: true),
-        RichString(': $valueStr'),
+        if (value.value != null) RichString(': $valueStr'),
       ],
     );
   }

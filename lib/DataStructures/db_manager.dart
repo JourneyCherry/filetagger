@@ -398,4 +398,36 @@ class DBManager {
     );
     return Sqflite.firstIntValue(countResult) ?? 0;
   }
+
+  Future<List<ValueData>> checkNecessaryTag(TagData tag) async {
+    if (!tag.necessary) return [];
+    if (_database == null) return [];
+
+    List<ValueData> newValues = [];
+
+    final isSuccess = await _database!.transaction((txn) async {
+      final tid = tag.tid;
+      final paths = await txn.query(_fileTableName, columns: ['id']);
+      for (Map<String, Object?> path in paths) {
+        final pid = path['id'] as int;
+        if (await countDuplicatedValue(txn: txn, pid: pid, tid: tid) == 0) {
+          final newVID = await txn.insert(_tagTableName, {
+            'tid': tid,
+            'pid': pid,
+            'value': tag.defaultValue?.toString() ?? '',
+          });
+          newValues.add(ValueData(
+            vid: newVID,
+            pid: pid,
+            tid: tid,
+            value: tag.defaultValue,
+          ));
+        }
+      }
+      return true;
+    });
+
+    if (isSuccess) return newValues;
+    return [];
+  }
 }

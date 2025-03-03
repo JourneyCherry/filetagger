@@ -184,9 +184,16 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                     {
                       if (!globalData.tagData[tag.tid]!.isSameData(tag)) {
                         //데이터가 달라질 경우에만 DB에 기록
-                        DBManager().updateTag(tag).then((result) {
+                        DBManager().updateTag(tag).then((result) async {
                           if (result) {
-                            setState(() => globalData.tagData[tag.tid] = tag);
+                            final newValues =
+                                await DBManager().checkNecessaryTag(tag);
+                            setState(() {
+                              globalData.tagData[tag.tid] = tag;
+                              for (ValueData value in newValues) {
+                                globalData.valueData[value.vid] = value;
+                              }
+                            });
                           } else {
                             //TODO : 유저에게 DB 저장 실패했다고 notify 띄우기
                           }
@@ -194,10 +201,15 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                       }
                     } else //존재하지 않으면 새 tid 발급 및 태그 추가
                     {
-                      DBManager().createTag(tag).then((newTag) {
+                      DBManager().createTag(tag).then((newTag) async {
                         if (newTag != null) {
+                          final newValues =
+                              await DBManager().checkNecessaryTag(tag);
                           setState(() {
                             globalData.tagData[newTag.tid] = newTag;
+                            for (ValueData value in newValues) {
+                              globalData.valueData[value.vid] = value;
+                            }
                           });
                         } else {
                           //TODO : 유저에게 DB 저장 실패했다고 notify 띄우기
@@ -208,7 +220,11 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                   for (int delTid in deletedTID) //데이터가 사라졌다면 태그 삭제
                   {
                     DBManager().deleteTag(delTid).then((_) {
-                      setState(() => globalData.tagData.remove(delTid));
+                      setState(() {
+                        globalData.tagData.remove(delTid);
+                        globalData.valueData
+                            .removeWhere((_, value) => value.tid == delTid);
+                      });
                     });
                   }
                   controller.dispose();

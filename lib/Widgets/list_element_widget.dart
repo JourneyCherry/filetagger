@@ -1,4 +1,5 @@
 import 'package:filetagger/DataStructures/datas.dart';
+import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/Widgets/tag_icon_widget.dart';
 import 'package:filetagger/Widgets/tag_widget.dart';
 import 'package:filetagger/Widgets/value_edit_dialog.dart';
@@ -10,6 +11,7 @@ class ListElementWidget extends StatelessWidget {
   final int pid;
   final GlobalData globalData;
   final VoidCallback? onTap;
+  final VoidCallback? onSuccess;
   final bool isSelected;
   final bool isNotExist;
   const ListElementWidget({
@@ -19,6 +21,7 @@ class ListElementWidget extends StatelessWidget {
     required this.onTap,
     required this.isSelected,
     required this.isNotExist,
+    this.onSuccess,
   });
 
   @override
@@ -67,11 +70,20 @@ class ListElementWidget extends StatelessWidget {
                               builder: (dialogBuildContext) => ValueEditDialog(
                                 buttonText: 'add', //TODO : Localization
                                 globalData: globalData,
-                                onPressed: (value) {
-                                  //TODO : 다음 과정 수행
-                                  //       1. 새 vid 생성
-                                  //       2. globalData.values[newVid] = value
-                                  //       3. 현재 목록 다시 빌드.
+                                onPressed: (value) async {
+                                  value.pid = pid;
+                                  final newValue =
+                                      await DBManager().createValue(value);
+                                  if (newValue == null) {
+                                    //TODO : 추가 실패 메시지 띄우기
+                                    return false;
+                                  }
+                                  value = newValue;
+                                  globalData.valueData[value.vid] = value;
+                                  globalData.pathData[value.pid]!.values
+                                      .add(value.vid);
+                                  onSuccess?.call();
+                                  return true;
                                 },
                               ),
                             );
@@ -91,13 +103,19 @@ class ListElementWidget extends StatelessWidget {
                         showDialog(
                           context: itemBuilderContext,
                           builder: (dialogBuildContext) => ValueEditDialog(
-                            buttonText: 'add',
+                            buttonText: 'modify', //TODO : Localization
                             globalData: globalData,
                             valueData: curValue,
-                            onPressed: (newValue) {
-                              //TODO : 다음 과정 수행
-                              //       1. globalData.values[newValue.vid] = newValue
-                              //       2. 현재 목록 다시 빌드.
+                            onPressed: (value) async {
+                              if (await DBManager().updateValue(value) ==
+                                  false) {
+                                //TODO : 수정 실패 메시지 띄우기
+                                return false;
+                              }
+                              globalData.valueData[value.vid] = value;
+                              //vid가 바뀌진 않으므로, globalData.PathData[vid].values를 수정할 필요는 없다.
+                              onSuccess?.call();
+                              return true;
                             },
                           ),
                         );

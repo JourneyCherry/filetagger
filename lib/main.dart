@@ -62,12 +62,14 @@ class _MyMainWidgetState extends State<MyMainWidget> {
 
   /// 트래킹할 root path를 가져오는 메소드. 첫 디렉토리 로드에 사용
   void _loadItems(String rootPath) async {
+    //초기화
     PathManager().setRootPath(rootPath);
     globalData.clear();
     selectedIndices.clear();
     DirectoryReader().close();
     await DBManager().closeDatabase();
 
+    //DB로부터 데이터 읽어오기
     if (await DBManager().initializeDatabase(rootPath) == false) {
       debugPrint('Failed to read Database');
       return; //TODO : 에러 표시하기.
@@ -76,15 +78,15 @@ class _MyMainWidgetState extends State<MyMainWidget> {
     globalData.tagData = await DBManager().getTags() ?? {};
     globalData.valueData = await DBManager().getValues() ?? {};
 
+    // ValueData를 각 해당하는 PathData에 매칭 시키기
     setState(() {
       for (var kvp in globalData.valueData.entries) {
         final vid = kvp.value.vid;
         final pid = kvp.value.pid;
         if (globalData.pathData.containsKey(pid)) {
           globalData.pathData[pid]!.values.add(vid);
-        } else {
-          //TODO : valueData 제거하기.
         }
+        //vDB자체적으로 ValueData의 pid는 Foreign Key이기에 삭제되는 경우는 없다.
       }
     });
 
@@ -240,12 +242,14 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                       globalData: globalData,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
+                      onValueChanged: () => setState(() {}),
                     );
                   case ViewType.icon:
                     return ListWidget(
                       globalData: globalData,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
+                      onValueChanged: () => setState(() {}),
                     ); //TODO : GridWidget으로 바꾸기
                 }
               },

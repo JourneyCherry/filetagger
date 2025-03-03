@@ -203,7 +203,7 @@ class DBManager {
   Future<bool> updateTag(TagData tag) async {
     if (_database == null) return false;
     //tid는 항상 양의 정수여야 한다.
-    if (tag.tid <= 0)
+    if (tag.tid <= 0) return false;
     //디폴트 값은 타입이 일치해야 한다.
     if (!Types.verify(tag.type, tag.defaultValue)) return false;
 

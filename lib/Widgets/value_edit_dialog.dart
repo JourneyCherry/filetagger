@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:filetagger/Widgets/value_column_name_widget.dart';
@@ -5,7 +7,7 @@ import 'package:filetagger/Widgets/value_edit_widget.dart';
 import 'package:flutter/material.dart';
 
 class ValueEditDialog extends StatefulWidget {
-  final void Function(ValueData)? onPressed;
+  final FutureOr<bool> Function(ValueData)? onPressed;
   final String buttonText;
   final GlobalData globalData;
 
@@ -78,7 +80,24 @@ class _ValueEditDialogState extends State<ValueEditDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => widget.onPressed?.call(valueData),
+          onPressed: () {
+            if (widget.onPressed == null) {
+              Navigator.pop(context);
+              return;
+            }
+            final result = widget.onPressed!.call(valueData);
+            if (result is Future<bool>) {
+              result.then((result) {
+                if (result) {
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                }
+              });
+            } else if (result == true) {
+              Navigator.pop(context);
+            }
+          },
           child: Text(widget.buttonText),
         ),
       ],

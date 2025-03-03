@@ -130,7 +130,9 @@ class PathData {
     required this.ppid,
     this.recursive = false,
     this.values = const [],
-  });
+  }) {
+    if (values.isEmpty) values = []; // 수정 가능해야함.
+  }
 
   @override
   bool operator ==(Object other) {

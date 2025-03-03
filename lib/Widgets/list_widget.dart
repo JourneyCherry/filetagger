@@ -7,11 +7,13 @@ class ListWidget extends StatelessWidget {
   final GlobalData globalData;
   final Set<int> selectedIndices;
   final void Function(int)? onTap;
+  final VoidCallback? onValueChanged;
   const ListWidget({
     super.key,
     required this.globalData,
     this.selectedIndices = const {},
     this.onTap,
+    this.onValueChanged,
   });
 
   Widget getEmptyWidget(BuildContext context) => Center(
@@ -29,6 +31,7 @@ class ListWidget extends StatelessWidget {
           pid: data.pid,
           globalData: globalData,
           onTap: () => onTap?.call(data.pid),
+          onSuccess: onValueChanged,
           isSelected: selectedIndices.contains(data.pid),
           isNotExist: !globalData.trackingPath.contains(data.path),
         );

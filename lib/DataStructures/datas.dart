@@ -30,11 +30,12 @@ class TagData {
         other is TagData &&
             runtimeType == other.runtimeType &&
             tid == other.tid &&
-            name == other.name;
+            name == other.name &&
+            order == other.order;
   }
 
   @override
-  int get hashCode => Object.hash(tid, name);
+  int get hashCode => Object.hash(tid, name, order);
 
   /// 두 태그의 실제 데이터가 동일한지 확인하는 함수.
   /// tag id는 대상에서 제외한다.

@@ -74,6 +74,9 @@ class _TagListDialogState extends State<TagListDialog> {
                   onChanged: (changedTag) => setState(() {
                     widget.controller.value[index] = changedTag;
                   }),
+                  onDeleted: (index) => setState(() {
+                    widget.controller.value.removeAt(index);
+                  }),
                 ),
                 onReorder: (oldIndex, newIndex) {
                   setState(() {

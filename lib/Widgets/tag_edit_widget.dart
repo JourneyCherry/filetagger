@@ -8,12 +8,14 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 class TagEditWidget extends StatefulWidget {
   final TagData tag;
   final void Function(TagData)? onChanged;
+  final void Function(int)? onDeleted;
   final int index;
 
   const TagEditWidget({
     super.key,
     required this.tag,
     this.onChanged,
+    this.onDeleted,
     required this.index,
   });
 
@@ -184,6 +186,13 @@ class _TagEditWidgetState extends State<TagEditWidget> {
                     widget.tag.necessary = value!;
                     setState(() => widget.onChanged?.call(widget.tag));
                   },
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: IconButton(
+                  onPressed: () => widget.onDeleted?.call(widget.index),
+                  icon: Icon(Icons.delete),
                 ),
               ),
             ],

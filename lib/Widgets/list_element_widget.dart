@@ -93,8 +93,12 @@ class ListElementWidget extends StatelessWidget {
                     );
                   } else {
                     final vid = pathData.values[index];
-                    final valueData = globalData.getValue(vid)!;
-                    final tagData = globalData.getTag(valueData.tid)!;
+                    //final valueData = globalData.getValue(vid)!;
+                    //final tagData = globalData.getTag(valueData.tid)!;
+                    final valueData = globalData.getValue(vid);
+                    if (valueData == null) return null;
+                    final tagData = globalData.getTag(valueData.tid);
+                    if (tagData == null) return null;
                     return TagWidget(
                       tag: tagData,
                       value: valueData,

@@ -20,7 +20,7 @@ class TagColumnNameWidget extends StatelessWidget {
               //태그 이름
               flex: 3,
               child: Text(
-                'name',
+                'name', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
             ),
@@ -28,7 +28,7 @@ class TagColumnNameWidget extends StatelessWidget {
               //태그 타입
               flex: 3,
               child: Text(
-                'type',
+                'type', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
             ),
@@ -36,7 +36,7 @@ class TagColumnNameWidget extends StatelessWidget {
               //태그 배경 색
               flex: 0,
               child: Text(
-                'color',
+                'color', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
             ),
@@ -44,7 +44,7 @@ class TagColumnNameWidget extends StatelessWidget {
               //태그 기본값
               flex: 4,
               child: Text(
-                'default value',
+                'default value', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
             ),
@@ -52,7 +52,7 @@ class TagColumnNameWidget extends StatelessWidget {
               //중복 태그 허용
               flex: 1,
               child: Text(
-                'duplicable',
+                'duplicable', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
             ),
@@ -60,9 +60,14 @@ class TagColumnNameWidget extends StatelessWidget {
               //필수 태그
               flex: 1,
               child: Text(
-                'necessary',
+                'necessary', //TODO : Localization
                 textAlign: TextAlign.center,
               ),
+            ),
+            Expanded(
+              //삭제 버튼
+              flex: 1,
+              child: Container(),
             ),
           ],
         ),

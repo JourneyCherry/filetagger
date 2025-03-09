@@ -89,8 +89,9 @@ void sqfliteTest() {
     // 데이터 삽입 테스트
     // 정상적으로 pid가 발급 되는지 확인
     for (PathData path in paths) {
-      int? pid = await DBManager().createPath(path.path);
-      expect(pid, path.pid);
+      PathData? newPath = await DBManager().createPath(path.path);
+      expect(newPath, isNotNull);
+      expect(newPath!.pid, path.pid);
     }
   });
 
@@ -171,6 +172,8 @@ void sqfliteTest() {
       expect(newValue, isNull);
     }
   });
+
+  //TODO : "remove Path/Tag/Value" Test
 
   test('Path Data Test', () async {
     final Map<int, PathData>? result = await DBManager().getPaths();

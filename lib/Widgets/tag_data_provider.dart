@@ -34,7 +34,7 @@ class TagDataProvider with ChangeNotifier {
         }
       });
       pathData[newPath.pid] = newPath;
-
+      isLoading = false;
       notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
@@ -53,7 +53,7 @@ class TagDataProvider with ChangeNotifier {
             'failed to update path(${path.pid})'); //TODO : Localization
       }
       pathData[newPath.pid] = newPath;
-
+      isLoading = false;
       notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
@@ -82,6 +82,8 @@ class TagDataProvider with ChangeNotifier {
 
       pathData.removeWhere((pid, _) => deletedPid.contains(pid));
       valueData.removeWhere((_, value) => deletedPid.contains(value.pid));
+      isLoading = false;
+      notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
     } finally {
@@ -100,6 +102,8 @@ class TagDataProvider with ChangeNotifier {
       }
 
       tagData[newTag.tid] = newTag;
+      isLoading = false;
+      notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
     } finally {
@@ -134,6 +138,9 @@ class TagDataProvider with ChangeNotifier {
         throw Exception(
             'failed to update Tag(${tag.tid})'); //TODO : Localization
       }
+
+      isLoading = false;
+      notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
     } finally {
@@ -152,12 +159,14 @@ class TagDataProvider with ChangeNotifier {
       Set<int> deletedVid = {};
       for (ValueData value in valueData.values) {
         if (value.tid == tid) {
-          await DBManager().deleteValue(value);
+          await DBManager().deleteValue(value.vid);
           pathData[value.pid]!.values.remove(value.vid);
           deletedVid.add(value.vid);
         }
       }
       valueData.removeWhere((vid, _) => deletedVid.contains(vid));
+      isLoading = false;
+      notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
     } finally {
@@ -173,6 +182,8 @@ class TagDataProvider with ChangeNotifier {
         throw Exception('failed to create value'); //TODO : Localization
       }
       valueData[newValue.vid] = newValue;
+      isLoading = false;
+      notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
     } finally {
@@ -193,6 +204,8 @@ class TagDataProvider with ChangeNotifier {
       }
 
       valueData[newValue.vid] = newValue;
+      isLoading = false;
+      notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
     } finally {
@@ -201,6 +214,19 @@ class TagDataProvider with ChangeNotifier {
   }
 
   Future<bool> deleteValue(int vid) async {
+    try {
+      isLoading = true;
+
+      await DBManager().deleteValue(vid);
+      valueData.remove(vid);
+
+      isLoading = false;
+      notifyListeners();
+    } catch (_) {
+      //TODO : 사용자에게 에러메시지 표시
+    } finally {
+      isLoading = false;
+    }
     return true;
   }
 

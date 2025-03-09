@@ -357,12 +357,12 @@ class DBManager {
   }
 
   /// 파일에 연결된 태그 제거
-  Future<void> deleteValue(ValueData value) async {
+  Future<void> deleteValue(int vid) async {
     if (_database == null) return;
     await _database!.delete(
       _tagTableName,
       where: 'id = ?',
-      whereArgs: [value.vid],
+      whereArgs: [vid],
     );
   }
 

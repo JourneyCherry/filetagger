@@ -81,8 +81,13 @@ class DBManager {
     }
   }
 
+  bool isAvailable() {
+    if (_database == null) return false;
+    return _database!.isOpen;
+  }
+
   /// 파일 추가
-  Future<int?> createPath(String filePath) async {
+  Future<PathData?> createPath(String filePath) async {
     //p.relative()는 동일 경로만 '.'을, 그 외에는 ./를 접두어로 붙이지 않는다.
     final path = PathManager().getPath(filePath);
     final parentPath = PathManager().getParent(filePath);
@@ -107,50 +112,54 @@ class DBManager {
         //데이터 삽입에 실패 한 경우
         return null;
       }
-
-      //필수 태그 기본값으로 채워넣기
-      final tags = await txn.rawQuery('''
-        SELECT id, default_value, necessary
-        FROM $_taginfoTableName
-      ''');
-      for (var tag in tags) {
-        if (tag['necessary'] as int > 0) {
-          txn.insert(_tagTableName, {
-            'pid': pid,
-            'tid': tag['id'] as int,
-            'value': tag['default_value'],
-          });
-          await txn.rawInsert('''
-            INSERT INTO $_tagTableName ( pid, tid, value )
-            VALUES( ?, ?, ? )
-          ''', [pid, tag['id'] as int, tag['default_value']]);
-        }
-      }
-      return pid;
+      return PathData(
+        pid: pid,
+        path: filePath,
+        ppid: ppid,
+        recursive: false,
+      );
     });
   }
 
-  Future<void> removeFile(int startId) async {
-    if (_database == null) return;
-    await _database!.transaction((txn) async {
-      List<int> q = [startId]; //모든 서브 디렉토리의 파일도 같이 삭제되어야 한다.
-      while (q.isNotEmpty) {
-        int id = q.first;
-        q.removeAt(0);
-        final result = await txn.rawQuery('''
-          SELECT id
-          FROM $_fileTableName
-          WHERE pid = ?
-        ''', [id]);
-        for (var child in result) {
-          q.insert(q.length, child['id'] as int);
+  Future<PathData?> updatePath(PathData path) async {
+    if (_database == null) return null;
+    path.ppid = 0;
+    final parentPath = PathManager().getParent(path.path);
+    return await _database!.transaction((txn) async {
+      if (parentPath != '.') {
+        final parentResult = await txn.query(
+          _fileTableName,
+          columns: ['id'],
+          where: 'path = ?',
+          whereArgs: [parentPath],
+        );
+        if (parentResult.isNotEmpty) {
+          path.ppid = parentResult.first['id'] as int;
         }
-        await txn.rawDelete('''
-          DELETE FROM $_fileTableName
-          WHERE id = ?
-        ''', [id]);
       }
+      final updatedCount = await txn.update(
+        _fileTableName,
+        {
+          'path': path.path,
+          'ppid': path.ppid,
+          'recursive': path.recursive,
+        },
+        where: 'pid = ?',
+        whereArgs: [path.pid],
+      );
+
+      if (updatedCount != 0) return null;
+      return path;
     });
+  }
+
+  Future<void> deleteFile(int pid) async {
+    if (_database == null) return;
+    await _database!.delete(
+      _fileTableName,
+      where: 'id = ?',
+      whereArgs: [pid],
+    );
   }
 
   Future<Map<int, PathData>?> getPaths() async {
@@ -200,12 +209,10 @@ class DBManager {
     }
   }
 
-  Future<bool> updateTag(TagData tag) async {
-    if (_database == null) return false;
-    //tid는 항상 양의 정수여야 한다.
-    if (tag.tid <= 0) return false;
+  Future<TagData?> updateTag(TagData tag) async {
+    if (_database == null) return null;
     //디폴트 값은 타입이 일치해야 한다.
-    if (!Types.verify(tag.type, tag.defaultValue)) return false;
+    if (!Types.verify(tag.type, tag.defaultValue)) return null;
 
     try {
       final updatedRows = await _database!.update(
@@ -224,22 +231,24 @@ class DBManager {
         whereArgs: [tag.tid],
       );
 
-      return updatedRows > 0;
+      if (updatedRows != 1) return null;
+      return tag;
     } catch (e, st) {
       if (kDebugMode) {
         debugPrintStack(stackTrace: st, label: e.toString());
       }
-      return false;
+      return null;
     }
   }
 
   /// 태그 종류 제거
   Future<void> deleteTag(int id) async {
     if (_database == null) return;
-    await _database!.execute('''
-      DELETE FROM $_taginfoTableName
-      WHERE id = ?
-    ''', [id]);
+    await _database!.delete(
+      _taginfoTableName,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<Map<int, TagData>?> getTags() async {
@@ -317,8 +326,8 @@ class DBManager {
   }
 
   /// 파일에 연결된 태그 값 변경(연결된 파일, 태그 타입도 변경 가능)
-  Future<bool> updateValue(ValueData value) async {
-    if (_database == null) return false;
+  Future<ValueData?> updateValue(ValueData value) async {
+    if (_database == null) return null;
     try {
       final tagQuery = await _database!.query(
         _taginfoTableName,
@@ -328,7 +337,7 @@ class DBManager {
       );
       if (tagQuery.isEmpty) throw Exception('No Tag found: ${value.tid}');
       final ValueType type = ValueType.values[Sqflite.firstIntValue(tagQuery)!];
-      if (!Types.verify(type, value.value)) return false;
+      if (!Types.verify(type, value.value)) return null;
       final updatedRows = await _database!.update(
         _tagTableName,
         {
@@ -339,10 +348,11 @@ class DBManager {
         where: 'id = ?',
         whereArgs: [value.vid],
       );
-      return updatedRows > 0;
+      if (updatedRows != 1) return null;
+      return value;
     } catch (e, st) {
       if (kDebugMode) debugPrintStack(stackTrace: st, label: e.toString());
-      return false;
+      return null;
     }
   }
 

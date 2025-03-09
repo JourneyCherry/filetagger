@@ -4,12 +4,14 @@ import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/DataStructures/path_manager.dart';
 import 'package:filetagger/Widgets/list_widget.dart';
+import 'package:filetagger/Widgets/tag_data_provider.dart';
 import 'package:filetagger/Widgets/tag_list_controller.dart';
 import 'package:filetagger/Widgets/tag_list_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:multi_split_view/multi_split_view.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -20,24 +22,27 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      localizationsDelegates: [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: [
-        Locale('ko'),
-        Locale('en'),
-      ],
-      locale: Locale('ko'),
-      title: '',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    return ChangeNotifierProvider<TagDataProvider>(
+      create: (_) => TagDataProvider(),
+      child: MaterialApp(
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: [
+          Locale('ko'),
+          Locale('en'),
+        ],
+        locale: Locale('ko'),
+        title: '',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: MyMainWidget(),
       ),
-      home: MyMainWidget(),
     );
   }
 }
@@ -187,7 +192,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                         //데이터가 달라질 경우에만 DB에 기록
                         futures.add(
                             DBManager().updateTag(tag).then((result) async {
-                          if (result) {
+                          if (result != null) {
                             final newValues =
                                 await DBManager().checkNecessaryTag(tag);
                             globalData.tagData[tag.tid] = tag;

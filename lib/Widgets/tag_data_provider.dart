@@ -1,5 +1,6 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
+import 'package:filetagger/DataStructures/error_code.dart';
 import 'package:flutter/material.dart';
 
 class TagDataProvider with ChangeNotifier {
@@ -10,9 +11,13 @@ class TagDataProvider with ChangeNotifier {
 
   TagDataProvider();
 
-  void createPath(String path) async {
+  Future<ErrorCode> createPath(String path) async {
     try {
       isLoading = true;
+
+      if (!DBManager().isAvailable()) {
+        return ErrorCode.dbNoConnection;
+      }
 
       PathData? newPath = await DBManager().createPath(path);
 
@@ -38,9 +43,12 @@ class TagDataProvider with ChangeNotifier {
       notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
+      return ErrorCode.notImplemented;
     } finally {
       isLoading = false;
     }
+
+    return ErrorCode.success;
   }
 
   void updatePath(PathData path) async {
@@ -91,7 +99,7 @@ class TagDataProvider with ChangeNotifier {
     }
   }
 
-  Future<TagData?> createTag(TagData tag) async {
+  Future<Result<TagData>> createTag(TagData tag) async {
     TagData? newTag;
     try {
       isLoading = true;
@@ -106,10 +114,11 @@ class TagDataProvider with ChangeNotifier {
       notifyListeners();
     } catch (_) {
       //TODO : 사용자에게 에러메시지 표시
+      return Result.error(ErrorCode.notImplemented);
     } finally {
       isLoading = false;
     }
-    return null;
+    return Result.ok(newTag);
   }
 
   Future<TagData?> updateTag(TagData tag) async {

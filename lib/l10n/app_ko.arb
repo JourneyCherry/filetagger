@@ -91,5 +91,9 @@
 	"type_datetime_description": "시간 값을 갖는 태그입니다.",
 	"@type_datetime_description":{
 		"description": "타입 설명문. DateTime"
+	},
+	"err_db_no_connection":"DB 연결 실패",
+	"@err_db_no_connection":{
+		"description": "DB 에러. 연결 실패 에러문구"
 	}
 }

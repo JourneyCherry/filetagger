@@ -22,5 +22,6 @@
 	"type_string": "String",
 	"type_string_description": "Tag with string value.",
 	"type_datetime": "Time",
-	"type_datetime_description": "Tag with time value."
+	"type_datetime_description": "Tag with time value.",
+	"err_db_no_connection":"DB Connection failed"
 }

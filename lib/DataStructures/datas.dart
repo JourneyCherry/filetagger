@@ -138,16 +138,16 @@ class PathData {
   String path;
   int ppid;
   bool recursive;
-  List<int> values;
+  Set<int> values;
 
   PathData({
     required this.pid,
     required this.path,
     required this.ppid,
     this.recursive = false,
-    this.values = const [],
+    this.values = const {},
   }) {
-    if (values.isEmpty) values = []; // 수정 가능해야함.
+    if (values.isEmpty) values = {}; // 수정 가능해야함.
   }
 
   @override
@@ -167,7 +167,7 @@ class PathData {
         path = other.path,
         ppid = other.ppid,
         recursive = other.recursive,
-        values = other.values.toList();
+        values = other.values.toSet();
 }
 
 class GlobalData {

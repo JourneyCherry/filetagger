@@ -1,248 +1,154 @@
 import 'package:filetagger/DataStructures/datas.dart';
-import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/error_code.dart';
 import 'package:flutter/material.dart';
 
 class TagDataProvider with ChangeNotifier {
-  bool isLoading = false;
-  Map<int, PathData> pathData = {};
-  Map<int, TagData> tagData = {};
-  Map<int, ValueData> valueData = {};
+  // ignore: prefer_final_fields
+  Map<int, PathData> _pathData = {};
+  // ignore: prefer_final_fields
+  Map<int, TagData> _tagData = {};
+  // ignore: prefer_final_fields
+  Map<int, ValueData> _valueData = {};
 
   TagDataProvider();
 
-  Future<ErrorCode> createPath(String path) async {
-    try {
-      isLoading = true;
+  ErrorCode setPath(PathData data) {
+    _pathData[data.pid] = data;
+    _addNecessaryTag(data);
 
-      if (!DBManager().isAvailable()) {
-        return ErrorCode.dbNoConnection;
-      }
+    notifyListeners();
+    return ErrorCode.success;
+  }
 
-      PathData? newPath = await DBManager().createPath(path);
+  ErrorCode deletePath(int pid) {
+    final removedData = _pathData[pid];
+    if (removedData == null) return ErrorCode.pathNotExist;
+    // 경로에 값이 있으면 삭제 불가
+    if (removedData.values.isNotEmpty) return ErrorCode.valueExist;
 
-      if (newPath == null) {
-        throw Exception('failed to create path'); //TODO : Localization
-      }
+    _pathData.remove(removedData.pid);
 
-      //필수 태그 기본값으로 채워넣기
-      tagData.forEach((_, tag) async {
-        if (tag.necessary) {
-          final newValue = await DBManager().createValue(ValueData.partial(
-              tid: tag.tid, pid: newPath.pid, value: tag.defaultValue));
-          if (newValue != null) {
-            valueData[newValue.vid] = newValue;
-          } else {
-            throw Exception(
-                'failed to create necessary tag(${tag.tid})'); //TODO : Localization
+    notifyListeners();
+    return ErrorCode.success;
+  }
+
+  ErrorCode setTag(TagData tag) {
+    _tagData[tag.tid] = tag;
+    if (tag.necessary) {
+      for (var path in _pathData.values) {
+        // 태그 값이 존재하는지 확인. 하나라도 존재하면 생성하지 않음
+        bool isExistTag = false;
+        for (int vid in path.values) {
+          final value = _valueData[vid];
+          if (value == null) continue;
+          if (value.tid == tag.tid) {
+            isExistTag = true;
+            break;
           }
         }
-      });
-      pathData[newPath.pid] = newPath;
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-      return ErrorCode.notImplemented;
-    } finally {
-      isLoading = false;
+        if (!isExistTag) setDefaultValue(path, tag);
+      }
     }
+
+    notifyListeners();
+    return ErrorCode.success;
+  }
+
+  ErrorCode deleteTag(int tid) {
+    final removedData = _tagData[tid];
+    if (removedData == null) return ErrorCode.tagNotExist;
+    // 태그의 값이 존재하면 삭제 불가
+    for (var value in _valueData.values) {
+      if (value.tid == tid) return ErrorCode.valueExist;
+    }
+
+    _tagData.remove(removedData.tid);
+    notifyListeners();
 
     return ErrorCode.success;
   }
 
-  void updatePath(PathData path) async {
-    try {
-      isLoading = true;
+  ErrorCode setValue(ValueData value) {
+    var path = _pathData[value.pid];
+    if (path == null) return ErrorCode.pathNotExist;
+    var tag = _tagData[value.tid];
+    if (tag == null) return ErrorCode.tagNotExist;
 
-      final newPath = await DBManager().updatePath(path);
-      if (newPath == null) {
-        throw Exception(
-            'failed to update path(${path.pid})'); //TODO : Localization
-      }
-      pathData[newPath.pid] = newPath;
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-    } finally {
-      isLoading = false;
-    }
+    _valueData[value.vid] = value;
+    path.values.add(value.vid); //Set<int>이기 때문에 중복값이 존재하면 삽입하지 않음
+
+    notifyListeners();
+    return ErrorCode.success;
   }
 
-  void deletePath(int pid) async {
-    try {
-      isLoading = true;
-      PathData? path = pathData[pid];
-      if (path == null) return;
+  ErrorCode deleteValue(int vid) {
+    var value = _valueData[vid];
+    if (value == null) return ErrorCode.valueNotExist;
+    var path = _pathData[value.pid];
 
-      Set<int> deletedPid = {};
-      await DBManager().deleteFile(path.pid);
-      deletedPid.add(path.pid);
+    _valueData.remove(value.vid);
+    if (path != null) path.values.remove(value.vid); //path가 존재하지 않아도 삭제는 가능
 
-      //디렉토리인 경우, 하위 파일/디렉토리 삭제
-      pathData.forEach((_, p) async {
-        if (p.ppid == path.pid) {
-          await DBManager().deleteFile(p.pid);
-          deletedPid.add(p.pid);
-        }
-      });
-
-      pathData.removeWhere((pid, _) => deletedPid.contains(pid));
-      valueData.removeWhere((_, value) => deletedPid.contains(value.pid));
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-    } finally {
-      isLoading = false;
-    }
-  }
-
-  Future<Result<TagData>> createTag(TagData tag) async {
-    TagData? newTag;
-    try {
-      isLoading = true;
-
-      newTag = await DBManager().createTag(tag);
-      if (newTag == null) {
-        throw Exception('failed to create tag'); //TODO : Localization
-      }
-
-      tagData[newTag.tid] = newTag;
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-      return Result.error(ErrorCode.notImplemented);
-    } finally {
-      isLoading = false;
-    }
-    return Result.ok(newTag);
-  }
-
-  Future<TagData?> updateTag(TagData tag) async {
-    TagData? newTag;
-    try {
-      isLoading = true;
-
-      //변경하려는 Tag가 duplicable하지 않은 경우, 중복된 태그값을 갖는 파일이 있는지 확인
-      if (!tag.duplicable) {
-        for (PathData path in pathData.values) {
-          int count = 0;
-          for (int vid in path.values) {
-            if (valueData.containsKey(vid) && valueData[vid]!.tid == tag.tid) {
-              count++;
-            }
-          }
-          if (count > 1) {
-            throw Exception(
-                'Tag Property violation : it\'s not duplicable in file(${path.path})'); //TODO : Localization
-          }
-        }
-      }
-
-      newTag = await DBManager().updateTag(tag);
-      if (newTag == null) {
-        throw Exception(
-            'failed to update Tag(${tag.tid})'); //TODO : Localization
-      }
-
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-    } finally {
-      isLoading = false;
-    }
-    return null;
-  }
-
-  void deleteTag(int tid) async {
-    try {
-      isLoading = true;
-
-      await DBManager().deleteTag(tid);
-
-      //해당 태그의 값들 모두 삭제
-      Set<int> deletedVid = {};
-      for (ValueData value in valueData.values) {
-        if (value.tid == tid) {
-          await DBManager().deleteValue(value.vid);
-          pathData[value.pid]!.values.remove(value.vid);
-          deletedVid.add(value.vid);
-        }
-      }
-      valueData.removeWhere((vid, _) => deletedVid.contains(vid));
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-    } finally {
-      isLoading = false;
-    }
-  }
-
-  Future<ValueData?> createValue(ValueData value) async {
-    try {
-      isLoading = true;
-      ValueData? newValue = await DBManager().createValue(value);
-      if (newValue == null) {
-        throw Exception('failed to create value'); //TODO : Localization
-      }
-      valueData[newValue.vid] = newValue;
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-    } finally {
-      isLoading = false;
-    }
-    return null;
-  }
-
-  void updateValue(ValueData value) async {
-    try {
-      isLoading = true;
-
-      //TODO : 추가하려는 PathData에 non-duplicable한 Tag의 value가 있는지 확인
-      ValueData? newValue = await DBManager().updateValue(value);
-      if (newValue == null) {
-        throw Exception(
-            'failed to update Value${value.vid}'); //TODO : Localization
-      }
-
-      valueData[newValue.vid] = newValue;
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-    } finally {
-      isLoading = false;
-    }
-  }
-
-  Future<bool> deleteValue(int vid) async {
-    try {
-      isLoading = true;
-
-      await DBManager().deleteValue(vid);
-      valueData.remove(vid);
-
-      isLoading = false;
-      notifyListeners();
-    } catch (_) {
-      //TODO : 사용자에게 에러메시지 표시
-    } finally {
-      isLoading = false;
-    }
-    return true;
+    notifyListeners();
+    return ErrorCode.success;
   }
 
   void clear() {
-    pathData.clear();
-    tagData.clear();
-    valueData.clear();
+    _pathData.clear();
+    _tagData.clear();
+    _valueData.clear();
     notifyListeners();
+  }
+
+  void _addNecessaryTag(PathData path) {
+    // 태그 값 수량 계산
+    Map<int, int> tagCount = _getTagCount(path.values);
+
+    for (var tag in _tagData.values) {
+      if (!tag.necessary) continue;
+      if ((tagCount[tag.tid] ?? 0) == 0) {
+        setDefaultValue(path, tag);
+      }
+    }
+  }
+
+  Map<int, int> _getTagCount(Set<int> values) {
+    Map<int, int> tagCount = {};
+    for (var vid in values) {
+      final tid = _valueData[vid]?.tid ?? -1;
+      if (tid >= 0) tagCount[tid] = (tagCount[tid] ?? 0) + 1;
+    }
+
+    return tagCount;
+  }
+
+  void setDefaultValue(PathData path, TagData tag) {
+    if (!_pathData.containsKey(path.pid)) return;
+    final newVid = getNewVID();
+    _valueData[newVid] = ValueData(
+      vid: newVid,
+      pid: path.pid,
+      tid: tag.tid,
+      value: tag.defaultValue,
+    );
+    _pathData[path.pid]!.values.add(newVid);
+  }
+
+  int getNewPID() => _getNewID(_pathData);
+  int getNewTID() => _getNewID(_tagData);
+  int getNewVID() => _getNewID(_valueData);
+  int _getNewID<T>(Map<int, T> data) {
+    if (data.isEmpty) return 1;
+    int newVid = data.keys.last + 1;
+    final startVid = newVid;
+
+    // 중복 회피 및 음수 회피
+    while (data.containsKey(newVid) || newVid < 0) {
+      newVid += 1;
+      if (newVid == startVid) throw Exception("Full of Value ID");
+      if (newVid < 0) newVid = 1;
+    }
+
+    return newVid;
   }
 }

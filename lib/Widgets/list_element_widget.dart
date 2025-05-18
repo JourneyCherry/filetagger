@@ -92,7 +92,7 @@ class ListElementWidget extends StatelessWidget {
                       ),
                     );
                   } else {
-                    final vid = pathData.values[index];
+                    final vid = pathData.values.elementAt(index);
                     //final valueData = globalData.getValue(vid)!;
                     //final tagData = globalData.getTag(valueData.tid)!;
                     final valueData = globalData.getValue(vid);

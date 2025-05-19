@@ -4,13 +4,20 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 enum ErrorCode {
   success,
   notImplemented,
+  pathIDInvalid, //허용되지 않은 경로 ID
   pathNotExist, //없는 경로
   pathExist, //존재하는 경로
+  pathDuplicated, //중복된 경로
+  tagIDInvalid, //허용되지 않은 태그 ID
+  tagTypeInvalid, //허용되지 않은 태그 타입
   tagNotExist, //없는 태그
   tagExist, //존재하는 태그
   tagDuplicated, //중복된 태그
+  valueIDInvalid, //허용되지 않은 값 ID
+  valueValueInvalid, //허용되지 않은 값
   valueNotExist, //없는 값
   valueExist, //존재하는 값
+  valueDuplicated, //중복된 값
   dbNoConnection,
 }
 

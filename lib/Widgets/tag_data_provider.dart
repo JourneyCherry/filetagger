@@ -1,38 +1,126 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/error_code.dart';
+import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter/material.dart';
 
 class TagDataProvider with ChangeNotifier {
-  // ignore: prefer_final_fields
+  // Id 기록을 위한 변수
+  int _curPid = 1;
+  int _curTid = 1;
+  int _curVid = 1;
+
+  // 실제 데이터
   Map<int, PathData> _pathData = {};
-  // ignore: prefer_final_fields
   Map<int, TagData> _tagData = {};
-  // ignore: prefer_final_fields
   Map<int, ValueData> _valueData = {};
+
+  // 빠른 접근을 위한 캐싱 데이터
+  Map<String, int> _path2pid = {};
 
   TagDataProvider();
 
+  ErrorCode initialize({
+    required List<PathData> pathList,
+    required List<TagData> tagList,
+    required List<ValueData> valueList,
+  }) {
+    Map<int, PathData> pathData = {};
+    Map<int, TagData> tagData = {};
+    Map<int, ValueData> valueData = {};
+    Map<String, int> path2pid = {};
+
+    // Mapping
+    for (PathData path in pathList) {
+      if (path.pid <= 0) return ErrorCode.pathIDInvalid;
+      if (pathData.containsKey(path.pid)) return ErrorCode.pathDuplicated;
+      pathData[path.pid] = path;
+      if (path2pid.containsKey(path.path)) return ErrorCode.pathDuplicated;
+    }
+    for (TagData tag in tagList) {
+      if (tag.tid <= 0) return ErrorCode.tagIDInvalid;
+      if (tagData.containsKey(tag.tid)) return ErrorCode.tagDuplicated;
+      if (!Types.isParsable(tag.type, tag.defaultValue)) {
+        return ErrorCode.valueValueInvalid;
+      }
+      tag.defaultValue = Types.parseString(tag.type, tag.defaultValue);
+      tagData[tag.tid] = tag;
+    }
+    for (ValueData value in valueList) {
+      if (value.pid <= 0) return ErrorCode.pathIDInvalid;
+      if (value.tid <= 0) return ErrorCode.tagIDInvalid;
+      if (value.vid <= 0) return ErrorCode.valueIDInvalid;
+      if (valueData.containsKey(value.vid)) return ErrorCode.valueDuplicated;
+      valueData[value.vid] = value;
+    }
+
+    // Check
+    ErrorCode result;
+    for (PathData path in pathData.values) {
+      result = _verifyPath(path);
+      if (result != ErrorCode.success) return result;
+    }
+    for (TagData tag in tagData.values) {
+      result = _verifyTag(tag);
+      if (result != ErrorCode.success) return result;
+    }
+    for (ValueData value in valueData.values) {
+      result = _verifyValue(value);
+      if (result != ErrorCode.success) return result;
+    }
+
+    // Set Data
+    _pathData = pathData;
+    _tagData = tagData;
+    _valueData = valueData;
+    _path2pid = path2pid;
+
+    // Notify and Return
+    notifyListeners();
+    return ErrorCode.success;
+  }
+
   ErrorCode setPath(PathData data) {
+    // Check
+    ErrorCode verifyResult = _verifyPath(data);
+    if (verifyResult != ErrorCode.success) return verifyResult;
+
+    // Set Data
     _pathData[data.pid] = data;
+    _path2pid[data.path] = data.pid;
     _addNecessaryTag(data);
 
+    // Notify and Return
     notifyListeners();
     return ErrorCode.success;
   }
 
   ErrorCode deletePath(int pid) {
-    final removedData = _pathData[pid];
-    if (removedData == null) return ErrorCode.pathNotExist;
+    final path = _pathData[pid];
+
+    // Check
+    if (path == null) return ErrorCode.pathNotExist;
     // 경로에 값이 있으면 삭제 불가
-    if (removedData.values.isNotEmpty) return ErrorCode.valueExist;
+    if (path.values.isNotEmpty) return ErrorCode.valueExist;
+    if (!_path2pid.containsKey(path.path)) {
+      return ErrorCode.pathNotExist;
+    }
+    //if (_path2pid[_pathData[pid]!.path] != pid) return ErrorCode.pathIDInvalid; //이미 잘못 들어간 데이터는 무시
 
-    _pathData.remove(removedData.pid);
+    // Set Data
+    _path2pid.remove(path.path);
+    _pathData.remove(pid);
 
+    // Notify and Return
     notifyListeners();
     return ErrorCode.success;
   }
 
   ErrorCode setTag(TagData tag) {
+    // Check
+    ErrorCode verifyResult = _verifyTag(tag);
+    if (verifyResult != ErrorCode.success) return verifyResult;
+
+    // Set Data
     _tagData[tag.tid] = tag;
     if (tag.necessary) {
       for (var path in _pathData.values) {
@@ -50,45 +138,56 @@ class TagDataProvider with ChangeNotifier {
       }
     }
 
+    // Notify and Return
     notifyListeners();
     return ErrorCode.success;
   }
 
   ErrorCode deleteTag(int tid) {
-    final removedData = _tagData[tid];
-    if (removedData == null) return ErrorCode.tagNotExist;
-    // 태그의 값이 존재하면 삭제 불가
+    final tag = _tagData[tid];
+
+    // Check
+    if (tag == null) return ErrorCode.tagNotExist;
     for (var value in _valueData.values) {
+      // 태그의 값이 존재하면 삭제 불가
       if (value.tid == tid) return ErrorCode.valueExist;
     }
 
-    _tagData.remove(removedData.tid);
-    notifyListeners();
+    // Set Data
+    _tagData.remove(tag.tid);
 
+    // Notify and Return
+    notifyListeners();
     return ErrorCode.success;
   }
 
   ErrorCode setValue(ValueData value) {
-    var path = _pathData[value.pid];
-    if (path == null) return ErrorCode.pathNotExist;
-    var tag = _tagData[value.tid];
-    if (tag == null) return ErrorCode.tagNotExist;
+    // Check
+    ErrorCode verifyResult = _verifyValue(value);
+    if (verifyResult != ErrorCode.success) return verifyResult;
 
+    // Set Data
     _valueData[value.vid] = value;
-    path.values.add(value.vid); //Set<int>이기 때문에 중복값이 존재하면 삽입하지 않음
+    _pathData[value.pid]!
+        .values
+        .add(value.vid); //Set<int>이기 때문에 중복값이 존재하면 삽입하지 않음
 
+    // Notify and Return
     notifyListeners();
     return ErrorCode.success;
   }
 
   ErrorCode deleteValue(int vid) {
-    var value = _valueData[vid];
+    // Check
+    final value = _valueData[vid];
     if (value == null) return ErrorCode.valueNotExist;
-    var path = _pathData[value.pid];
+    final path = _pathData[value.pid];
 
+    // Set Data
     _valueData.remove(value.vid);
     if (path != null) path.values.remove(value.vid); //path가 존재하지 않아도 삭제는 가능
 
+    // Notify and Return
     notifyListeners();
     return ErrorCode.success;
   }
@@ -134,21 +233,60 @@ class TagDataProvider with ChangeNotifier {
     _pathData[path.pid]!.values.add(newVid);
   }
 
-  int getNewPID() => _getNewID(_pathData);
-  int getNewTID() => _getNewID(_tagData);
-  int getNewVID() => _getNewID(_valueData);
-  int _getNewID<T>(Map<int, T> data) {
-    if (data.isEmpty) return 1;
-    int newVid = data.keys.last + 1;
-    final startVid = newVid;
+  ErrorCode _verifyPath(PathData? path) {
+    if (path == null) return ErrorCode.pathNotExist;
+    if (path.pid <= 0) return ErrorCode.pathIDInvalid;
+    if (path.ppid > 0 && !_pathData.containsKey(path.ppid)) {
+      // 부모 경로가 있는 경우 검증
+      return ErrorCode.pathNotExist;
+    }
+    if (_pathData.containsKey(path.pid)) {
+      if (!_path2pid.containsKey(path.path)) return ErrorCode.pathNotExist;
+      if (_path2pid[path.path] != path.pid) return ErrorCode.pathExist;
+    } else {
+      if (_path2pid.containsKey(path.path)) return ErrorCode.pathDuplicated;
+    }
+    return ErrorCode.success;
+  }
 
-    // 중복 회피 및 음수 회피
-    while (data.containsKey(newVid) || newVid < 0) {
-      newVid += 1;
-      if (newVid == startVid) throw Exception("Full of Value ID");
-      if (newVid < 0) newVid = 1;
+  ErrorCode _verifyTag(TagData? tag) {
+    if (tag == null) return ErrorCode.tagNotExist;
+    if (tag.tid <= 0) return ErrorCode.tagIDInvalid;
+    if (!ValueType.values.contains(tag.type)) return ErrorCode.tagTypeInvalid;
+    if (!Types.verify(tag.type, tag.defaultValue)) {
+      return ErrorCode.valueValueInvalid;
+    }
+    return ErrorCode.success;
+  }
+
+  ErrorCode _verifyValue(ValueData? value) {
+    if (value == null) return ErrorCode.valueNotExist;
+    if (!_pathData.containsKey(value.pid)) return ErrorCode.pathNotExist;
+    final tag = _tagData[value.tid];
+    if (tag == null) return ErrorCode.tagNotExist;
+    if (!Types.verify(tag.type, value.value)) {
+      if (!Types.isParsable(tag.type, value.value)) {
+        return ErrorCode.valueValueInvalid;
+      }
+      value.value = Types.parseString(tag.type, value.value);
     }
 
-    return newVid;
+    return ErrorCode.success;
+  }
+
+  int getNewPID() => _curPid = _getNewID(_curPid, _pathData);
+  int getNewTID() => _curTid = _getNewID(_curTid, _tagData);
+  int getNewVID() => _curVid = _getNewID(_curVid, _valueData);
+  int _getNewID<T>(int curId, Map<int, T> data) {
+    final startVid = curId;
+
+    // 중복 회피 및 음수 회피
+    while (data.containsKey(curId) || curId <= 0) {
+      curId += 1;
+      if (curId == startVid) throw Exception("Full of Value ID");
+      if (curId < 0) curId = 1;
+    }
+
+    return curId;
   }
 }

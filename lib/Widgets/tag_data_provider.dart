@@ -289,4 +289,14 @@ class TagDataProvider with ChangeNotifier {
 
     return curId;
   }
+
+  PathData? getPath(int pid) => _pathData[pid];
+  TagData? getTag(int tid) => _tagData[tid];
+  ValueData? getValue(int vid) => _valueData[vid];
+
+  List<PathData> getPathAll() => _pathData.values.toList();
+  List<TagData> getTagAll() => _tagData.values.toList();
+  List<ValueData> getValueAll() => _valueData.values.toList();
+
+  int getTagCount() => _tagData.length;
 }

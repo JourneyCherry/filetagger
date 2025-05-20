@@ -1,16 +1,16 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/Widgets/list_element_widget.dart';
+import 'package:filetagger/Widgets/tag_data_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 
 class ListWidget extends StatelessWidget {
-  final GlobalData globalData;
   final Set<int> selectedIndices;
   final void Function(int)? onTap;
   final VoidCallback? onValueChanged;
   const ListWidget({
     super.key,
-    required this.globalData,
     this.selectedIndices = const {},
     this.onTap,
     this.onValueChanged,
@@ -22,18 +22,19 @@ class ListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (globalData.pathData.isEmpty) return getEmptyWidget(context);
+    final pathList = context.select<TagDataProvider, List<PathData>>(
+        (provider) => provider.getPathAll());
+    if (pathList.isEmpty) return getEmptyWidget(context);
     return ListView.builder(
-      itemCount: globalData.pathData.length,
+      itemCount: pathList.length,
       itemBuilder: (context, index) {
-        final data = globalData.pathData.values.elementAt(index);
+        final data = pathList.elementAt(index);
         return ListElementWidget(
           pid: data.pid,
-          globalData: globalData,
           onTap: () => onTap?.call(data.pid),
           onSuccess: onValueChanged,
           isSelected: selectedIndices.contains(data.pid),
-          isNotExist: !globalData.trackingPath.contains(data.path),
+          isNotExist: false, //TODO : PathManager에서 트래킹 중인지 확인
         );
       },
     );

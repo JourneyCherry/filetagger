@@ -22,8 +22,11 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<TagDataProvider>(
-      create: (_) => TagDataProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<TagDataProvider>(
+            create: (_) => TagDataProvider()),
+      ],
       child: MaterialApp(
         localizationsDelegates: [
           AppLocalizations.delegate,
@@ -61,7 +64,6 @@ enum ViewType { list, icon }
 class _MyMainWidgetState extends State<MyMainWidget> {
   String? appTitle;
   ViewType viewType = ViewType.list;
-  GlobalData globalData = GlobalData();
   bool isSingleSelect = true;
   Set<int> selectedIndices = {};
 
@@ -69,7 +71,6 @@ class _MyMainWidgetState extends State<MyMainWidget> {
   void _loadItems(String rootPath) async {
     //초기화
     PathManager().setRootPath(rootPath);
-    globalData.clear();
     selectedIndices.clear();
     DirectoryReader().close();
     await DBManager().closeDatabase();

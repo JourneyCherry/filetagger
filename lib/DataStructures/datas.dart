@@ -169,28 +169,3 @@ class PathData {
         recursive = other.recursive,
         values = other.values.toSet();
 }
-
-class GlobalData {
-  Map<int, PathData> pathData = {};
-  Map<int, TagData> tagData = {};
-  Map<int, ValueData> valueData = {};
-  Set<String> trackingPath = {};
-
-  GlobalData();
-
-  PathData? getPath(int pid) => pathData[pid];
-  TagData? getTag(int tid) => tagData[tid];
-  ValueData? getValue(int vid) => valueData[vid];
-  int? getDataFromPath(String path) {
-    for (var pData in pathData.values) {
-      if (pData.path == path) return pData.pid;
-    }
-    return null;
-  }
-
-  void clear() {
-    pathData.clear();
-    tagData.clear();
-    tagData.clear();
-  }
-}

@@ -1,15 +1,17 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
+import 'package:filetagger/DataStructures/error_code.dart';
+import 'package:filetagger/Widgets/tag_data_provider.dart';
 import 'package:filetagger/Widgets/tag_icon_widget.dart';
 import 'package:filetagger/Widgets/tag_widget.dart';
 import 'package:filetagger/Widgets/value_edit_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class ListElementWidget extends StatelessWidget {
   static final Color notExistColor = Colors.red.withValues(alpha: 0.3);
   static final Color selectedColor = Colors.blue.withValues(alpha: 0.3);
   final int pid;
-  final GlobalData globalData;
   final VoidCallback? onTap;
   final VoidCallback? onSuccess;
   final bool isSelected;
@@ -17,7 +19,6 @@ class ListElementWidget extends StatelessWidget {
   const ListElementWidget({
     super.key,
     required this.pid,
-    required this.globalData,
     required this.onTap,
     required this.isSelected,
     required this.isNotExist,
@@ -30,7 +31,11 @@ class ListElementWidget extends StatelessWidget {
     Color sc = isSelected ? selectedColor : Colors.transparent;
     Color color = Color.alphaBlend(nec, sc);
 
-    final pathData = globalData.pathData[pid]!;
+    final pathData = context.select<TagDataProvider, PathData?>(
+        (provider) => provider.getPath(pid));
+    if (pathData == null) {
+      return Container();
+    }
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -53,7 +58,8 @@ class ListElementWidget extends StatelessWidget {
                       child: TagIconWidget(
                         texts: [RichString('+', bold: true)],
                         onPressed: () {
-                          if (globalData.tagData.isEmpty) {
+                          if (context.read<TagDataProvider>().getTagCount() ==
+                              0) {
                             // 태그가 없으면 값을 등록할 수 없으니 경고창 띄우기
                             showDialog(
                               context: itemBuilderContext,
@@ -69,19 +75,20 @@ class ListElementWidget extends StatelessWidget {
                               context: itemBuilderContext,
                               builder: (dialogBuildContext) => ValueEditDialog(
                                 buttonText: 'add', //TODO : Localization
-                                globalData: globalData,
                                 onPressed: (value) async {
                                   value.pid = pid;
-                                  final newValue =
-                                      await DBManager().createValue(value);
-                                  if (newValue == null) {
+                                  ErrorCode ec = dialogBuildContext
+                                      .read<TagDataProvider>()
+                                      .setValue(value);
+                                  if (ec != ErrorCode.success) {
                                     //TODO : 추가 실패 메시지 띄우기
                                     return false;
                                   }
-                                  value = newValue;
-                                  globalData.valueData[value.vid] = value;
-                                  globalData.pathData[value.pid]!.values
-                                      .add(value.vid);
+                                  ec = await DBManager().setValue(value);
+                                  if (ec != ErrorCode.success) {
+                                    //TODO : 추가 실패 메시지 띄우기
+                                    return false;
+                                  }
                                   onSuccess?.call();
                                   return true;
                                 },
@@ -93,11 +100,13 @@ class ListElementWidget extends StatelessWidget {
                     );
                   } else {
                     final vid = pathData.values.elementAt(index);
-                    //final valueData = globalData.getValue(vid)!;
-                    //final tagData = globalData.getTag(valueData.tid)!;
-                    final valueData = globalData.getValue(vid);
+                    final valueData =
+                        itemBuilderContext.select<TagDataProvider, ValueData?>(
+                            (provider) => provider.getValue(vid));
                     if (valueData == null) return null;
-                    final tagData = globalData.getTag(valueData.tid);
+                    final tagData =
+                        itemBuilderContext.select<TagDataProvider, TagData?>(
+                            (provider) => provider.getTag(valueData.tid));
                     if (tagData == null) return null;
                     return TagWidget(
                       tag: tagData,
@@ -107,17 +116,22 @@ class ListElementWidget extends StatelessWidget {
                         showDialog(
                           context: itemBuilderContext,
                           builder: (dialogBuildContext) => ValueEditDialog(
-                            buttonText: 'modify', //TODO : Localization
-                            globalData: globalData,
+                            buttonText: 'modify',
                             valueData: curValue,
                             onPressed: (value) async {
-                              if (await DBManager().updateValue(value) ==
-                                  false) {
+                              //다이얼로그가 종료되면 더이상 다이얼로그가 표시되지 않으므로 갱신하지 않음
+                              ErrorCode ec = dialogBuildContext
+                                  .read<TagDataProvider>()
+                                  .setValue(value);
+                              if (ec != ErrorCode.success) {
                                 //TODO : 수정 실패 메시지 띄우기
                                 return false;
                               }
-                              globalData.valueData[value.vid] = value;
-                              //vid가 바뀌진 않으므로, globalData.PathData[vid].values를 수정할 필요는 없다.
+                              ec = await DBManager().setValue(value);
+                              if (ec != ErrorCode.success) {
+                                //TODO : 수정 실패 메시지 띄우기
+                                return false;
+                              }
                               onSuccess?.call();
                               return true;
                             },

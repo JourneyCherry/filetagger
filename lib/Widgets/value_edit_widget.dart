@@ -1,15 +1,15 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:filetagger/Widgets/editable_text_widget.dart';
+import 'package:filetagger/Widgets/tag_data_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class ValueEditWidget extends StatefulWidget {
   final ValueData value;
-  final Map<int, TagData> tags;
   final void Function(ValueData)? onChanged;
   const ValueEditWidget({
     super.key,
-    required this.tags,
     required this.value,
     this.onChanged,
   });
@@ -24,15 +24,19 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
   @override
   void initState() {
     super.initState();
-    if (widget.value.tid <= 0) {
-      widget.value.tid = widget.tags.keys.first;
-    }
     _textEditingController =
         TextEditingController(text: widget.value.value?.toString());
   }
 
   @override
   Widget build(BuildContext context) {
+    final tagList = context.select<TagDataProvider, List<TagData>>(
+        (provider) => provider.getTagAll());
+    if (widget.value.tid <= 0) {
+      widget.value.tid = tagList.first.tid;
+    }
+    final tag = context.select<TagDataProvider, TagData?>(
+        (provider) => provider.getTag(widget.value.tid));
     return LayoutBuilder(
       builder: (layoutBuilderContext, constraints) => SizedBox(
         width: constraints.maxWidth,
@@ -44,7 +48,7 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
               child: DropdownButton(
                 isExpanded: true,
                 alignment: Alignment.centerLeft,
-                items: widget.tags.values
+                items: tagList
                     .map(
                       (tag) => DropdownMenuItem(
                         value: tag.tid,
@@ -54,7 +58,7 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
                     .toList(),
                 value: widget.value.tid,
                 onChanged: (value) {
-                  widget.value.tid = value ?? widget.tags.keys.first;
+                  widget.value.tid = value ?? tagList.first.tid;
                   setState(() => widget.onChanged?.call(widget.value));
                 },
               ),
@@ -64,16 +68,13 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
               child: EditableTextWidget(
                 controller: _textEditingController,
                 onSaved: (str) {
-                  widget.value.value = Types.parseString(
-                      widget.tags[widget.value.tid]?.type ?? ValueType.label,
-                      str);
+                  widget.value.value =
+                      Types.parseString(tag?.type ?? ValueType.label, str);
                   setState(() => widget.onChanged?.call(widget.value));
                 },
                 isValid: (value) => Types.isParsable(
-                    widget.tags[widget.value.tid]?.type ?? ValueType.label,
-                    _textEditingController.text),
-                defaultString: Types.parseString(
-                        widget.tags[widget.value.tid]?.type ?? ValueType.label,
+                    tag?.type ?? ValueType.label, _textEditingController.text),
+                defaultString: Types.parseString(tag?.type ?? ValueType.label,
                         _textEditingController.text)
                     .toString(),
               ),

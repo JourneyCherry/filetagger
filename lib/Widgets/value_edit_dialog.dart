@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 class ValueEditDialog extends StatefulWidget {
   final FutureOr<bool> Function(ValueData)? onPressed;
   final String buttonText;
-  final GlobalData globalData;
 
   /// 다이얼로그에서 처리하는 ValueData가 의존하는 PathData. [valueData]가 입력되면 해당 값의 pid를 우선한다.
   final PathData? pathData;
@@ -19,7 +18,6 @@ class ValueEditDialog extends StatefulWidget {
     super.key,
     this.onPressed,
     required this.buttonText,
-    required this.globalData,
     this.valueData,
     this.pathData,
   });
@@ -58,7 +56,6 @@ class _ValueEditDialogState extends State<ValueEditDialog> {
           children: [
             ValueColumnNameWidget(),
             ValueEditWidget(
-              tags: widget.globalData.tagData,
               value: valueData,
               onChanged: (newValue) {
                 setState(() {

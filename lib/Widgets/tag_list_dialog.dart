@@ -96,6 +96,7 @@ class _TagListDialogState extends State<TagListDialog> {
           onPressed: () => setState(() {
             widget.controller.value
                 .add(TagData.partial(order: widget.controller.value.length));
+            //TODO : context.read<TagDataProvider>().setTag(...)
             reorder();
           }),
           child: Text(AppLocalizations.of(context)!.tag_add),

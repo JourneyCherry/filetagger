@@ -171,8 +171,8 @@ class _MyMainWidgetState extends State<MyMainWidget> {
               leading: Icon(Icons.tag),
               title: Text(AppLocalizations.of(context)!.tagList),
               onTap: () {
-                TagListController controller =
-                    TagListController(globalData.tagData.values.toList());
+                final srcTagList = context.read<TagDataProvider>().getTagAll();
+                TagListController controller = TagListController(srcTagList);
                 TagListDialog dialog = TagListDialog(controller: controller);
                 Navigator.pop(context);
                 showDialog(
@@ -180,70 +180,7 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                   builder: (BuildContext context) {
                     return dialog;
                   },
-                ).then((_) {
-                  Set<int> deletedTID =
-                      Set.from(globalData.tagData.keys.toList());
-                  List<Future> futures = [];
-                  for (var tag in controller.value) {
-                    deletedTID.remove(tag.tid);
-                    if (globalData.tagData
-                        .containsKey(tag.tid)) //이미 존재하는 tid면 태그 정보 수정
-                    {
-                      if (!globalData.tagData[tag.tid]!.isSameData(tag)) {
-                        //데이터가 달라질 경우에만 DB에 기록
-                        futures.add(
-                            DBManager().updateTag(tag).then((result) async {
-                          if (result != null) {
-                            final newValues =
-                                await DBManager().checkNecessaryTag(tag);
-                            globalData.tagData[tag.tid] = tag;
-                            for (ValueData value in newValues) {
-                              globalData.valueData[value.vid] = value;
-                            }
-                          } else {
-                            //TODO : 유저에게 DB 저장 실패했다고 notify 띄우기
-                          }
-                        }));
-                      }
-                    } else //존재하지 않으면 새 tid 발급 및 태그 추가
-                    {
-                      futures
-                          .add(DBManager().createTag(tag).then((newTag) async {
-                        if (newTag != null) {
-                          final newValues =
-                              await DBManager().checkNecessaryTag(tag);
-                          globalData.tagData[newTag.tid] = newTag;
-                          for (ValueData value in newValues) {
-                            globalData.valueData[value.vid] = value;
-                          }
-                        } else {
-                          //TODO : 유저에게 DB 저장 실패했다고 notify 띄우기
-                        }
-                      }));
-                    }
-                  }
-                  //Tag, Value 삭제
-                  for (int delTid in deletedTID) {
-                    futures.add(DBManager().deleteTag(delTid).then((_) {
-                      globalData.tagData.remove(delTid);
-                      globalData.valueData
-                          .removeWhere((_, value) => value.tid == delTid);
-                    }));
-                  }
-                  Future.wait(futures).then((_) {
-                    setState(() {
-                      //데이터가 사라졌다면 Tag 삭제
-                      if (deletedTID.isNotEmpty) {
-                        //Path에 포함된 Value Relation 삭제
-                        for (PathData path in globalData.pathData.values) {
-                          path.values.removeWhere(
-                              (vid) => !globalData.valueData.containsKey(vid));
-                        }
-                      }
-                    });
-                  });
-                  controller.dispose();
-                });
+                );
               },
             ),
             ListTile(
@@ -270,14 +207,12 @@ class _MyMainWidgetState extends State<MyMainWidget> {
                 switch (viewType) {
                   case ViewType.list:
                     return ListWidget(
-                      globalData: globalData,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
                       onValueChanged: () => setState(() {}),
                     );
                   case ViewType.icon:
                     return ListWidget(
-                      globalData: globalData,
                       selectedIndices: selectedIndices,
                       onTap: _selectItem,
                       onValueChanged: () => setState(() {}),

@@ -9,9 +9,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DBManager {
   static const String dbMgrFileName = '.tagdb';
-  static const String _fileTableName = 'files';
-  static const String _taginfoTableName = 'taginfo';
-  static const String _tagTableName = 'tags';
+  static const String _pathTableName = 'path_table';
+  static const String _tagTableName = 'tag_table';
+  static const String _valueTableName = 'value_table';
   Database? _database;
 
   static final DBManager _instance = DBManager._internal();
@@ -32,19 +32,21 @@ class DBManager {
     _database = await openDatabase(
       dbPath,
       version: 1,
-      onConfigure: (db) async =>
-          await db.execute('PRAGMA foreign_keys = 1'), //외래키 활성화
+      onConfigure: (db) async => await db.execute('''
+            PRAGMA journal_mode = WAL;
+            PRAGMA busy_timeout = 5000;
+          '''), //외래키 활성화
       onCreate: (db, version) async {
         await db.execute('''
-          CREATE TABLE $_fileTableName (
+          CREATE TABLE $_pathTableName (
             pid INTEGER PRIMARY KEY,
             path TEXT NOT NULL UNIQUE,
-            ppid INTEGER NOT NULL,
+            ppid INTEGER NOT NULL DEFAULT 0,
             recursive INTEGER NOT NULL DEFAULT 0
           )
         ''');
         await db.execute('''
-          CREATE TABLE $_taginfoTableName (
+          CREATE TABLE $_tagTableName (
             tid INTEGER PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
             type INTEGER NOT NULL DEFAULT 0,
@@ -57,10 +59,10 @@ class DBManager {
           )
         ''');
         await db.execute('''
-          CREATE TABLE $_tagTableName (
+          CREATE TABLE $_valueTableName (
             vid INTEGER PRIMARY KEY,
-            pid INTEGER,
-            tid INTEGER,
+            pid INTEGER NOT NULL,
+            tid INTEGER NOT NULL,
             value TEXT,
           )
         ''');
@@ -82,9 +84,9 @@ class DBManager {
     return _database!.isOpen;
   }
 
-  Future<Result<List<PathData>>> getPath() async {
+  Future<Result<List<PathData>>> getPaths() async {
     if (!isAvailable()) return Result.error(ErrorCode.dbNoConnection);
-    final paths = await _database!.query(_fileTableName);
+    final paths = await _database!.query(_pathTableName);
     List<PathData> result = List.from(paths.map((Map<String, Object?> columns) {
       PathData path = PathData(
         pid: columns['pid'] as int,
@@ -103,7 +105,7 @@ class DBManager {
     if (_database == null) return ErrorCode.dbNoConnection;
     return await _database!.transaction((txn) async {
       final updatedRowCount = await txn.update(
-        _fileTableName,
+        _pathTableName,
         {
           'path': path.path,
           'ppid': path.ppid,
@@ -114,7 +116,7 @@ class DBManager {
       );
       if (updatedRowCount == 0) {
         await txn.insert(
-          _fileTableName,
+          _pathTableName,
           {
             'pid': path.pid,
             'path': path.path,
@@ -131,7 +133,7 @@ class DBManager {
   Future<ErrorCode> removePath(int pid) async {
     if (!isAvailable()) return ErrorCode.dbNoConnection;
     await _database!.delete(
-      _fileTableName,
+      _pathTableName,
       where: 'id = ?',
       whereArgs: [pid],
     );
@@ -142,7 +144,7 @@ class DBManager {
   // 태그 가져오기. 단, defaultValue는 항상 String이다.
   Future<Result<List<TagData>>> getTag() async {
     if (!isAvailable()) return Result.error(ErrorCode.dbNoConnection);
-    final tags = await _database!.query(_taginfoTableName);
+    final tags = await _database!.query(_tagTableName);
     List<TagData> result = List.from(tags.map((Map<String, Object?> columns) {
       TagData tag = TagData(
         tid: columns['tid'] as int,
@@ -166,7 +168,7 @@ class DBManager {
     if (!isAvailable()) return ErrorCode.dbNoConnection;
     return await _database!.transaction((txn) async {
       final updatedRowCount = await _database!.update(
-        _taginfoTableName,
+        _tagTableName,
         {
           'name': tag.name,
           'type': tag.type.index,
@@ -182,7 +184,7 @@ class DBManager {
       );
       if (updatedRowCount == 0) {
         await _database!.insert(
-          _taginfoTableName,
+          _tagTableName,
           {
             'tid': tag.tid,
             'name': tag.name,
@@ -203,7 +205,7 @@ class DBManager {
   Future<ErrorCode> removeTag(int tid) async {
     if (!isAvailable()) return ErrorCode.dbNoConnection;
     await _database!.delete(
-      _taginfoTableName,
+      _tagTableName,
       where: 'id = ?',
       whereArgs: [tid],
     );
@@ -214,7 +216,7 @@ class DBManager {
   // 값 목록 가져오기. 단, value는 항상 String이다.
   Future<Result<List<ValueData>>> getValue() async {
     if (!isAvailable()) return Result.error(ErrorCode.dbNoConnection);
-    final tags = await _database!.query(_tagTableName);
+    final tags = await _database!.query(_valueTableName);
     List<ValueData> result = List.from(tags.map((Map<String, Object?> columns) {
       ValueData tag = ValueData(
         vid: columns['vid'] as int,
@@ -234,7 +236,7 @@ class DBManager {
     if (!isAvailable()) return ErrorCode.dbNoConnection;
     return await _database!.transaction((txn) async {
       final updatedRowCount = await _database!.update(
-        _tagTableName,
+        _valueTableName,
         {
           'tid': value.tid,
           'pid': value.pid,
@@ -245,7 +247,7 @@ class DBManager {
       );
       if (updatedRowCount == 0) {
         await _database!.insert(
-          _tagTableName,
+          _valueTableName,
           {
             'vid': value.vid,
             'tid': value.tid,
@@ -262,7 +264,7 @@ class DBManager {
   Future<ErrorCode> removeValue(int vid) async {
     if (!isAvailable()) return ErrorCode.dbNoConnection;
     await _database!.delete(
-      _tagTableName,
+      _valueTableName,
       where: 'vid = ?',
       whereArgs: [vid],
     );

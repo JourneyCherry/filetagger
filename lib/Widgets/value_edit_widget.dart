@@ -1,7 +1,7 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:filetagger/Widgets/editable_text_widget.dart';
-import 'package:filetagger/Widgets/tag_data_provider.dart';
+import 'package:filetagger/DataStructures/path_tag_value_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -30,12 +30,12 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final tagList = context.select<TagDataProvider, List<TagData>>(
+    final tagList = context.select<PathTagValueProvider, List<TagData>>(
         (provider) => provider.getTagAll());
     if (widget.value.tid <= 0) {
       widget.value.tid = tagList.first.tid;
     }
-    final tag = context.select<TagDataProvider, TagData?>(
+    final tag = context.select<PathTagValueProvider, TagData?>(
         (provider) => provider.getTag(widget.value.tid));
     return LayoutBuilder(
       builder: (layoutBuilderContext, constraints) => SizedBox(

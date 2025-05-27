@@ -1,9 +1,17 @@
+import 'dart:async';
+
 import 'package:filetagger/DataStructures/datas.dart';
+import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/error_code.dart';
+import 'package:filetagger/DataStructures/directory_manager.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter/material.dart';
 
-class TagDataProvider with ChangeNotifier {
+class PathTagValueProvider with ChangeNotifier {
+  // 싱글톤 객체
+  final DBManager _dbManager = DBManager();
+  final DirectoryManager _pathManager = DirectoryManager();
+
   // Id 기록을 위한 변수
   int _curPid = 1;
   int _curTid = 1;
@@ -14,10 +22,35 @@ class TagDataProvider with ChangeNotifier {
   Map<int, TagData> _tagData = {};
   Map<int, ValueData> _valueData = {};
 
-  // 빠른 접근을 위한 캐싱 데이터
+  // 빠른 접근을 위한 캐싱 데이터. 오직 _pathData에 있는 데이터에 대해서만 캐싱함.
   Map<String, int> _path2pid = {};
 
-  TagDataProvider();
+  PathTagValueProvider();
+
+  Future<ErrorCode> loadDirectory(String directory) async {
+    await _pathManager.closeDirectory();
+    await _dbManager.closeDatabase();
+
+    clear(false);
+
+    if (!await _dbManager.initializeDatabase(directory)) {
+      return ErrorCode.dbNoConnection;
+    }
+
+    final pathResult = await _dbManager.getPaths();
+    if (pathResult.isError) return pathResult.errorOrNull!;
+    final tagResult = await _dbManager.getTag();
+    if (tagResult.isError) return tagResult.errorOrNull!;
+    final valueResult = await _dbManager.getValue();
+    if (valueResult.isError) return valueResult.errorOrNull!;
+    final ec = initialize(
+      pathList: pathResult.valueOrNull!,
+      tagList: tagResult.valueOrNull!,
+      valueList: valueResult.valueOrNull!,
+    );
+    if (ec != ErrorCode.success) return ec;
+    return _pathManager.openDirectory(directory);
+  }
 
   ErrorCode initialize({
     required List<PathData> pathList,
@@ -192,11 +225,11 @@ class TagDataProvider with ChangeNotifier {
     return ErrorCode.success;
   }
 
-  void clear() {
+  void clear([bool notify = true]) {
     _pathData.clear();
     _tagData.clear();
     _valueData.clear();
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   void _addNecessaryTag(PathData path) {

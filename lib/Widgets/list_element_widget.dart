@@ -1,7 +1,7 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/error_code.dart';
-import 'package:filetagger/Widgets/tag_data_provider.dart';
+import 'package:filetagger/DataStructures/path_tag_value_provider.dart';
 import 'package:filetagger/Widgets/tag_icon_widget.dart';
 import 'package:filetagger/Widgets/tag_widget.dart';
 import 'package:filetagger/Widgets/value_edit_dialog.dart';
@@ -31,7 +31,7 @@ class ListElementWidget extends StatelessWidget {
     Color sc = isSelected ? selectedColor : Colors.transparent;
     Color color = Color.alphaBlend(nec, sc);
 
-    final pathData = context.select<TagDataProvider, PathData?>(
+    final pathData = context.select<PathTagValueProvider, PathData?>(
         (provider) => provider.getPath(pid));
     if (pathData == null) {
       return Container();
@@ -58,7 +58,9 @@ class ListElementWidget extends StatelessWidget {
                       child: TagIconWidget(
                         texts: [RichString('+', bold: true)],
                         onPressed: () {
-                          if (context.read<TagDataProvider>().getTagCount() ==
+                          if (context
+                                  .read<PathTagValueProvider>()
+                                  .getTagCount() ==
                               0) {
                             // 태그가 없으면 값을 등록할 수 없으니 경고창 띄우기
                             showDialog(
@@ -78,7 +80,7 @@ class ListElementWidget extends StatelessWidget {
                                 onPressed: (value) async {
                                   value.pid = pid;
                                   ErrorCode ec = dialogBuildContext
-                                      .read<TagDataProvider>()
+                                      .read<PathTagValueProvider>()
                                       .setValue(value);
                                   if (ec != ErrorCode.success) {
                                     //TODO : 추가 실패 메시지 띄우기
@@ -100,13 +102,13 @@ class ListElementWidget extends StatelessWidget {
                     );
                   } else {
                     final vid = pathData.values.elementAt(index);
-                    final valueData =
-                        itemBuilderContext.select<TagDataProvider, ValueData?>(
-                            (provider) => provider.getValue(vid));
+                    final valueData = itemBuilderContext.select<
+                        PathTagValueProvider,
+                        ValueData?>((provider) => provider.getValue(vid));
                     if (valueData == null) return null;
-                    final tagData =
-                        itemBuilderContext.select<TagDataProvider, TagData?>(
-                            (provider) => provider.getTag(valueData.tid));
+                    final tagData = itemBuilderContext.select<
+                        PathTagValueProvider,
+                        TagData?>((provider) => provider.getTag(valueData.tid));
                     if (tagData == null) return null;
                     return TagWidget(
                       tag: tagData,
@@ -121,7 +123,7 @@ class ListElementWidget extends StatelessWidget {
                             onPressed: (value) async {
                               //다이얼로그가 종료되면 더이상 다이얼로그가 표시되지 않으므로 갱신하지 않음
                               ErrorCode ec = dialogBuildContext
-                                  .read<TagDataProvider>()
+                                  .read<PathTagValueProvider>()
                                   .setValue(value);
                               if (ec != ErrorCode.success) {
                                 //TODO : 수정 실패 메시지 띄우기

@@ -19,10 +19,16 @@ enum ErrorCode {
   valueExist, //존재하는 값
   valueDuplicated, //중복된 값
   dbNoConnection,
+  directoryOtherStillOpened, //다른 디렉토리가 열려있는데 열려고 시도
 }
 
 sealed class Result<T> {
   const Result();
+  bool get isOk => this is Ok<T>;
+  bool get isError => this is Error<T>;
+  T? get valueOrNull => isOk ? (this as Ok<T>).value : null;
+  ErrorCode? get errorOrNull => isError ? (this as Error<T>).code : null;
+
   const factory Result.ok(T value) = Ok<T>;
   const factory Result.error(ErrorCode code) = Error<T>;
 }

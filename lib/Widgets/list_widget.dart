@@ -1,6 +1,6 @@
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/Widgets/list_element_widget.dart';
-import 'package:filetagger/Widgets/tag_data_provider.dart';
+import 'package:filetagger/DataStructures/path_tag_value_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -22,7 +22,7 @@ class ListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pathList = context.select<TagDataProvider, List<PathData>>(
+    final pathList = context.select<PathTagValueProvider, List<PathData>>(
         (provider) => provider.getPathAll());
     if (pathList.isEmpty) return getEmptyWidget(context);
     return ListView.builder(

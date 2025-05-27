@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_reader.dart';
-import 'package:filetagger/DataStructures/path_manager.dart';
+import 'package:filetagger/DataStructures/directory_manager.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -91,7 +91,7 @@ void sqfliteTest() {
     for (PathData path in paths) {
       PathData? newPath = await DBManager().createPath(path.path);
       expect(newPath, isNotNull);
-      expect(newPath!.pid, path.pid);
+      expect(newPath.pid, path.pid);
     }
   });
 
@@ -118,7 +118,7 @@ void sqfliteTest() {
     );
     TagData? newTag = await DBManager().createTag(ncsTag);
     expect(newTag, isNotNull);
-    ncsTag = newTag!;
+    ncsTag = newTag;
     tags.add(ncsTag);
 
     final Map<int, ValueData>? result = await DBManager().getValues();
@@ -138,7 +138,7 @@ void sqfliteTest() {
     );
     TagData? newTag = await DBManager().createTag(dupTag);
     expect(newTag, isNotNull);
-    dupTag = newTag!;
+    dupTag = newTag;
     tags.add(dupTag);
 
     const int dupCount = 3;
@@ -151,7 +151,7 @@ void sqfliteTest() {
       ));
       expect(newValue, isNotNull);
 
-      values.add(newValue!);
+      values.add(newValue);
     }
 
     //UnDuplicable Tag
@@ -162,7 +162,7 @@ void sqfliteTest() {
       ));
       expect(newValue, isNotNull);
 
-      values.add(newValue!);
+      values.add(newValue);
     }
     for (int i = 0; i < dupCount; ++i) {
       ValueData? newValue = await DBManager().createValue(ValueData.partial(
@@ -176,9 +176,9 @@ void sqfliteTest() {
   //TODO : "remove Path/Tag/Value" Test
 
   test('Path Data Test', () async {
-    final Map<int, PathData>? result = await DBManager().getPaths();
+    final Map<int, PathData> result = await DBManager().getPaths();
     expect(result, isNotNull);
-    expect(result!.length, paths.length);
+    expect(result.length, paths.length);
     for (PathData path in paths) {
       expect(result.containsKey(path.pid), isTrue);
       expect(result[path.pid], path);
@@ -211,11 +211,11 @@ void sqfliteTest() {
 void pathTest() {
   final curPath = File('.').absolute.path;
   test('PathManager Test', () {
-    PathManager().setRootPath(curPath);
-    expect(PathManager().getPath(curPath), '.');
+    DirectoryManager().setRootPath(curPath);
+    expect(DirectoryManager().getPath(curPath), '.');
     expect(
-      PathManager().getParent(curPath),
-      PathManager().getPath(File('.').parent.path),
+      DirectoryManager().getParent(curPath),
+      DirectoryManager().getPath(File('.').parent.path),
     );
   });
 }

@@ -1,7 +1,5 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
-import 'package:filetagger/DataStructures/directory_reader.dart';
 import 'package:filetagger/DataStructures/directory_manager.dart';
 import 'package:filetagger/Widgets/list_widget.dart';
 import 'package:filetagger/DataStructures/path_tag_value_provider.dart';
@@ -80,6 +78,14 @@ class _MyMainWidgetState extends State<MyMainWidget> {
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    DBManager().closeDatabase();
+    DirectoryManager().closeDirectory();
+
+    super.dispose();
   }
 
   @override

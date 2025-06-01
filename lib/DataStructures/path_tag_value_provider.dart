@@ -323,9 +323,10 @@ class PathTagValueProvider with ChangeNotifier {
     return curId;
   }
 
-  PathData? getPath(int pid) => _pathData[pid];
-  TagData? getTag(int tid) => _tagData[tid];
-  ValueData? getValue(int vid) => _valueData[vid];
+  int? getPid(String path) => _path2pid[path];
+  PathData? getPathData(int pid) => _pathData[pid];
+  TagData? getTagData(int tid) => _tagData[tid];
+  ValueData? getValueData(int vid) => _valueData[vid];
 
   List<PathData> getPathAll() => _pathData.values.toList();
   List<TagData> getTagAll() => _tagData.values.toList();

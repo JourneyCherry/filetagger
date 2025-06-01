@@ -63,7 +63,7 @@ class DBManager {
             vid INTEGER PRIMARY KEY,
             pid INTEGER NOT NULL,
             tid INTEGER NOT NULL,
-            value TEXT,
+            value TEXT
           )
         ''');
       },

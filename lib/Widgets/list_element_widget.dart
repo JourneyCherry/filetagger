@@ -11,14 +11,16 @@ import 'package:provider/provider.dart';
 class ListElementWidget extends StatelessWidget {
   static final Color notExistColor = Colors.red.withValues(alpha: 0.3);
   static final Color selectedColor = Colors.blue.withValues(alpha: 0.3);
-  final int pid;
+  final String path;
+  final PathData? pathData;
   final VoidCallback? onTap;
   final VoidCallback? onSuccess;
   final bool isSelected;
   final bool isNotExist;
   const ListElementWidget({
     super.key,
-    required this.pid,
+    required this.path,
+    this.pathData,
     required this.onTap,
     required this.isSelected,
     required this.isNotExist,
@@ -31,11 +33,8 @@ class ListElementWidget extends StatelessWidget {
     Color sc = isSelected ? selectedColor : Colors.transparent;
     Color color = Color.alphaBlend(nec, sc);
 
-    final pathData = context.select<PathTagValueProvider, PathData?>(
-        (provider) => provider.getPath(pid));
-    if (pathData == null) {
-      return Container();
-    }
+    final vidList = pathData?.values ?? {};
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -44,15 +43,15 @@ class ListElementWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
-              title: Text(pathData.path),
+              title: Text(path),
             ),
             SizedBox(
               height: TagIconWidget.height,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: pathData.values.length + 1,
+                itemCount: vidList.length + 1,
                 itemBuilder: (itemBuilderContext, index) {
-                  if (index >= pathData.values.length) {
+                  if (index >= vidList.length) {
                     return SizedBox(
                       width: 20,
                       child: TagIconWidget(
@@ -78,7 +77,7 @@ class ListElementWidget extends StatelessWidget {
                               builder: (dialogBuildContext) => ValueEditDialog(
                                 buttonText: 'add', //TODO : Localization
                                 onPressed: (value) async {
-                                  value.pid = pid;
+                                  value.pid = pathData?.pid ?? 0;
                                   ErrorCode ec = dialogBuildContext
                                       .read<PathTagValueProvider>()
                                       .setValue(value);
@@ -101,14 +100,14 @@ class ListElementWidget extends StatelessWidget {
                       ),
                     );
                   } else {
-                    final vid = pathData.values.elementAt(index);
+                    final vid = vidList.elementAt(index);
                     final valueData = itemBuilderContext.select<
                         PathTagValueProvider,
-                        ValueData?>((provider) => provider.getValue(vid));
+                        ValueData?>((provider) => provider.getValueData(vid));
                     if (valueData == null) return null;
-                    final tagData = itemBuilderContext.select<
-                        PathTagValueProvider,
-                        TagData?>((provider) => provider.getTag(valueData.tid));
+                    final tagData = itemBuilderContext
+                        .select<PathTagValueProvider, TagData?>(
+                            (provider) => provider.getTagData(valueData.tid));
                     if (tagData == null) return null;
                     return TagWidget(
                       tag: tagData,

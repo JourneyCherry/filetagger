@@ -28,6 +28,9 @@ class DirectoryManager {
   final _controller = StreamController<DirectoryChangeEvent>.broadcast();
 
   /// 현재까지의 파일 및 디렉토리 목록
+  Iterable<String> getFilePathList() => _entityMap.keys;
+
+  /// 존재하는 파일에 대한 정보 가져오기
   FileSystemEntity? getFileEntity(String path) => _entityMap[path];
 
   /// 변경 알림 Stream

@@ -36,7 +36,7 @@ class _ValueEditWidgetState extends State<ValueEditWidget> {
       widget.value.tid = tagList.first.tid;
     }
     final tag = context.select<PathTagValueProvider, TagData?>(
-        (provider) => provider.getTag(widget.value.tid));
+        (provider) => provider.getTagData(widget.value.tid));
     return LayoutBuilder(
       builder: (layoutBuilderContext, constraints) => SizedBox(
         width: constraints.maxWidth,

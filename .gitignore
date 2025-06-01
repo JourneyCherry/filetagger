@@ -253,3 +253,4 @@ app.*.symbols
 
 # sqlite db 파일. 개발 디렉토리로 테스트 할 때 생성되는 것.
 .tagdb
+.tagdb*

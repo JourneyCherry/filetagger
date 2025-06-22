@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:filetagger/DataStructures/datas.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
@@ -8,9 +9,12 @@ import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter/material.dart';
 
 class PathTagValueProvider with ChangeNotifier {
-  // 싱글톤 객체
+  // 참조하는 싱글톤 객체
   final DBManager _dbManager = DBManager();
-  final DirectoryManager _pathManager = DirectoryManager();
+  final DirectoryManager _directoryManager = DirectoryManager();
+
+  /// DirectoryManager의 파일 변경 이벤트 구독
+  StreamSubscription<DirectoryChangeEvent>? _subscription;
 
   // Id 기록을 위한 변수
   int _curPid = 1;
@@ -25,11 +29,20 @@ class PathTagValueProvider with ChangeNotifier {
   // 빠른 접근을 위한 캐싱 데이터. 오직 _pathData에 있는 데이터에 대해서만 캐싱함.
   Map<String, int> _path2pid = {};
 
+  /// Previe 또는 동시 수정/삭제를 위한 Selected Item 목록
+  //ignore: prefer_final_fields
+  Set<int> _selectedPIDSet = {};
+
   PathTagValueProvider();
 
   Future<ErrorCode> loadDirectory(String directory) async {
-    await _pathManager.closeDirectory();
+    ErrorCode ec;
+    await _directoryManager.closeDirectory();
     await _dbManager.closeDatabase();
+    if (_subscription != null) {
+      _subscription!.cancel();
+      _subscription = null;
+    }
 
     clear(false);
 
@@ -37,19 +50,26 @@ class PathTagValueProvider with ChangeNotifier {
       return ErrorCode.dbNoConnection;
     }
 
+    // DB로부터 데이터 읽기
     final pathResult = await _dbManager.getPaths();
     if (pathResult.isError) return pathResult.errorOrNull!;
     final tagResult = await _dbManager.getTag();
     if (tagResult.isError) return tagResult.errorOrNull!;
     final valueResult = await _dbManager.getValue();
     if (valueResult.isError) return valueResult.errorOrNull!;
-    final ec = initialize(
+    ec = initialize(
       pathList: pathResult.valueOrNull!,
       tagList: tagResult.valueOrNull!,
       valueList: valueResult.valueOrNull!,
     );
     if (ec != ErrorCode.success) return ec;
-    return _pathManager.openDirectory(directory);
+
+    // 디렉토리로부터 데이터 읽기
+    _subscription = _directoryManager.onChange.listen(onDirectoryEvent);
+    ec = await _directoryManager.openDirectory(directory);
+    if (ec != ErrorCode.success) return ec;
+
+    return ErrorCode.success;
   }
 
   ErrorCode initialize({
@@ -97,7 +117,7 @@ class PathTagValueProvider with ChangeNotifier {
       if (result != ErrorCode.success) return result;
     }
     for (ValueData value in valueData.values) {
-      result = _verifyValue(value);
+      result = verifyValue(value);
       if (result != ErrorCode.success) return result;
     }
 
@@ -110,6 +130,29 @@ class PathTagValueProvider with ChangeNotifier {
     // Notify and Return
     notifyListeners();
     return ErrorCode.success;
+  }
+
+  void onDirectoryEvent(DirectoryChangeEvent event) {
+    switch (event.type) {
+      case FileSystemEvent.create:
+        //새 파일이 생성된 경우, 목록에 존재하면 무시, 없으면 기본값으로 추가
+        if (_path2pid.containsKey(event.path)) break;
+        final newPid = getNewPID();
+        final newPath = PathData(pid: newPid, path: event.path, ppid: 0);
+        _path2pid[event.path] = newPid;
+        _pathData[newPid] = newPath;
+        break;
+      case FileSystemEvent.delete:
+        // 파일이 삭제된 경우, 아무런 동작 하지 않음.
+        // 태그값이 존재하면 보존해야 하고, 태그값이 없으면 db에 저장될 때 자동 prune
+        break;
+      case FileSystemEvent.modify:
+        //TODO : 파일 메타데이터를 읽는 경우, 추가 필요
+        break;
+      case FileSystemEvent.move:
+        //TODO : 실제 파일을 이동했을 때, 어떤 데이터가 들어오는지 확인 필요
+        break;
+    }
   }
 
   ErrorCode setPath(PathData data) {
@@ -196,7 +239,7 @@ class PathTagValueProvider with ChangeNotifier {
 
   ErrorCode setValue(ValueData value) {
     // Check
-    ErrorCode verifyResult = _verifyValue(value);
+    ErrorCode verifyResult = verifyValue(value);
     if (verifyResult != ErrorCode.success) return verifyResult;
 
     // Set Data
@@ -292,7 +335,7 @@ class PathTagValueProvider with ChangeNotifier {
     return ErrorCode.success;
   }
 
-  ErrorCode _verifyValue(ValueData? value) {
+  ErrorCode verifyValue(ValueData? value) {
     if (value == null) return ErrorCode.valueNotExist;
     if (!_pathData.containsKey(value.pid)) return ErrorCode.pathNotExist;
     final tag = _tagData[value.tid];
@@ -328,9 +371,20 @@ class PathTagValueProvider with ChangeNotifier {
   TagData? getTagData(int tid) => _tagData[tid];
   ValueData? getValueData(int vid) => _valueData[vid];
 
+  List<int> getPIDList() => _pathData.keys.toList();
   List<PathData> getPathAll() => _pathData.values.toList();
   List<TagData> getTagAll() => _tagData.values.toList();
   List<ValueData> getValueAll() => _valueData.values.toList();
 
   int getTagCount() => _tagData.length;
+
+  // Select 관련 함수들
+  bool isSelectedPID(int pid) => _selectedPIDSet.contains(pid);
+  void selectPID(int pid, {bool isMultipleSelect = false}) {
+    if (!isMultipleSelect) _selectedPIDSet.clear();
+    _selectedPIDSet.add(pid);
+  }
+
+  void unselectPID(int pid) => _selectedPIDSet.remove(pid);
+  void clearSelectedPID() => _selectedPIDSet.clear();
 }

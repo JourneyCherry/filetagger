@@ -285,7 +285,7 @@ class PathTagValueProvider with ChangeNotifier {
     if (notify) notifyListeners();
   }
 
-  void applyDB() async {
+  Future<ErrorCode> applyDB() async {
     final eventList = _dbEventTracker.drainEvents();
     ErrorCode ec;
     for (var (dataType, id, eventType) in eventList) {
@@ -304,14 +304,16 @@ class PathTagValueProvider with ChangeNotifier {
       switch (eventType) {
         case DBChangeEventType.set:
           ec = await _dbManager.setData(data);
-          //TODO : ec에 맞는 에러 띄우기
+          if (ec != ErrorCode.success) return ec;
           break;
         case DBChangeEventType.delete:
           ec = await _dbManager.removeData(dataType, id);
-          //TODO : ec에 맞는 에러 띄우기
+          if (ec != ErrorCode.success) return ec;
           break;
       }
     }
+
+    return ErrorCode.success;
   }
 
   void _addNecessaryTag(PathData path) {

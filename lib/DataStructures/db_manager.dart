@@ -271,4 +271,23 @@ class DBManager {
 
     return ErrorCode.success;
   }
+
+  Future<ErrorCode> setData(dynamic data) async {
+    if (data is PathData) return setPath(data);
+    if (data is TagData) return setTag(data);
+    if (data is ValueData) return setValue(data);
+
+    return ErrorCode.unknownDataType;
+  }
+
+  Future<ErrorCode> removeData(DataType type, int id) async {
+    switch (type) {
+      case DataType.path:
+        return removePath(id);
+      case DataType.tag:
+        return removeTag(id);
+      case DataType.value:
+        return removeValue(id);
+    }
+  }
 }

@@ -1,6 +1,12 @@
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter/material.dart';
 
+enum DataType {
+  path,
+  tag,
+  value,
+}
+
 class TagData {
   int tid;
   String name;

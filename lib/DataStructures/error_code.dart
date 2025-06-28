@@ -20,6 +20,7 @@ enum ErrorCode {
   valueDuplicated, //중복된 값
   dbNoConnection,
   directoryOtherStillOpened, //다른 디렉토리가 열려있는데 열려고 시도
+  unknownDataType, //알 수 없는 데이터 타입(Path, Tag, Value 중 하나가 아님)
 }
 
 sealed class Result<T> {

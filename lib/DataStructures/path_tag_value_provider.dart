@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:filetagger/DataStructures/datas.dart';
+import 'package:filetagger/DataStructures/db_change_event_tracker.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/error_code.dart';
 import 'package:filetagger/DataStructures/directory_manager.dart';
@@ -12,6 +13,8 @@ class PathTagValueProvider with ChangeNotifier {
   // 참조하는 싱글톤 객체
   final DBManager _dbManager = DBManager();
   final DirectoryManager _directoryManager = DirectoryManager();
+  // 참조하는 객체
+  final DBChangeEventTracker _dbEventTracker = DBChangeEventTracker();
 
   /// DirectoryManager의 파일 변경 이벤트 구독
   StreamSubscription<DirectoryChangeEvent>? _subscription;
@@ -164,6 +167,7 @@ class PathTagValueProvider with ChangeNotifier {
     _pathData[data.pid] = data;
     _path2pid[data.path] = data.pid;
     _addNecessaryTag(data);
+    _dbEventTracker.setPath(data);
 
     // Notify and Return
     notifyListeners();
@@ -185,6 +189,7 @@ class PathTagValueProvider with ChangeNotifier {
     // Set Data
     _path2pid.remove(path.path);
     _pathData.remove(pid);
+    _dbEventTracker.deletePath(path);
 
     // Notify and Return
     notifyListeners();
@@ -213,6 +218,7 @@ class PathTagValueProvider with ChangeNotifier {
         if (!isExistTag) setDefaultValue(path, tag);
       }
     }
+    _dbEventTracker.setTag(tag);
 
     // Notify and Return
     notifyListeners();
@@ -231,6 +237,7 @@ class PathTagValueProvider with ChangeNotifier {
 
     // Set Data
     _tagData.remove(tag.tid);
+    _dbEventTracker.deleteTag(tag);
 
     // Notify and Return
     notifyListeners();
@@ -247,6 +254,7 @@ class PathTagValueProvider with ChangeNotifier {
     _pathData[value.pid]!
         .values
         .add(value.vid); //Set<int>이기 때문에 중복값이 존재하면 삽입하지 않음
+    _dbEventTracker.setValue(value);
 
     // Notify and Return
     notifyListeners();
@@ -262,6 +270,7 @@ class PathTagValueProvider with ChangeNotifier {
     // Set Data
     _valueData.remove(value.vid);
     if (path != null) path.values.remove(value.vid); //path가 존재하지 않아도 삭제는 가능
+    _dbEventTracker.deleteValue(value);
 
     // Notify and Return
     notifyListeners();
@@ -272,7 +281,37 @@ class PathTagValueProvider with ChangeNotifier {
     _pathData.clear();
     _tagData.clear();
     _valueData.clear();
+    _dbEventTracker.clearEvents();
     if (notify) notifyListeners();
+  }
+
+  void applyDB() async {
+    final eventList = _dbEventTracker.drainEvents();
+    ErrorCode ec;
+    for (var (dataType, id, eventType) in eventList) {
+      dynamic data;
+      switch (dataType) {
+        case DataType.path:
+          data = _pathData[id];
+          break;
+        case DataType.tag:
+          data = _tagData[id];
+          break;
+        case DataType.value:
+          data = _valueData[id];
+          break;
+      }
+      switch (eventType) {
+        case DBChangeEventType.set:
+          ec = await _dbManager.setData(data);
+          //TODO : ec에 맞는 에러 띄우기
+          break;
+        case DBChangeEventType.delete:
+          ec = await _dbManager.removeData(dataType, id);
+          //TODO : ec에 맞는 에러 띄우기
+          break;
+      }
+    }
   }
 
   void _addNecessaryTag(PathData path) {

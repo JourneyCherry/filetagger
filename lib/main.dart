@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:filetagger/DataStructures/app_life_cycle_handler.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/directory_manager.dart';
+import 'package:filetagger/DataStructures/error_code.dart';
 import 'package:filetagger/Widgets/list_widget.dart';
 import 'package:filetagger/DataStructures/path_tag_value_provider.dart';
 import 'package:filetagger/Widgets/tag_list_controller.dart';
@@ -65,6 +67,8 @@ class _MyMainWidgetState extends State<MyMainWidget> {
   bool isSingleSelect = true;
   Set<int> selectedIndices = {};
 
+  late AppLifecycleHandler _lifecycleHandler;
+
   void _selectItem(int index) {
     setState(() {
       if (isSingleSelect) {
@@ -81,11 +85,29 @@ class _MyMainWidgetState extends State<MyMainWidget> {
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    // 앱이 일시정지될 때, PathTagValueProvider의 applyDB() 호출
+    _lifecycleHandler = AppLifecycleHandler(applyDBOnClose)..attach();
+  }
+
+  @override
   void dispose() {
+    _lifecycleHandler.detach();
     DBManager().closeDatabase();
     DirectoryManager().closeDirectory();
-
     super.dispose();
+  }
+
+  void applyDBOnClose() {
+    final provider = Provider.of<PathTagValueProvider>(context, listen: false);
+
+    provider.applyDB().then((ec) {
+      if (ec != ErrorCode.success) {
+        //TODO : 에러코드 출력 또는 DB 저장 재시도
+      }
+    });
   }
 
   @override

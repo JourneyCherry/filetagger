@@ -6,6 +6,7 @@ import 'package:filetagger/DataStructures/db_change_event_tracker.dart';
 import 'package:filetagger/DataStructures/db_manager.dart';
 import 'package:filetagger/DataStructures/error_code.dart';
 import 'package:filetagger/DataStructures/directory_manager.dart';
+import 'package:filetagger/DataStructures/my_scheduler.dart';
 import 'package:filetagger/DataStructures/types.dart';
 import 'package:flutter/material.dart';
 
@@ -15,6 +16,13 @@ class PathTagValueProvider with ChangeNotifier {
   final DirectoryManager _directoryManager = DirectoryManager();
   // 참조하는 객체
   final DBChangeEventTracker _dbEventTracker = DBChangeEventTracker();
+
+  // 스케쥴러 관련 변수
+  final int _eventCountThreshold = 10;
+  final Duration _applyInterval = const Duration(seconds: 5);
+  //ignore: prefer_final_fields
+  DateTime _lastDBChangeTime = DateTime.now();
+  late final MyScheduler _scheduler;
 
   /// DirectoryManager의 파일 변경 이벤트 구독
   StreamSubscription<DirectoryChangeEvent>? _subscription;
@@ -36,7 +44,10 @@ class PathTagValueProvider with ChangeNotifier {
   //ignore: prefer_final_fields
   Set<int> _selectedPIDSet = {};
 
-  PathTagValueProvider();
+  PathTagValueProvider() {
+    _scheduler =
+        MyScheduler(interval: Duration(seconds: 1), onTick: _scheduleJob);
+  }
 
   Future<ErrorCode> loadDirectory(String directory) async {
     ErrorCode ec;
@@ -168,6 +179,7 @@ class PathTagValueProvider with ChangeNotifier {
     _path2pid[data.path] = data.pid;
     _addNecessaryTag(data);
     _dbEventTracker.setPath(data);
+    _scheduleStart();
 
     // Notify and Return
     notifyListeners();
@@ -190,6 +202,7 @@ class PathTagValueProvider with ChangeNotifier {
     _path2pid.remove(path.path);
     _pathData.remove(pid);
     _dbEventTracker.deletePath(path);
+    _scheduleStart();
 
     // Notify and Return
     notifyListeners();
@@ -219,6 +232,7 @@ class PathTagValueProvider with ChangeNotifier {
       }
     }
     _dbEventTracker.setTag(tag);
+    _scheduleStart();
 
     // Notify and Return
     notifyListeners();
@@ -238,6 +252,7 @@ class PathTagValueProvider with ChangeNotifier {
     // Set Data
     _tagData.remove(tag.tid);
     _dbEventTracker.deleteTag(tag);
+    _scheduleStart();
 
     // Notify and Return
     notifyListeners();
@@ -255,6 +270,7 @@ class PathTagValueProvider with ChangeNotifier {
         .values
         .add(value.vid); //Set<int>이기 때문에 중복값이 존재하면 삽입하지 않음
     _dbEventTracker.setValue(value);
+    _scheduleStart();
 
     // Notify and Return
     notifyListeners();
@@ -271,6 +287,7 @@ class PathTagValueProvider with ChangeNotifier {
     _valueData.remove(value.vid);
     if (path != null) path.values.remove(value.vid); //path가 존재하지 않아도 삭제는 가능
     _dbEventTracker.deleteValue(value);
+    _scheduleStart();
 
     // Notify and Return
     notifyListeners();
@@ -282,6 +299,7 @@ class PathTagValueProvider with ChangeNotifier {
     _tagData.clear();
     _valueData.clear();
     _dbEventTracker.clearEvents();
+    _scheduler.stop();
     if (notify) notifyListeners();
   }
 
@@ -314,6 +332,20 @@ class PathTagValueProvider with ChangeNotifier {
     }
 
     return ErrorCode.success;
+  }
+
+  void _scheduleStart() {
+    _lastDBChangeTime = DateTime.now();
+    _scheduler.start();
+  }
+
+  void _scheduleJob() {
+    Duration timeDiff = DateTime.now().difference(_lastDBChangeTime);
+    if (timeDiff >= _applyInterval ||
+        _dbEventTracker.eventCount >= _eventCountThreshold) {
+      applyDB();
+      _scheduler.stop();
+    }
   }
 
   void _addNecessaryTag(PathData path) {

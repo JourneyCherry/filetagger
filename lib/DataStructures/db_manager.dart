@@ -109,7 +109,7 @@ class DBManager {
         {
           'path': path.path,
           'ppid': path.ppid,
-          'recursive': path.recursive,
+          'recursive': Types.bool2int(path.recursive),
         },
         where: 'pid = ?',
         whereArgs: [path.pid],
@@ -121,7 +121,7 @@ class DBManager {
             'pid': path.pid,
             'path': path.path,
             'ppid': path.ppid,
-            'recursive': path.recursive,
+            'recursive': Types.bool2int(path.recursive),
           },
         );
       }

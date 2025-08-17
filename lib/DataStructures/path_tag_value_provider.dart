@@ -153,8 +153,10 @@ class PathTagValueProvider with ChangeNotifier {
         if (_path2pid.containsKey(event.path)) break;
         final newPid = getNewPID();
         final newPath = PathData(pid: newPid, path: event.path, ppid: 0);
-        _path2pid[event.path] = newPid;
-        _pathData[newPid] = newPath;
+        ErrorCode ec = setPath(newPath);
+        if (ec != ErrorCode.success) {
+          //TODO : 에러코드 처리
+        }
         break;
       case FileSystemEvent.delete:
         // 파일이 삭제된 경우, 아무런 동작 하지 않음.
@@ -456,8 +458,19 @@ class PathTagValueProvider with ChangeNotifier {
   void selectPID(int pid, {bool isMultipleSelect = false}) {
     if (!isMultipleSelect) _selectedPIDSet.clear();
     _selectedPIDSet.add(pid);
+
+    notifyListeners();
   }
 
-  void unselectPID(int pid) => _selectedPIDSet.remove(pid);
-  void clearSelectedPID() => _selectedPIDSet.clear();
+  void unselectPID(int pid) {
+    _selectedPIDSet.remove(pid);
+
+    notifyListeners();
+  }
+
+  void clearSelectedPID() {
+    _selectedPIDSet.clear();
+
+    notifyListeners();
+  }
 }

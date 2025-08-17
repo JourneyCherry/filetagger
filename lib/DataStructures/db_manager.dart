@@ -104,27 +104,18 @@ class DBManager {
   Future<ErrorCode> setPath(PathData path) async {
     if (_database == null) return ErrorCode.dbNoConnection;
     return await _database!.transaction((txn) async {
-      final updatedRowCount = await txn.update(
+      final resultPid = await txn.insert(
         _pathTableName,
         {
+          'pid': path.pid,
           'path': path.path,
           'ppid': path.ppid,
           'recursive': Types.bool2int(path.recursive),
         },
-        where: 'pid = ?',
-        whereArgs: [path.pid],
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      if (updatedRowCount == 0) {
-        await txn.insert(
-          _pathTableName,
-          {
-            'pid': path.pid,
-            'path': path.path,
-            'ppid': path.ppid,
-            'recursive': Types.bool2int(path.recursive),
-          },
-        );
-      }
+
+      if (resultPid != path.pid) return ErrorCode.dbUpsertFailed;
 
       return ErrorCode.success;
     });
@@ -167,11 +158,11 @@ class DBManager {
   Future<ErrorCode> setTag(TagData tag) async {
     if (!isAvailable()) return ErrorCode.dbNoConnection;
     return await _database!.transaction((txn) async {
-      final updatedRowCount = await _database!.update(
+      final resultTid = await _database!.insert(
         _tagTableName,
         {
+          'tid': tag.tid,
           'name': tag.name,
-          'type': tag.type.index,
           'default_value': tag.defaultValue,
           'duplicable': Types.bool2int(tag.duplicable),
           'necessary': Types.bool2int(tag.necessary),
@@ -179,24 +170,11 @@ class DBManager {
           'bg_color': Types.color2int(tag.bgColor),
           'txt_color': Types.color2int(tag.txtColor),
         },
-        where: 'id = ?',
-        whereArgs: [tag.tid],
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      if (updatedRowCount == 0) {
-        await _database!.insert(
-          _tagTableName,
-          {
-            'tid': tag.tid,
-            'name': tag.name,
-            'default_value': tag.defaultValue,
-            'duplicable': Types.bool2int(tag.duplicable),
-            'necessary': Types.bool2int(tag.necessary),
-            'sort_order': tag.order,
-            'bg_color': Types.color2int(tag.bgColor),
-            'txt_color': Types.color2int(tag.txtColor),
-          },
-        );
-      }
+
+      if (resultTid != tag.tid) return ErrorCode.dbUpsertFailed;
+
       return ErrorCode.success;
     });
   }
@@ -235,27 +213,19 @@ class DBManager {
   Future<ErrorCode> setValue(ValueData value) async {
     if (!isAvailable()) return ErrorCode.dbNoConnection;
     return await _database!.transaction((txn) async {
-      final updatedRowCount = await _database!.update(
+      final resultVid = await _database!.insert(
         _valueTableName,
         {
+          'vid': value.vid,
           'tid': value.tid,
           'pid': value.pid,
           'value': value.value,
         },
-        where: 'vid = ?',
-        whereArgs: [value.vid],
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      if (updatedRowCount == 0) {
-        await _database!.insert(
-          _valueTableName,
-          {
-            'vid': value.vid,
-            'tid': value.tid,
-            'pid': value.pid,
-            'value': value.value,
-          },
-        );
-      }
+
+      if (resultVid != value.vid) return ErrorCode.dbUpsertFailed;
+
       return ErrorCode.success;
     });
   }

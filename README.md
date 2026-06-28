@@ -41,9 +41,6 @@ lib/
   core/          공통 유틸, 상수
 ```
 
-설계 상세와 진행 상황은 [CLAUDE.md](CLAUDE.md), [docs/design.md](docs/design.md)
-참조.
-
 ## 라이선스
 
 [MIT](LICENSE)

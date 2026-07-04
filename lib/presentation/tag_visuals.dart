@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../domain/entities/file_filter.dart';
 import '../domain/entities/tag_value_type.dart';
 
 /// 태그 정의 색으로 고를 수 있는 프리셋 팔레트(ARGB).
@@ -55,6 +56,28 @@ String tagValueTypeLabel(TagValueType type) {
       return '숫자';
     case TagValueType.date:
       return '날짜';
+  }
+}
+
+/// 필터 연산자의 짧은 표시 라벨(칩·드롭다운용).
+String filterOperatorLabel(FilterOperator op) {
+  switch (op) {
+    case FilterOperator.exists:
+      return '있음';
+    case FilterOperator.equals:
+      return '=';
+    case FilterOperator.notEquals:
+      return '≠';
+    case FilterOperator.lessThan:
+      return '<';
+    case FilterOperator.lessOrEqual:
+      return '≤';
+    case FilterOperator.greaterThan:
+      return '>';
+    case FilterOperator.greaterOrEqual:
+      return '≥';
+    case FilterOperator.contains:
+      return '포함';
   }
 }
 

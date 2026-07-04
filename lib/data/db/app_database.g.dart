@@ -12,51 +12,77 @@ class $TagDefinitionsTable extends TagDefinitions
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
-      'name', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
   @override
   late final GeneratedColumnWithTypeConverter<TagValueType, String> valueType =
-      GeneratedColumn<String>('value_type', aliasedName, false,
-              type: DriftSqlType.string, requiredDuringInsert: true)
-          .withConverter<TagValueType>(
-              $TagDefinitionsTable.$convertervalueType);
+      GeneratedColumn<String>(
+        'value_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<TagValueType>($TagDefinitionsTable.$convertervalueType);
   static const VerificationMeta _colorMeta = const VerificationMeta('color');
   @override
   late final GeneratedColumn<int> color = GeneratedColumn<int>(
-      'color', aliasedName, true,
-      type: DriftSqlType.int, requiredDuringInsert: false);
-  static const VerificationMeta _allowMultipleMeta =
-      const VerificationMeta('allowMultiple');
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _allowMultipleMeta = const VerificationMeta(
+    'allowMultiple',
+  );
   @override
   late final GeneratedColumn<bool> allowMultiple = GeneratedColumn<bool>(
-      'allow_multiple', aliasedName, false,
-      type: DriftSqlType.bool,
-      requiredDuringInsert: false,
-      defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'CHECK ("allow_multiple" IN (0, 1))'),
-      defaultValue: const Constant(false));
+    'allow_multiple',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("allow_multiple" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, name, valueType, color, allowMultiple];
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    valueType,
+    color,
+    allowMultiple,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
   static const String $name = 'tag_definitions';
   @override
-  VerificationContext validateIntegrity(Insertable<TagDefinitionRow> instance,
-      {bool isInserting = false}) {
+  VerificationContext validateIntegrity(
+    Insertable<TagDefinitionRow> instance, {
+    bool isInserting = false,
+  }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
@@ -64,19 +90,26 @@ class $TagDefinitionsTable extends TagDefinitions
     }
     if (data.containsKey('name')) {
       context.handle(
-          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
     if (data.containsKey('color')) {
       context.handle(
-          _colorMeta, color.isAcceptableOrUnknown(data['color']!, _colorMeta));
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
     }
     if (data.containsKey('allow_multiple')) {
       context.handle(
+        _allowMultipleMeta,
+        allowMultiple.isAcceptableOrUnknown(
+          data['allow_multiple']!,
           _allowMultipleMeta,
-          allowMultiple.isAcceptableOrUnknown(
-              data['allow_multiple']!, _allowMultipleMeta));
+        ),
+      );
     }
     return context;
   }
@@ -87,17 +120,31 @@ class $TagDefinitionsTable extends TagDefinitions
   TagDefinitionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return TagDefinitionRow(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      name: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
-      valueType: $TagDefinitionsTable.$convertervalueType.fromSql(
+      id:
           attachedDatabase.typeMapping.read(
-              DriftSqlType.string, data['${effectivePrefix}value_type'])!),
-      color: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}color']),
-      allowMultiple: attachedDatabase.typeMapping
-          .read(DriftSqlType.bool, data['${effectivePrefix}allow_multiple'])!,
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      name:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}name'],
+          )!,
+      valueType: $TagDefinitionsTable.$convertervalueType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}value_type'],
+        )!,
+      ),
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color'],
+      ),
+      allowMultiple:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}allow_multiple'],
+          )!,
     );
   }
 
@@ -127,12 +174,13 @@ class TagDefinitionRow extends DataClass
   /// 불가면 (파일,태그)당 1회로 재부여 시 값이 갱신되고, 허용이면 다중 부여를
   /// 허용한다. 유형에 따라 달라 DB 유니크 인덱스로 못 걸어 저장소가 강제한다.
   final bool allowMultiple;
-  const TagDefinitionRow(
-      {required this.id,
-      required this.name,
-      required this.valueType,
-      this.color,
-      required this.allowMultiple});
+  const TagDefinitionRow({
+    required this.id,
+    required this.name,
+    required this.valueType,
+    this.color,
+    required this.allowMultiple,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -140,7 +188,8 @@ class TagDefinitionRow extends DataClass
     map['name'] = Variable<String>(name);
     {
       map['value_type'] = Variable<String>(
-          $TagDefinitionsTable.$convertervalueType.toSql(valueType));
+        $TagDefinitionsTable.$convertervalueType.toSql(valueType),
+      );
     }
     if (!nullToAbsent || color != null) {
       map['color'] = Variable<int>(color);
@@ -160,14 +209,17 @@ class TagDefinitionRow extends DataClass
     );
   }
 
-  factory TagDefinitionRow.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
+  factory TagDefinitionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return TagDefinitionRow(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
-      valueType: $TagDefinitionsTable.$convertervalueType
-          .fromJson(serializer.fromJson<String>(json['valueType'])),
+      valueType: $TagDefinitionsTable.$convertervalueType.fromJson(
+        serializer.fromJson<String>(json['valueType']),
+      ),
       color: serializer.fromJson<int?>(json['color']),
       allowMultiple: serializer.fromJson<bool>(json['allowMultiple']),
     );
@@ -179,34 +231,36 @@ class TagDefinitionRow extends DataClass
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'valueType': serializer.toJson<String>(
-          $TagDefinitionsTable.$convertervalueType.toJson(valueType)),
+        $TagDefinitionsTable.$convertervalueType.toJson(valueType),
+      ),
       'color': serializer.toJson<int?>(color),
       'allowMultiple': serializer.toJson<bool>(allowMultiple),
     };
   }
 
-  TagDefinitionRow copyWith(
-          {int? id,
-          String? name,
-          TagValueType? valueType,
-          Value<int?> color = const Value.absent(),
-          bool? allowMultiple}) =>
-      TagDefinitionRow(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        valueType: valueType ?? this.valueType,
-        color: color.present ? color.value : this.color,
-        allowMultiple: allowMultiple ?? this.allowMultiple,
-      );
+  TagDefinitionRow copyWith({
+    int? id,
+    String? name,
+    TagValueType? valueType,
+    Value<int?> color = const Value.absent(),
+    bool? allowMultiple,
+  }) => TagDefinitionRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    valueType: valueType ?? this.valueType,
+    color: color.present ? color.value : this.color,
+    allowMultiple: allowMultiple ?? this.allowMultiple,
+  );
   TagDefinitionRow copyWithCompanion(TagDefinitionsCompanion data) {
     return TagDefinitionRow(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       valueType: data.valueType.present ? data.valueType.value : this.valueType,
       color: data.color.present ? data.color.value : this.color,
-      allowMultiple: data.allowMultiple.present
-          ? data.allowMultiple.value
-          : this.allowMultiple,
+      allowMultiple:
+          data.allowMultiple.present
+              ? data.allowMultiple.value
+              : this.allowMultiple,
     );
   }
 
@@ -254,8 +308,8 @@ class TagDefinitionsCompanion extends UpdateCompanion<TagDefinitionRow> {
     required TagValueType valueType,
     this.color = const Value.absent(),
     this.allowMultiple = const Value.absent(),
-  })  : name = Value(name),
-        valueType = Value(valueType);
+  }) : name = Value(name),
+       valueType = Value(valueType);
   static Insertable<TagDefinitionRow> custom({
     Expression<int>? id,
     Expression<String>? name,
@@ -272,12 +326,13 @@ class TagDefinitionsCompanion extends UpdateCompanion<TagDefinitionRow> {
     });
   }
 
-  TagDefinitionsCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? name,
-      Value<TagValueType>? valueType,
-      Value<int?>? color,
-      Value<bool>? allowMultiple}) {
+  TagDefinitionsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<TagValueType>? valueType,
+    Value<int?>? color,
+    Value<bool>? allowMultiple,
+  }) {
     return TagDefinitionsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -298,7 +353,8 @@ class TagDefinitionsCompanion extends UpdateCompanion<TagDefinitionRow> {
     }
     if (valueType.present) {
       map['value_type'] = Variable<String>(
-          $TagDefinitionsTable.$convertervalueType.toSql(valueType.value));
+        $TagDefinitionsTable.$convertervalueType.toSql(valueType.value),
+      );
     }
     if (color.present) {
       map['color'] = Variable<int>(color.value);
@@ -331,62 +387,103 @@ class $FileNodesTable extends FileNodes
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
   static const VerificationMeta _pathMeta = const VerificationMeta('path');
   @override
   late final GeneratedColumn<String> path = GeneratedColumn<String>(
-      'path', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
-  static const VerificationMeta _isDirectoryMeta =
-      const VerificationMeta('isDirectory');
+    'path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _isDirectoryMeta = const VerificationMeta(
+    'isDirectory',
+  );
   @override
   late final GeneratedColumn<bool> isDirectory = GeneratedColumn<bool>(
-      'is_directory', aliasedName, false,
-      type: DriftSqlType.bool,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'CHECK ("is_directory" IN (0, 1))'));
+    'is_directory',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_directory" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _sizeMeta = const VerificationMeta('size');
   @override
   late final GeneratedColumn<int> size = GeneratedColumn<int>(
-      'size', aliasedName, true,
-      type: DriftSqlType.int, requiredDuringInsert: false);
-  static const VerificationMeta _modifiedAtMeta =
-      const VerificationMeta('modifiedAt');
+    'size',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
   @override
   late final GeneratedColumn<DateTime> modifiedAt = GeneratedColumn<DateTime>(
-      'modified_at', aliasedName, true,
-      type: DriftSqlType.dateTime, requiredDuringInsert: false);
-  static const VerificationMeta _contentHashPrefixMeta =
-      const VerificationMeta('contentHashPrefix');
+    'modified_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentHashPrefixMeta = const VerificationMeta(
+    'contentHashPrefix',
+  );
   @override
   late final GeneratedColumn<String> contentHashPrefix =
-      GeneratedColumn<String>('content_hash_prefix', aliasedName, true,
-          type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _lastSeenAtMeta =
-      const VerificationMeta('lastSeenAt');
+      GeneratedColumn<String>(
+        'content_hash_prefix',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
+    'lastSeenAt',
+  );
   @override
   late final GeneratedColumn<DateTime> lastSeenAt = GeneratedColumn<DateTime>(
-      'last_seen_at', aliasedName, false,
-      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+    'last_seen_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, path, isDirectory, size, modifiedAt, contentHashPrefix, lastSeenAt];
+  List<GeneratedColumn> get $columns => [
+    id,
+    path,
+    isDirectory,
+    size,
+    modifiedAt,
+    contentHashPrefix,
+    lastSeenAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
   static const String $name = 'file_nodes';
   @override
-  VerificationContext validateIntegrity(Insertable<FileNodeRow> instance,
-      {bool isInserting = false}) {
+  VerificationContext validateIntegrity(
+    Insertable<FileNodeRow> instance, {
+    bool isInserting = false,
+  }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
@@ -394,39 +491,52 @@ class $FileNodesTable extends FileNodes
     }
     if (data.containsKey('path')) {
       context.handle(
-          _pathMeta, path.isAcceptableOrUnknown(data['path']!, _pathMeta));
+        _pathMeta,
+        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
+      );
     } else if (isInserting) {
       context.missing(_pathMeta);
     }
     if (data.containsKey('is_directory')) {
       context.handle(
+        _isDirectoryMeta,
+        isDirectory.isAcceptableOrUnknown(
+          data['is_directory']!,
           _isDirectoryMeta,
-          isDirectory.isAcceptableOrUnknown(
-              data['is_directory']!, _isDirectoryMeta));
+        ),
+      );
     } else if (isInserting) {
       context.missing(_isDirectoryMeta);
     }
     if (data.containsKey('size')) {
       context.handle(
-          _sizeMeta, size.isAcceptableOrUnknown(data['size']!, _sizeMeta));
+        _sizeMeta,
+        size.isAcceptableOrUnknown(data['size']!, _sizeMeta),
+      );
     }
     if (data.containsKey('modified_at')) {
       context.handle(
-          _modifiedAtMeta,
-          modifiedAt.isAcceptableOrUnknown(
-              data['modified_at']!, _modifiedAtMeta));
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
     }
     if (data.containsKey('content_hash_prefix')) {
       context.handle(
+        _contentHashPrefixMeta,
+        contentHashPrefix.isAcceptableOrUnknown(
+          data['content_hash_prefix']!,
           _contentHashPrefixMeta,
-          contentHashPrefix.isAcceptableOrUnknown(
-              data['content_hash_prefix']!, _contentHashPrefixMeta));
+        ),
+      );
     }
     if (data.containsKey('last_seen_at')) {
       context.handle(
+        _lastSeenAtMeta,
+        lastSeenAt.isAcceptableOrUnknown(
+          data['last_seen_at']!,
           _lastSeenAtMeta,
-          lastSeenAt.isAcceptableOrUnknown(
-              data['last_seen_at']!, _lastSeenAtMeta));
+        ),
+      );
     } else if (isInserting) {
       context.missing(_lastSeenAtMeta);
     }
@@ -439,20 +549,38 @@ class $FileNodesTable extends FileNodes
   FileNodeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return FileNodeRow(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      path: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}path'])!,
-      isDirectory: attachedDatabase.typeMapping
-          .read(DriftSqlType.bool, data['${effectivePrefix}is_directory'])!,
-      size: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}size']),
-      modifiedAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}modified_at']),
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      path:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}path'],
+          )!,
+      isDirectory:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}is_directory'],
+          )!,
+      size: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size'],
+      ),
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}modified_at'],
+      ),
       contentHashPrefix: attachedDatabase.typeMapping.read(
-          DriftSqlType.string, data['${effectivePrefix}content_hash_prefix']),
-      lastSeenAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}last_seen_at'])!,
+        DriftSqlType.string,
+        data['${effectivePrefix}content_hash_prefix'],
+      ),
+      lastSeenAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}last_seen_at'],
+          )!,
     );
   }
 
@@ -478,14 +606,15 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
 
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   final DateTime lastSeenAt;
-  const FileNodeRow(
-      {required this.id,
-      required this.path,
-      required this.isDirectory,
-      this.size,
-      this.modifiedAt,
-      this.contentHashPrefix,
-      required this.lastSeenAt});
+  const FileNodeRow({
+    required this.id,
+    required this.path,
+    required this.isDirectory,
+    this.size,
+    this.modifiedAt,
+    this.contentHashPrefix,
+    required this.lastSeenAt,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -511,18 +640,22 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       path: Value(path),
       isDirectory: Value(isDirectory),
       size: size == null && nullToAbsent ? const Value.absent() : Value(size),
-      modifiedAt: modifiedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(modifiedAt),
-      contentHashPrefix: contentHashPrefix == null && nullToAbsent
-          ? const Value.absent()
-          : Value(contentHashPrefix),
+      modifiedAt:
+          modifiedAt == null && nullToAbsent
+              ? const Value.absent()
+              : Value(modifiedAt),
+      contentHashPrefix:
+          contentHashPrefix == null && nullToAbsent
+              ? const Value.absent()
+              : Value(contentHashPrefix),
       lastSeenAt: Value(lastSeenAt),
     );
   }
 
-  factory FileNodeRow.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
+  factory FileNodeRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FileNodeRow(
       id: serializer.fromJson<int>(json['id']),
@@ -530,8 +663,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       isDirectory: serializer.fromJson<bool>(json['isDirectory']),
       size: serializer.fromJson<int?>(json['size']),
       modifiedAt: serializer.fromJson<DateTime?>(json['modifiedAt']),
-      contentHashPrefix:
-          serializer.fromJson<String?>(json['contentHashPrefix']),
+      contentHashPrefix: serializer.fromJson<String?>(
+        json['contentHashPrefix'],
+      ),
       lastSeenAt: serializer.fromJson<DateTime>(json['lastSeenAt']),
     );
   }
@@ -549,25 +683,26 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     };
   }
 
-  FileNodeRow copyWith(
-          {int? id,
-          String? path,
-          bool? isDirectory,
-          Value<int?> size = const Value.absent(),
-          Value<DateTime?> modifiedAt = const Value.absent(),
-          Value<String?> contentHashPrefix = const Value.absent(),
-          DateTime? lastSeenAt}) =>
-      FileNodeRow(
-        id: id ?? this.id,
-        path: path ?? this.path,
-        isDirectory: isDirectory ?? this.isDirectory,
-        size: size.present ? size.value : this.size,
-        modifiedAt: modifiedAt.present ? modifiedAt.value : this.modifiedAt,
-        contentHashPrefix: contentHashPrefix.present
+  FileNodeRow copyWith({
+    int? id,
+    String? path,
+    bool? isDirectory,
+    Value<int?> size = const Value.absent(),
+    Value<DateTime?> modifiedAt = const Value.absent(),
+    Value<String?> contentHashPrefix = const Value.absent(),
+    DateTime? lastSeenAt,
+  }) => FileNodeRow(
+    id: id ?? this.id,
+    path: path ?? this.path,
+    isDirectory: isDirectory ?? this.isDirectory,
+    size: size.present ? size.value : this.size,
+    modifiedAt: modifiedAt.present ? modifiedAt.value : this.modifiedAt,
+    contentHashPrefix:
+        contentHashPrefix.present
             ? contentHashPrefix.value
             : this.contentHashPrefix,
-        lastSeenAt: lastSeenAt ?? this.lastSeenAt,
-      );
+    lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+  );
   FileNodeRow copyWithCompanion(FileNodesCompanion data) {
     return FileNodeRow(
       id: data.id.present ? data.id.value : this.id,
@@ -577,9 +712,10 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       size: data.size.present ? data.size.value : this.size,
       modifiedAt:
           data.modifiedAt.present ? data.modifiedAt.value : this.modifiedAt,
-      contentHashPrefix: data.contentHashPrefix.present
-          ? data.contentHashPrefix.value
-          : this.contentHashPrefix,
+      contentHashPrefix:
+          data.contentHashPrefix.present
+              ? data.contentHashPrefix.value
+              : this.contentHashPrefix,
       lastSeenAt:
           data.lastSeenAt.present ? data.lastSeenAt.value : this.lastSeenAt,
     );
@@ -601,7 +737,14 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
 
   @override
   int get hashCode => Object.hash(
-      id, path, isDirectory, size, modifiedAt, contentHashPrefix, lastSeenAt);
+    id,
+    path,
+    isDirectory,
+    size,
+    modifiedAt,
+    contentHashPrefix,
+    lastSeenAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -640,9 +783,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.modifiedAt = const Value.absent(),
     this.contentHashPrefix = const Value.absent(),
     required DateTime lastSeenAt,
-  })  : path = Value(path),
-        isDirectory = Value(isDirectory),
-        lastSeenAt = Value(lastSeenAt);
+  }) : path = Value(path),
+       isDirectory = Value(isDirectory),
+       lastSeenAt = Value(lastSeenAt);
   static Insertable<FileNodeRow> custom({
     Expression<int>? id,
     Expression<String>? path,
@@ -663,14 +806,15 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     });
   }
 
-  FileNodesCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? path,
-      Value<bool>? isDirectory,
-      Value<int?>? size,
-      Value<DateTime?>? modifiedAt,
-      Value<String?>? contentHashPrefix,
-      Value<DateTime>? lastSeenAt}) {
+  FileNodesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? path,
+    Value<bool>? isDirectory,
+    Value<int?>? size,
+    Value<DateTime?>? modifiedAt,
+    Value<String?>? contentHashPrefix,
+    Value<DateTime>? lastSeenAt,
+  }) {
     return FileNodesCompanion(
       id: id ?? this.id,
       path: path ?? this.path,
@@ -733,46 +877,70 @@ class $TagAssignmentsTable extends TagAssignments
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _fileNodeIdMeta =
-      const VerificationMeta('fileNodeId');
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _fileNodeIdMeta = const VerificationMeta(
+    'fileNodeId',
+  );
   @override
   late final GeneratedColumn<int> fileNodeId = GeneratedColumn<int>(
-      'file_node_id', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'REFERENCES file_nodes (id) ON DELETE CASCADE'));
-  static const VerificationMeta _tagDefinitionIdMeta =
-      const VerificationMeta('tagDefinitionId');
+    'file_node_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES file_nodes (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _tagDefinitionIdMeta = const VerificationMeta(
+    'tagDefinitionId',
+  );
   @override
   late final GeneratedColumn<int> tagDefinitionId = GeneratedColumn<int>(
-      'tag_definition_id', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'REFERENCES tag_definitions (id) ON DELETE CASCADE'));
+    'tag_definition_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tag_definitions (id) ON DELETE CASCADE',
+    ),
+  );
   static const VerificationMeta _valueMeta = const VerificationMeta('value');
   @override
   late final GeneratedColumn<String> value = GeneratedColumn<String>(
-      'value', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
+    'value',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, fileNodeId, tagDefinitionId, value];
+  List<GeneratedColumn> get $columns => [
+    id,
+    fileNodeId,
+    tagDefinitionId,
+    value,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
   static const String $name = 'tag_assignments';
   @override
-  VerificationContext validateIntegrity(Insertable<TagAssignmentRow> instance,
-      {bool isInserting = false}) {
+  VerificationContext validateIntegrity(
+    Insertable<TagAssignmentRow> instance, {
+    bool isInserting = false,
+  }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
@@ -780,23 +948,31 @@ class $TagAssignmentsTable extends TagAssignments
     }
     if (data.containsKey('file_node_id')) {
       context.handle(
+        _fileNodeIdMeta,
+        fileNodeId.isAcceptableOrUnknown(
+          data['file_node_id']!,
           _fileNodeIdMeta,
-          fileNodeId.isAcceptableOrUnknown(
-              data['file_node_id']!, _fileNodeIdMeta));
+        ),
+      );
     } else if (isInserting) {
       context.missing(_fileNodeIdMeta);
     }
     if (data.containsKey('tag_definition_id')) {
       context.handle(
+        _tagDefinitionIdMeta,
+        tagDefinitionId.isAcceptableOrUnknown(
+          data['tag_definition_id']!,
           _tagDefinitionIdMeta,
-          tagDefinitionId.isAcceptableOrUnknown(
-              data['tag_definition_id']!, _tagDefinitionIdMeta));
+        ),
+      );
     } else if (isInserting) {
       context.missing(_tagDefinitionIdMeta);
     }
     if (data.containsKey('value')) {
       context.handle(
-          _valueMeta, value.isAcceptableOrUnknown(data['value']!, _valueMeta));
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
     }
     return context;
   }
@@ -807,14 +983,25 @@ class $TagAssignmentsTable extends TagAssignments
   TagAssignmentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return TagAssignmentRow(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      fileNodeId: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}file_node_id'])!,
-      tagDefinitionId: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}tag_definition_id'])!,
-      value: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}value']),
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      fileNodeId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}file_node_id'],
+          )!,
+      tagDefinitionId:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}tag_definition_id'],
+          )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      ),
     );
   }
 
@@ -832,11 +1019,12 @@ class TagAssignmentRow extends DataClass
 
   /// 부여된 값. label 유형 등 값이 없으면 미지정.
   final String? value;
-  const TagAssignmentRow(
-      {required this.id,
-      required this.fileNodeId,
-      required this.tagDefinitionId,
-      this.value});
+  const TagAssignmentRow({
+    required this.id,
+    required this.fileNodeId,
+    required this.tagDefinitionId,
+    this.value,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -859,8 +1047,10 @@ class TagAssignmentRow extends DataClass
     );
   }
 
-  factory TagAssignmentRow.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
+  factory TagAssignmentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return TagAssignmentRow(
       id: serializer.fromJson<int>(json['id']),
@@ -880,25 +1070,26 @@ class TagAssignmentRow extends DataClass
     };
   }
 
-  TagAssignmentRow copyWith(
-          {int? id,
-          int? fileNodeId,
-          int? tagDefinitionId,
-          Value<String?> value = const Value.absent()}) =>
-      TagAssignmentRow(
-        id: id ?? this.id,
-        fileNodeId: fileNodeId ?? this.fileNodeId,
-        tagDefinitionId: tagDefinitionId ?? this.tagDefinitionId,
-        value: value.present ? value.value : this.value,
-      );
+  TagAssignmentRow copyWith({
+    int? id,
+    int? fileNodeId,
+    int? tagDefinitionId,
+    Value<String?> value = const Value.absent(),
+  }) => TagAssignmentRow(
+    id: id ?? this.id,
+    fileNodeId: fileNodeId ?? this.fileNodeId,
+    tagDefinitionId: tagDefinitionId ?? this.tagDefinitionId,
+    value: value.present ? value.value : this.value,
+  );
   TagAssignmentRow copyWithCompanion(TagAssignmentsCompanion data) {
     return TagAssignmentRow(
       id: data.id.present ? data.id.value : this.id,
       fileNodeId:
           data.fileNodeId.present ? data.fileNodeId.value : this.fileNodeId,
-      tagDefinitionId: data.tagDefinitionId.present
-          ? data.tagDefinitionId.value
-          : this.tagDefinitionId,
+      tagDefinitionId:
+          data.tagDefinitionId.present
+              ? data.tagDefinitionId.value
+              : this.tagDefinitionId,
       value: data.value.present ? data.value.value : this.value,
     );
   }
@@ -942,8 +1133,8 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
     required int fileNodeId,
     required int tagDefinitionId,
     this.value = const Value.absent(),
-  })  : fileNodeId = Value(fileNodeId),
-        tagDefinitionId = Value(tagDefinitionId);
+  }) : fileNodeId = Value(fileNodeId),
+       tagDefinitionId = Value(tagDefinitionId);
   static Insertable<TagAssignmentRow> custom({
     Expression<int>? id,
     Expression<int>? fileNodeId,
@@ -958,11 +1149,12 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
     });
   }
 
-  TagAssignmentsCompanion copyWith(
-      {Value<int>? id,
-      Value<int>? fileNodeId,
-      Value<int>? tagDefinitionId,
-      Value<String?>? value}) {
+  TagAssignmentsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? fileNodeId,
+    Value<int>? tagDefinitionId,
+    Value<String?>? value,
+  }) {
     return TagAssignmentsCompanion(
       id: id ?? this.id,
       fileNodeId: fileNodeId ?? this.fileNodeId,
@@ -1011,65 +1203,75 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [tagDefinitions, fileNodes, tagAssignments];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    tagDefinitions,
+    fileNodes,
+    tagAssignments,
+  ];
   @override
-  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
-        [
-          WritePropagation(
-            on: TableUpdateQuery.onTableName('file_nodes',
-                limitUpdateKind: UpdateKind.delete),
-            result: [
-              TableUpdate('tag_assignments', kind: UpdateKind.delete),
-            ],
-          ),
-          WritePropagation(
-            on: TableUpdateQuery.onTableName('tag_definitions',
-                limitUpdateKind: UpdateKind.delete),
-            result: [
-              TableUpdate('tag_assignments', kind: UpdateKind.delete),
-            ],
-          ),
-        ],
-      );
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'file_nodes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('tag_assignments', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'tag_definitions',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('tag_assignments', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
-typedef $$TagDefinitionsTableCreateCompanionBuilder = TagDefinitionsCompanion
-    Function({
-  Value<int> id,
-  required String name,
-  required TagValueType valueType,
-  Value<int?> color,
-  Value<bool> allowMultiple,
-});
-typedef $$TagDefinitionsTableUpdateCompanionBuilder = TagDefinitionsCompanion
-    Function({
-  Value<int> id,
-  Value<String> name,
-  Value<TagValueType> valueType,
-  Value<int?> color,
-  Value<bool> allowMultiple,
-});
+typedef $$TagDefinitionsTableCreateCompanionBuilder =
+    TagDefinitionsCompanion Function({
+      Value<int> id,
+      required String name,
+      required TagValueType valueType,
+      Value<int?> color,
+      Value<bool> allowMultiple,
+    });
+typedef $$TagDefinitionsTableUpdateCompanionBuilder =
+    TagDefinitionsCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<TagValueType> valueType,
+      Value<int?> color,
+      Value<bool> allowMultiple,
+    });
 
-final class $$TagDefinitionsTableReferences extends BaseReferences<
-    _$AppDatabase, $TagDefinitionsTable, TagDefinitionRow> {
+final class $$TagDefinitionsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $TagDefinitionsTable, TagDefinitionRow> {
   $$TagDefinitionsTableReferences(
-      super.$_db, super.$_table, super.$_typedResult);
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
 
   static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignmentRow>>
-      _tagAssignmentsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.tagAssignments,
-              aliasName: $_aliasNameGenerator(
-                  db.tagDefinitions.id, db.tagAssignments.tagDefinitionId));
+  _tagAssignmentsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.tagAssignments,
+    aliasName: $_aliasNameGenerator(
+      db.tagDefinitions.id,
+      db.tagAssignments.tagDefinitionId,
+    ),
+  );
 
   $$TagAssignmentsTableProcessedTableManager get tagAssignmentsRefs {
-    final manager = $$TagAssignmentsTableTableManager($_db, $_db.tagAssignments)
-        .filter(
-            (f) => f.tagDefinitionId.id.sqlEquals($_itemColumn<int>('id')!));
+    final manager = $$TagAssignmentsTableTableManager(
+      $_db,
+      $_db.tagAssignments,
+    ).filter((f) => f.tagDefinitionId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_tagAssignmentsRefsTable($_db));
     return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
+      manager.$state.copyWith(prefetchedData: cache),
+    );
   }
 }
 
@@ -1083,40 +1285,53 @@ class $$TagDefinitionsTableFilterComposer
     super.$removeJoinBuilderFromRootComposer,
   });
   ColumnFilters<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnFilters(column));
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<String> get name => $composableBuilder(
-      column: $table.name, builder: (column) => ColumnFilters(column));
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnWithTypeConverterFilters<TagValueType, TagValueType, String>
-      get valueType => $composableBuilder(
-          column: $table.valueType,
-          builder: (column) => ColumnWithTypeConverterFilters(column));
+  get valueType => $composableBuilder(
+    column: $table.valueType,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
   ColumnFilters<int> get color => $composableBuilder(
-      column: $table.color, builder: (column) => ColumnFilters(column));
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<bool> get allowMultiple => $composableBuilder(
-      column: $table.allowMultiple, builder: (column) => ColumnFilters(column));
+    column: $table.allowMultiple,
+    builder: (column) => ColumnFilters(column),
+  );
 
   Expression<bool> tagAssignmentsRefs(
-      Expression<bool> Function($$TagAssignmentsTableFilterComposer f) f) {
+    Expression<bool> Function($$TagAssignmentsTableFilterComposer f) f,
+  ) {
     final $$TagAssignmentsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.tagAssignments,
-        getReferencedColumn: (t) => t.tagDefinitionId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TagAssignmentsTableFilterComposer(
-              $db: $db,
-              $table: $db.tagAssignments,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tagAssignments,
+      getReferencedColumn: (t) => t.tagDefinitionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagAssignmentsTableFilterComposer(
+            $db: $db,
+            $table: $db.tagAssignments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
@@ -1131,20 +1346,29 @@ class $$TagDefinitionsTableOrderingComposer
     super.$removeJoinBuilderFromRootComposer,
   });
   ColumnOrderings<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnOrderings(column));
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<String> get name => $composableBuilder(
-      column: $table.name, builder: (column) => ColumnOrderings(column));
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<String> get valueType => $composableBuilder(
-      column: $table.valueType, builder: (column) => ColumnOrderings(column));
+    column: $table.valueType,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<int> get color => $composableBuilder(
-      column: $table.color, builder: (column) => ColumnOrderings(column));
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<bool> get allowMultiple => $composableBuilder(
-      column: $table.allowMultiple,
-      builder: (column) => ColumnOrderings(column));
+    column: $table.allowMultiple,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TagDefinitionsTableAnnotationComposer
@@ -1169,164 +1393,203 @@ class $$TagDefinitionsTableAnnotationComposer
       $composableBuilder(column: $table.color, builder: (column) => column);
 
   GeneratedColumn<bool> get allowMultiple => $composableBuilder(
-      column: $table.allowMultiple, builder: (column) => column);
+    column: $table.allowMultiple,
+    builder: (column) => column,
+  );
 
   Expression<T> tagAssignmentsRefs<T extends Object>(
-      Expression<T> Function($$TagAssignmentsTableAnnotationComposer a) f) {
+    Expression<T> Function($$TagAssignmentsTableAnnotationComposer a) f,
+  ) {
     final $$TagAssignmentsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.tagAssignments,
-        getReferencedColumn: (t) => t.tagDefinitionId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TagAssignmentsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.tagAssignments,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tagAssignments,
+      getReferencedColumn: (t) => t.tagDefinitionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagAssignmentsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tagAssignments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
 
-class $$TagDefinitionsTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $TagDefinitionsTable,
-    TagDefinitionRow,
-    $$TagDefinitionsTableFilterComposer,
-    $$TagDefinitionsTableOrderingComposer,
-    $$TagDefinitionsTableAnnotationComposer,
-    $$TagDefinitionsTableCreateCompanionBuilder,
-    $$TagDefinitionsTableUpdateCompanionBuilder,
-    (TagDefinitionRow, $$TagDefinitionsTableReferences),
-    TagDefinitionRow,
-    PrefetchHooks Function({bool tagAssignmentsRefs})> {
+class $$TagDefinitionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TagDefinitionsTable,
+          TagDefinitionRow,
+          $$TagDefinitionsTableFilterComposer,
+          $$TagDefinitionsTableOrderingComposer,
+          $$TagDefinitionsTableAnnotationComposer,
+          $$TagDefinitionsTableCreateCompanionBuilder,
+          $$TagDefinitionsTableUpdateCompanionBuilder,
+          (TagDefinitionRow, $$TagDefinitionsTableReferences),
+          TagDefinitionRow,
+          PrefetchHooks Function({bool tagAssignmentsRefs})
+        > {
   $$TagDefinitionsTableTableManager(
-      _$AppDatabase db, $TagDefinitionsTable table)
-      : super(TableManagerState(
+    _$AppDatabase db,
+    $TagDefinitionsTable table,
+  ) : super(
+        TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer: () =>
-              $$TagDefinitionsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$TagDefinitionsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$TagDefinitionsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> name = const Value.absent(),
-            Value<TagValueType> valueType = const Value.absent(),
-            Value<int?> color = const Value.absent(),
-            Value<bool> allowMultiple = const Value.absent(),
-          }) =>
-              TagDefinitionsCompanion(
-            id: id,
-            name: name,
-            valueType: valueType,
-            color: color,
-            allowMultiple: allowMultiple,
-          ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String name,
-            required TagValueType valueType,
-            Value<int?> color = const Value.absent(),
-            Value<bool> allowMultiple = const Value.absent(),
-          }) =>
-              TagDefinitionsCompanion.insert(
-            id: id,
-            name: name,
-            valueType: valueType,
-            color: color,
-            allowMultiple: allowMultiple,
-          ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (
-                    e.readTable(table),
-                    $$TagDefinitionsTableReferences(db, table, e)
-                  ))
-              .toList(),
+          createFilteringComposer:
+              () => $$TagDefinitionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () =>
+                  $$TagDefinitionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$TagDefinitionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<TagValueType> valueType = const Value.absent(),
+                Value<int?> color = const Value.absent(),
+                Value<bool> allowMultiple = const Value.absent(),
+              }) => TagDefinitionsCompanion(
+                id: id,
+                name: name,
+                valueType: valueType,
+                color: color,
+                allowMultiple: allowMultiple,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                required TagValueType valueType,
+                Value<int?> color = const Value.absent(),
+                Value<bool> allowMultiple = const Value.absent(),
+              }) => TagDefinitionsCompanion.insert(
+                id: id,
+                name: name,
+                valueType: valueType,
+                color: color,
+                allowMultiple: allowMultiple,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          $$TagDefinitionsTableReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
           prefetchHooksCallback: ({tagAssignmentsRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
-                if (tagAssignmentsRefs) db.tagAssignments
+                if (tagAssignmentsRefs) db.tagAssignments,
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (tagAssignmentsRefs)
-                    await $_getPrefetchedData<TagDefinitionRow,
-                            $TagDefinitionsTable, TagAssignmentRow>(
-                        currentTable: table,
-                        referencedTable: $$TagDefinitionsTableReferences
-                            ._tagAssignmentsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$TagDefinitionsTableReferences(db, table, p0)
-                                .tagAssignmentsRefs,
-                        referencedItemsForCurrentItem:
-                            (item, referencedItems) => referencedItems
-                                .where((e) => e.tagDefinitionId == item.id),
-                        typedResults: items)
+                    await $_getPrefetchedData<
+                      TagDefinitionRow,
+                      $TagDefinitionsTable,
+                      TagAssignmentRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$TagDefinitionsTableReferences
+                          ._tagAssignmentsRefsTable(db),
+                      managerFromTypedResult:
+                          (p0) =>
+                              $$TagDefinitionsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).tagAssignmentsRefs,
+                      referencedItemsForCurrentItem:
+                          (item, referencedItems) => referencedItems.where(
+                            (e) => e.tagDefinitionId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
                 ];
               },
             );
           },
-        ));
+        ),
+      );
 }
 
-typedef $$TagDefinitionsTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $TagDefinitionsTable,
-    TagDefinitionRow,
-    $$TagDefinitionsTableFilterComposer,
-    $$TagDefinitionsTableOrderingComposer,
-    $$TagDefinitionsTableAnnotationComposer,
-    $$TagDefinitionsTableCreateCompanionBuilder,
-    $$TagDefinitionsTableUpdateCompanionBuilder,
-    (TagDefinitionRow, $$TagDefinitionsTableReferences),
-    TagDefinitionRow,
-    PrefetchHooks Function({bool tagAssignmentsRefs})>;
-typedef $$FileNodesTableCreateCompanionBuilder = FileNodesCompanion Function({
-  Value<int> id,
-  required String path,
-  required bool isDirectory,
-  Value<int?> size,
-  Value<DateTime?> modifiedAt,
-  Value<String?> contentHashPrefix,
-  required DateTime lastSeenAt,
-});
-typedef $$FileNodesTableUpdateCompanionBuilder = FileNodesCompanion Function({
-  Value<int> id,
-  Value<String> path,
-  Value<bool> isDirectory,
-  Value<int?> size,
-  Value<DateTime?> modifiedAt,
-  Value<String?> contentHashPrefix,
-  Value<DateTime> lastSeenAt,
-});
+typedef $$TagDefinitionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TagDefinitionsTable,
+      TagDefinitionRow,
+      $$TagDefinitionsTableFilterComposer,
+      $$TagDefinitionsTableOrderingComposer,
+      $$TagDefinitionsTableAnnotationComposer,
+      $$TagDefinitionsTableCreateCompanionBuilder,
+      $$TagDefinitionsTableUpdateCompanionBuilder,
+      (TagDefinitionRow, $$TagDefinitionsTableReferences),
+      TagDefinitionRow,
+      PrefetchHooks Function({bool tagAssignmentsRefs})
+    >;
+typedef $$FileNodesTableCreateCompanionBuilder =
+    FileNodesCompanion Function({
+      Value<int> id,
+      required String path,
+      required bool isDirectory,
+      Value<int?> size,
+      Value<DateTime?> modifiedAt,
+      Value<String?> contentHashPrefix,
+      required DateTime lastSeenAt,
+    });
+typedef $$FileNodesTableUpdateCompanionBuilder =
+    FileNodesCompanion Function({
+      Value<int> id,
+      Value<String> path,
+      Value<bool> isDirectory,
+      Value<int?> size,
+      Value<DateTime?> modifiedAt,
+      Value<String?> contentHashPrefix,
+      Value<DateTime> lastSeenAt,
+    });
 
 final class $$FileNodesTableReferences
     extends BaseReferences<_$AppDatabase, $FileNodesTable, FileNodeRow> {
   $$FileNodesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignmentRow>>
-      _tagAssignmentsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.tagAssignments,
-              aliasName: $_aliasNameGenerator(
-                  db.fileNodes.id, db.tagAssignments.fileNodeId));
+  _tagAssignmentsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.tagAssignments,
+    aliasName: $_aliasNameGenerator(
+      db.fileNodes.id,
+      db.tagAssignments.fileNodeId,
+    ),
+  );
 
   $$TagAssignmentsTableProcessedTableManager get tagAssignmentsRefs {
-    final manager = $$TagAssignmentsTableTableManager($_db, $_db.tagAssignments)
-        .filter((f) => f.fileNodeId.id.sqlEquals($_itemColumn<int>('id')!));
+    final manager = $$TagAssignmentsTableTableManager(
+      $_db,
+      $_db.tagAssignments,
+    ).filter((f) => f.fileNodeId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_tagAssignmentsRefsTable($_db));
     return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
+      manager.$state.copyWith(prefetchedData: cache),
+    );
   }
 }
 
@@ -1340,45 +1603,62 @@ class $$FileNodesTableFilterComposer
     super.$removeJoinBuilderFromRootComposer,
   });
   ColumnFilters<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnFilters(column));
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<String> get path => $composableBuilder(
-      column: $table.path, builder: (column) => ColumnFilters(column));
+    column: $table.path,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<bool> get isDirectory => $composableBuilder(
-      column: $table.isDirectory, builder: (column) => ColumnFilters(column));
+    column: $table.isDirectory,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<int> get size => $composableBuilder(
-      column: $table.size, builder: (column) => ColumnFilters(column));
+    column: $table.size,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<DateTime> get modifiedAt => $composableBuilder(
-      column: $table.modifiedAt, builder: (column) => ColumnFilters(column));
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<String> get contentHashPrefix => $composableBuilder(
-      column: $table.contentHashPrefix,
-      builder: (column) => ColumnFilters(column));
+    column: $table.contentHashPrefix,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<DateTime> get lastSeenAt => $composableBuilder(
-      column: $table.lastSeenAt, builder: (column) => ColumnFilters(column));
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
 
   Expression<bool> tagAssignmentsRefs(
-      Expression<bool> Function($$TagAssignmentsTableFilterComposer f) f) {
+    Expression<bool> Function($$TagAssignmentsTableFilterComposer f) f,
+  ) {
     final $$TagAssignmentsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.tagAssignments,
-        getReferencedColumn: (t) => t.fileNodeId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TagAssignmentsTableFilterComposer(
-              $db: $db,
-              $table: $db.tagAssignments,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tagAssignments,
+      getReferencedColumn: (t) => t.fileNodeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagAssignmentsTableFilterComposer(
+            $db: $db,
+            $table: $db.tagAssignments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
@@ -1393,26 +1673,39 @@ class $$FileNodesTableOrderingComposer
     super.$removeJoinBuilderFromRootComposer,
   });
   ColumnOrderings<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnOrderings(column));
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<String> get path => $composableBuilder(
-      column: $table.path, builder: (column) => ColumnOrderings(column));
+    column: $table.path,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<bool> get isDirectory => $composableBuilder(
-      column: $table.isDirectory, builder: (column) => ColumnOrderings(column));
+    column: $table.isDirectory,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<int> get size => $composableBuilder(
-      column: $table.size, builder: (column) => ColumnOrderings(column));
+    column: $table.size,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<DateTime> get modifiedAt => $composableBuilder(
-      column: $table.modifiedAt, builder: (column) => ColumnOrderings(column));
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<String> get contentHashPrefix => $composableBuilder(
-      column: $table.contentHashPrefix,
-      builder: (column) => ColumnOrderings(column));
+    column: $table.contentHashPrefix,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<DateTime> get lastSeenAt => $composableBuilder(
-      column: $table.lastSeenAt, builder: (column) => ColumnOrderings(column));
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FileNodesTableAnnotationComposer
@@ -1431,195 +1724,242 @@ class $$FileNodesTableAnnotationComposer
       $composableBuilder(column: $table.path, builder: (column) => column);
 
   GeneratedColumn<bool> get isDirectory => $composableBuilder(
-      column: $table.isDirectory, builder: (column) => column);
+    column: $table.isDirectory,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get size =>
       $composableBuilder(column: $table.size, builder: (column) => column);
 
   GeneratedColumn<DateTime> get modifiedAt => $composableBuilder(
-      column: $table.modifiedAt, builder: (column) => column);
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get contentHashPrefix => $composableBuilder(
-      column: $table.contentHashPrefix, builder: (column) => column);
+    column: $table.contentHashPrefix,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get lastSeenAt => $composableBuilder(
-      column: $table.lastSeenAt, builder: (column) => column);
+    column: $table.lastSeenAt,
+    builder: (column) => column,
+  );
 
   Expression<T> tagAssignmentsRefs<T extends Object>(
-      Expression<T> Function($$TagAssignmentsTableAnnotationComposer a) f) {
+    Expression<T> Function($$TagAssignmentsTableAnnotationComposer a) f,
+  ) {
     final $$TagAssignmentsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.tagAssignments,
-        getReferencedColumn: (t) => t.fileNodeId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TagAssignmentsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.tagAssignments,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tagAssignments,
+      getReferencedColumn: (t) => t.fileNodeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagAssignmentsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tagAssignments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
 
-class $$FileNodesTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $FileNodesTable,
-    FileNodeRow,
-    $$FileNodesTableFilterComposer,
-    $$FileNodesTableOrderingComposer,
-    $$FileNodesTableAnnotationComposer,
-    $$FileNodesTableCreateCompanionBuilder,
-    $$FileNodesTableUpdateCompanionBuilder,
-    (FileNodeRow, $$FileNodesTableReferences),
-    FileNodeRow,
-    PrefetchHooks Function({bool tagAssignmentsRefs})> {
+class $$FileNodesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FileNodesTable,
+          FileNodeRow,
+          $$FileNodesTableFilterComposer,
+          $$FileNodesTableOrderingComposer,
+          $$FileNodesTableAnnotationComposer,
+          $$FileNodesTableCreateCompanionBuilder,
+          $$FileNodesTableUpdateCompanionBuilder,
+          (FileNodeRow, $$FileNodesTableReferences),
+          FileNodeRow,
+          PrefetchHooks Function({bool tagAssignmentsRefs})
+        > {
   $$FileNodesTableTableManager(_$AppDatabase db, $FileNodesTable table)
-      : super(TableManagerState(
+    : super(
+        TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer: () =>
-              $$FileNodesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$FileNodesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$FileNodesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> path = const Value.absent(),
-            Value<bool> isDirectory = const Value.absent(),
-            Value<int?> size = const Value.absent(),
-            Value<DateTime?> modifiedAt = const Value.absent(),
-            Value<String?> contentHashPrefix = const Value.absent(),
-            Value<DateTime> lastSeenAt = const Value.absent(),
-          }) =>
-              FileNodesCompanion(
-            id: id,
-            path: path,
-            isDirectory: isDirectory,
-            size: size,
-            modifiedAt: modifiedAt,
-            contentHashPrefix: contentHashPrefix,
-            lastSeenAt: lastSeenAt,
-          ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String path,
-            required bool isDirectory,
-            Value<int?> size = const Value.absent(),
-            Value<DateTime?> modifiedAt = const Value.absent(),
-            Value<String?> contentHashPrefix = const Value.absent(),
-            required DateTime lastSeenAt,
-          }) =>
-              FileNodesCompanion.insert(
-            id: id,
-            path: path,
-            isDirectory: isDirectory,
-            size: size,
-            modifiedAt: modifiedAt,
-            contentHashPrefix: contentHashPrefix,
-            lastSeenAt: lastSeenAt,
-          ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (
-                    e.readTable(table),
-                    $$FileNodesTableReferences(db, table, e)
-                  ))
-              .toList(),
+          createFilteringComposer:
+              () => $$FileNodesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$FileNodesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$FileNodesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> path = const Value.absent(),
+                Value<bool> isDirectory = const Value.absent(),
+                Value<int?> size = const Value.absent(),
+                Value<DateTime?> modifiedAt = const Value.absent(),
+                Value<String?> contentHashPrefix = const Value.absent(),
+                Value<DateTime> lastSeenAt = const Value.absent(),
+              }) => FileNodesCompanion(
+                id: id,
+                path: path,
+                isDirectory: isDirectory,
+                size: size,
+                modifiedAt: modifiedAt,
+                contentHashPrefix: contentHashPrefix,
+                lastSeenAt: lastSeenAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String path,
+                required bool isDirectory,
+                Value<int?> size = const Value.absent(),
+                Value<DateTime?> modifiedAt = const Value.absent(),
+                Value<String?> contentHashPrefix = const Value.absent(),
+                required DateTime lastSeenAt,
+              }) => FileNodesCompanion.insert(
+                id: id,
+                path: path,
+                isDirectory: isDirectory,
+                size: size,
+                modifiedAt: modifiedAt,
+                contentHashPrefix: contentHashPrefix,
+                lastSeenAt: lastSeenAt,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          $$FileNodesTableReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
           prefetchHooksCallback: ({tagAssignmentsRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
-                if (tagAssignmentsRefs) db.tagAssignments
+                if (tagAssignmentsRefs) db.tagAssignments,
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (tagAssignmentsRefs)
-                    await $_getPrefetchedData<FileNodeRow, $FileNodesTable,
-                            TagAssignmentRow>(
-                        currentTable: table,
-                        referencedTable: $$FileNodesTableReferences
-                            ._tagAssignmentsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$FileNodesTableReferences(db, table, p0)
-                                .tagAssignmentsRefs,
-                        referencedItemsForCurrentItem:
-                            (item, referencedItems) => referencedItems
-                                .where((e) => e.fileNodeId == item.id),
-                        typedResults: items)
+                    await $_getPrefetchedData<
+                      FileNodeRow,
+                      $FileNodesTable,
+                      TagAssignmentRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$FileNodesTableReferences
+                          ._tagAssignmentsRefsTable(db),
+                      managerFromTypedResult:
+                          (p0) =>
+                              $$FileNodesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).tagAssignmentsRefs,
+                      referencedItemsForCurrentItem:
+                          (item, referencedItems) => referencedItems.where(
+                            (e) => e.fileNodeId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
                 ];
               },
             );
           },
-        ));
+        ),
+      );
 }
 
-typedef $$FileNodesTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $FileNodesTable,
-    FileNodeRow,
-    $$FileNodesTableFilterComposer,
-    $$FileNodesTableOrderingComposer,
-    $$FileNodesTableAnnotationComposer,
-    $$FileNodesTableCreateCompanionBuilder,
-    $$FileNodesTableUpdateCompanionBuilder,
-    (FileNodeRow, $$FileNodesTableReferences),
-    FileNodeRow,
-    PrefetchHooks Function({bool tagAssignmentsRefs})>;
-typedef $$TagAssignmentsTableCreateCompanionBuilder = TagAssignmentsCompanion
-    Function({
-  Value<int> id,
-  required int fileNodeId,
-  required int tagDefinitionId,
-  Value<String?> value,
-});
-typedef $$TagAssignmentsTableUpdateCompanionBuilder = TagAssignmentsCompanion
-    Function({
-  Value<int> id,
-  Value<int> fileNodeId,
-  Value<int> tagDefinitionId,
-  Value<String?> value,
-});
+typedef $$FileNodesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FileNodesTable,
+      FileNodeRow,
+      $$FileNodesTableFilterComposer,
+      $$FileNodesTableOrderingComposer,
+      $$FileNodesTableAnnotationComposer,
+      $$FileNodesTableCreateCompanionBuilder,
+      $$FileNodesTableUpdateCompanionBuilder,
+      (FileNodeRow, $$FileNodesTableReferences),
+      FileNodeRow,
+      PrefetchHooks Function({bool tagAssignmentsRefs})
+    >;
+typedef $$TagAssignmentsTableCreateCompanionBuilder =
+    TagAssignmentsCompanion Function({
+      Value<int> id,
+      required int fileNodeId,
+      required int tagDefinitionId,
+      Value<String?> value,
+    });
+typedef $$TagAssignmentsTableUpdateCompanionBuilder =
+    TagAssignmentsCompanion Function({
+      Value<int> id,
+      Value<int> fileNodeId,
+      Value<int> tagDefinitionId,
+      Value<String?> value,
+    });
 
-final class $$TagAssignmentsTableReferences extends BaseReferences<
-    _$AppDatabase, $TagAssignmentsTable, TagAssignmentRow> {
+final class $$TagAssignmentsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $TagAssignmentsTable, TagAssignmentRow> {
   $$TagAssignmentsTableReferences(
-      super.$_db, super.$_table, super.$_typedResult);
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
 
   static $FileNodesTable _fileNodeIdTable(_$AppDatabase db) =>
       db.fileNodes.createAlias(
-          $_aliasNameGenerator(db.tagAssignments.fileNodeId, db.fileNodes.id));
+        $_aliasNameGenerator(db.tagAssignments.fileNodeId, db.fileNodes.id),
+      );
 
   $$FileNodesTableProcessedTableManager get fileNodeId {
     final $_column = $_itemColumn<int>('file_node_id')!;
 
-    final manager = $$FileNodesTableTableManager($_db, $_db.fileNodes)
-        .filter((f) => f.id.sqlEquals($_column));
+    final manager = $$FileNodesTableTableManager(
+      $_db,
+      $_db.fileNodes,
+    ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_fileNodeIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
   }
 
   static $TagDefinitionsTable _tagDefinitionIdTable(_$AppDatabase db) =>
-      db.tagDefinitions.createAlias($_aliasNameGenerator(
-          db.tagAssignments.tagDefinitionId, db.tagDefinitions.id));
+      db.tagDefinitions.createAlias(
+        $_aliasNameGenerator(
+          db.tagAssignments.tagDefinitionId,
+          db.tagDefinitions.id,
+        ),
+      );
 
   $$TagDefinitionsTableProcessedTableManager get tagDefinitionId {
     final $_column = $_itemColumn<int>('tag_definition_id')!;
 
-    final manager = $$TagDefinitionsTableTableManager($_db, $_db.tagDefinitions)
-        .filter((f) => f.id.sqlEquals($_column));
+    final manager = $$TagDefinitionsTableTableManager(
+      $_db,
+      $_db.tagDefinitions,
+    ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_tagDefinitionIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
   }
 }
 
@@ -1633,48 +1973,58 @@ class $$TagAssignmentsTableFilterComposer
     super.$removeJoinBuilderFromRootComposer,
   });
   ColumnFilters<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnFilters(column));
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<String> get value => $composableBuilder(
-      column: $table.value, builder: (column) => ColumnFilters(column));
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
 
   $$FileNodesTableFilterComposer get fileNodeId {
     final $$FileNodesTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.fileNodeId,
-        referencedTable: $db.fileNodes,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$FileNodesTableFilterComposer(
-              $db: $db,
-              $table: $db.fileNodes,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.fileNodeId,
+      referencedTable: $db.fileNodes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FileNodesTableFilterComposer(
+            $db: $db,
+            $table: $db.fileNodes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return composer;
   }
 
   $$TagDefinitionsTableFilterComposer get tagDefinitionId {
     final $$TagDefinitionsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.tagDefinitionId,
-        referencedTable: $db.tagDefinitions,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TagDefinitionsTableFilterComposer(
-              $db: $db,
-              $table: $db.tagDefinitions,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.tagDefinitionId,
+      referencedTable: $db.tagDefinitions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagDefinitionsTableFilterComposer(
+            $db: $db,
+            $table: $db.tagDefinitions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return composer;
   }
 }
@@ -1689,48 +2039,58 @@ class $$TagAssignmentsTableOrderingComposer
     super.$removeJoinBuilderFromRootComposer,
   });
   ColumnOrderings<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnOrderings(column));
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   ColumnOrderings<String> get value => $composableBuilder(
-      column: $table.value, builder: (column) => ColumnOrderings(column));
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
 
   $$FileNodesTableOrderingComposer get fileNodeId {
     final $$FileNodesTableOrderingComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.fileNodeId,
-        referencedTable: $db.fileNodes,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$FileNodesTableOrderingComposer(
-              $db: $db,
-              $table: $db.fileNodes,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.fileNodeId,
+      referencedTable: $db.fileNodes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FileNodesTableOrderingComposer(
+            $db: $db,
+            $table: $db.fileNodes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return composer;
   }
 
   $$TagDefinitionsTableOrderingComposer get tagDefinitionId {
     final $$TagDefinitionsTableOrderingComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.tagDefinitionId,
-        referencedTable: $db.tagDefinitions,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TagDefinitionsTableOrderingComposer(
-              $db: $db,
-              $table: $db.tagDefinitions,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.tagDefinitionId,
+      referencedTable: $db.tagDefinitions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagDefinitionsTableOrderingComposer(
+            $db: $db,
+            $table: $db.tagDefinitions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return composer;
   }
 }
@@ -1752,136 +2112,166 @@ class $$TagAssignmentsTableAnnotationComposer
 
   $$FileNodesTableAnnotationComposer get fileNodeId {
     final $$FileNodesTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.fileNodeId,
-        referencedTable: $db.fileNodes,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$FileNodesTableAnnotationComposer(
-              $db: $db,
-              $table: $db.fileNodes,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.fileNodeId,
+      referencedTable: $db.fileNodes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FileNodesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.fileNodes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return composer;
   }
 
   $$TagDefinitionsTableAnnotationComposer get tagDefinitionId {
     final $$TagDefinitionsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.tagDefinitionId,
-        referencedTable: $db.tagDefinitions,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TagDefinitionsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.tagDefinitions,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
+      composer: this,
+      getCurrentColumn: (t) => t.tagDefinitionId,
+      referencedTable: $db.tagDefinitions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagDefinitionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tagDefinitions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return composer;
   }
 }
 
-class $$TagAssignmentsTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $TagAssignmentsTable,
-    TagAssignmentRow,
-    $$TagAssignmentsTableFilterComposer,
-    $$TagAssignmentsTableOrderingComposer,
-    $$TagAssignmentsTableAnnotationComposer,
-    $$TagAssignmentsTableCreateCompanionBuilder,
-    $$TagAssignmentsTableUpdateCompanionBuilder,
-    (TagAssignmentRow, $$TagAssignmentsTableReferences),
-    TagAssignmentRow,
-    PrefetchHooks Function({bool fileNodeId, bool tagDefinitionId})> {
+class $$TagAssignmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TagAssignmentsTable,
+          TagAssignmentRow,
+          $$TagAssignmentsTableFilterComposer,
+          $$TagAssignmentsTableOrderingComposer,
+          $$TagAssignmentsTableAnnotationComposer,
+          $$TagAssignmentsTableCreateCompanionBuilder,
+          $$TagAssignmentsTableUpdateCompanionBuilder,
+          (TagAssignmentRow, $$TagAssignmentsTableReferences),
+          TagAssignmentRow,
+          PrefetchHooks Function({bool fileNodeId, bool tagDefinitionId})
+        > {
   $$TagAssignmentsTableTableManager(
-      _$AppDatabase db, $TagAssignmentsTable table)
-      : super(TableManagerState(
+    _$AppDatabase db,
+    $TagAssignmentsTable table,
+  ) : super(
+        TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer: () =>
-              $$TagAssignmentsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$TagAssignmentsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$TagAssignmentsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<int> fileNodeId = const Value.absent(),
-            Value<int> tagDefinitionId = const Value.absent(),
-            Value<String?> value = const Value.absent(),
-          }) =>
-              TagAssignmentsCompanion(
-            id: id,
-            fileNodeId: fileNodeId,
-            tagDefinitionId: tagDefinitionId,
-            value: value,
-          ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required int fileNodeId,
-            required int tagDefinitionId,
-            Value<String?> value = const Value.absent(),
-          }) =>
-              TagAssignmentsCompanion.insert(
-            id: id,
-            fileNodeId: fileNodeId,
-            tagDefinitionId: tagDefinitionId,
-            value: value,
-          ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (
-                    e.readTable(table),
-                    $$TagAssignmentsTableReferences(db, table, e)
-                  ))
-              .toList(),
-          prefetchHooksCallback: (
-              {fileNodeId = false, tagDefinitionId = false}) {
+          createFilteringComposer:
+              () => $$TagAssignmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () =>
+                  $$TagAssignmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer:
+              () => $$TagAssignmentsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> fileNodeId = const Value.absent(),
+                Value<int> tagDefinitionId = const Value.absent(),
+                Value<String?> value = const Value.absent(),
+              }) => TagAssignmentsCompanion(
+                id: id,
+                fileNodeId: fileNodeId,
+                tagDefinitionId: tagDefinitionId,
+                value: value,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int fileNodeId,
+                required int tagDefinitionId,
+                Value<String?> value = const Value.absent(),
+              }) => TagAssignmentsCompanion.insert(
+                id: id,
+                fileNodeId: fileNodeId,
+                tagDefinitionId: tagDefinitionId,
+                value: value,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          $$TagAssignmentsTableReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: ({
+            fileNodeId = false,
+            tagDefinitionId = false,
+          }) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
               addJoins: <
-                  T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic>>(state) {
+                T extends TableManagerState<
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic,
+                  dynamic
+                >
+              >(state) {
                 if (fileNodeId) {
-                  state = state.withJoin(
-                    currentTable: table,
-                    currentColumn: table.fileNodeId,
-                    referencedTable:
-                        $$TagAssignmentsTableReferences._fileNodeIdTable(db),
-                    referencedColumn:
-                        $$TagAssignmentsTableReferences._fileNodeIdTable(db).id,
-                  ) as T;
+                  state =
+                      state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.fileNodeId,
+                            referencedTable: $$TagAssignmentsTableReferences
+                                ._fileNodeIdTable(db),
+                            referencedColumn:
+                                $$TagAssignmentsTableReferences
+                                    ._fileNodeIdTable(db)
+                                    .id,
+                          )
+                          as T;
                 }
                 if (tagDefinitionId) {
-                  state = state.withJoin(
-                    currentTable: table,
-                    currentColumn: table.tagDefinitionId,
-                    referencedTable: $$TagAssignmentsTableReferences
-                        ._tagDefinitionIdTable(db),
-                    referencedColumn: $$TagAssignmentsTableReferences
-                        ._tagDefinitionIdTable(db)
-                        .id,
-                  ) as T;
+                  state =
+                      state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.tagDefinitionId,
+                            referencedTable: $$TagAssignmentsTableReferences
+                                ._tagDefinitionIdTable(db),
+                            referencedColumn:
+                                $$TagAssignmentsTableReferences
+                                    ._tagDefinitionIdTable(db)
+                                    .id,
+                          )
+                          as T;
                 }
 
                 return state;
@@ -1891,21 +2281,24 @@ class $$TagAssignmentsTableTableManager extends RootTableManager<
               },
             );
           },
-        ));
+        ),
+      );
 }
 
-typedef $$TagAssignmentsTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $TagAssignmentsTable,
-    TagAssignmentRow,
-    $$TagAssignmentsTableFilterComposer,
-    $$TagAssignmentsTableOrderingComposer,
-    $$TagAssignmentsTableAnnotationComposer,
-    $$TagAssignmentsTableCreateCompanionBuilder,
-    $$TagAssignmentsTableUpdateCompanionBuilder,
-    (TagAssignmentRow, $$TagAssignmentsTableReferences),
-    TagAssignmentRow,
-    PrefetchHooks Function({bool fileNodeId, bool tagDefinitionId})>;
+typedef $$TagAssignmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TagAssignmentsTable,
+      TagAssignmentRow,
+      $$TagAssignmentsTableFilterComposer,
+      $$TagAssignmentsTableOrderingComposer,
+      $$TagAssignmentsTableAnnotationComposer,
+      $$TagAssignmentsTableCreateCompanionBuilder,
+      $$TagAssignmentsTableUpdateCompanionBuilder,
+      (TagAssignmentRow, $$TagAssignmentsTableReferences),
+      TagAssignmentRow,
+      PrefetchHooks Function({bool fileNodeId, bool tagDefinitionId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;

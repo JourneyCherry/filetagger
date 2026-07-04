@@ -10,9 +10,11 @@ import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_node_provider.dart';
+import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/workspace_provider.dart';
+import '../widgets/file_toolbar.dart';
 import '../widgets/tag_assign_dialog.dart';
 import '../widgets/tag_chip.dart';
 import '../widgets/tag_value_prompt.dart';
@@ -246,6 +248,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const Divider(height: 32),
+                const FileToolbar(),
+                const SizedBox(height: 12),
                 Expanded(child: _buildFileList()),
                 _buildSelectionBar(),
               ] else
@@ -274,28 +278,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_scanning) {
       return const Center(child: CircularProgressIndicator());
     }
-    final nodes = ref.watch(fileNodesProvider);
+    final visible = ref.watch(visibleFileNodesProvider);
     final assignmentsByFile =
         ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
+    final filterActive = !ref.watch(fileFilterProvider).isEmpty;
 
-    return nodes.when(
+    return visible.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Text('목록을 불러오지 못했습니다: $e'),
-      data: (items) => items.isEmpty
-          ? const Text('이 폴더에는 표시할 파일이 없습니다.')
-          : ListView.builder(
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final node = items[index];
-                return _FileNodeTile(
-                  node: node,
-                  selected: node.id != null && _selectedIds.contains(node.id),
-                  assignments: assignmentsByFile[node.id] ?? const [],
-                  onTap: () => _onTapNode(items, index),
-                  onEditAssignment: _editAssignmentFromList,
-                );
-              },
-            ),
+      data: (items) {
+        if (items.isEmpty) return Text(_emptyMessage(filterActive));
+        return ListView.builder(
+          itemCount: items.length,
+          itemBuilder: (context, index) =>
+              _fileTile(items, index, assignmentsByFile),
+        );
+      },
+    );
+  }
+
+  String _emptyMessage(bool filterActive) => filterActive
+      ? '필터 조건에 맞는 파일이 없습니다.'
+      : '이 폴더에는 표시할 파일이 없습니다.';
+
+  Widget _fileTile(
+    List<FileNode> items,
+    int index,
+    Map<int, List<AssignedTag>> assignmentsByFile,
+  ) {
+    final node = items[index];
+    return _FileNodeTile(
+      node: node,
+      selected: node.id != null && _selectedIds.contains(node.id),
+      assignments: assignmentsByFile[node.id] ?? const [],
+      onTap: () => _onTapNode(items, index),
+      onEditAssignment: _editAssignmentFromList,
     );
   }
 

@@ -219,7 +219,7 @@ class _DefinitionEditorDialogState
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<TagValueType>(
-              value: _valueType,
+              initialValue: _valueType,
               decoration: const InputDecoration(labelText: '값 유형'),
               items: [
                 for (final t in TagValueType.values)

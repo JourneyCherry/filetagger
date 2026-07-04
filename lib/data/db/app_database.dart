@@ -17,10 +17,16 @@ class AppDatabase extends _$AppDatabase {
       : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // 태그 정의별 다중 부여 허용 플래그 도입.
+            await m.addColumn(tagDefinitions, tagDefinitions.allowMultiple);
+          }
+        },
         beforeOpen: (details) async {
           // 외래키 무결성(태그 정의/파일 삭제 시 부여 기록 정리)을 위해 필요.
           await customStatement('PRAGMA foreign_keys = ON');

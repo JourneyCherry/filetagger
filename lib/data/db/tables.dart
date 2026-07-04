@@ -4,6 +4,10 @@ import '../../domain/entities/tag_value_type.dart';
 
 /// 태그의 종류(이름·값 유형·색상). 라벨/키-값 태그를 [valueType] 하나로
 /// 통합 표현한다.
+///
+/// 생성되는 row 클래스는 도메인 엔티티와 이름이 겹치지 않도록 `Row` 접미사를
+/// 붙인다(도메인은 순수 엔티티 이름을 그대로 쓴다).
+@DataClassName('TagDefinitionRow')
 class TagDefinitions extends Table {
   IntColumn get id => integer().autoIncrement()();
 
@@ -15,10 +19,16 @@ class TagDefinitions extends Table {
 
   /// 표시용 색상(ARGB). 미지정 가능.
   IntColumn get color => integer().nullable()();
+
+  /// 한 파일에 이 태그를 여러 번 부여할 수 있는지. 태그 생성 시 사용자가 정한다.
+  /// 불가면 (파일,태그)당 1회로 재부여 시 값이 갱신되고, 허용이면 다중 부여를
+  /// 허용한다. 유형에 따라 달라 DB 유니크 인덱스로 못 걸어 저장소가 강제한다.
+  BoolColumn get allowMultiple => boolean().withDefault(const Constant(false))();
 }
 
 /// 스캔된 파일/폴더의 인덱스. 경로 외에 이동 추적용 메타(크기·수정시각·
 /// 부분 해시)를 함께 보관한다.
+@DataClassName('FileNodeRow')
 class FileNodes extends Table {
   IntColumn get id => integer().autoIncrement()();
 
@@ -41,6 +51,7 @@ class FileNodes extends Table {
 
 /// 파일 노드에 태그를 부여한 기록(N:M). 값은 [TagDefinitions.valueType]에
 /// 따라 해석되는 문자열로 저장한다.
+@DataClassName('TagAssignmentRow')
 class TagAssignments extends Table {
   IntColumn get id => integer().autoIncrement()();
 

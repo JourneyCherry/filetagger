@@ -4,7 +4,7 @@ part of 'app_database.dart';
 
 // ignore_for_file: type=lint
 class $TagDefinitionsTable extends TagDefinitions
-    with TableInfo<$TagDefinitionsTable, TagDefinition> {
+    with TableInfo<$TagDefinitionsTable, TagDefinitionRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -36,15 +36,26 @@ class $TagDefinitionsTable extends TagDefinitions
   late final GeneratedColumn<int> color = GeneratedColumn<int>(
       'color', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _allowMultipleMeta =
+      const VerificationMeta('allowMultiple');
   @override
-  List<GeneratedColumn> get $columns => [id, name, valueType, color];
+  late final GeneratedColumn<bool> allowMultiple = GeneratedColumn<bool>(
+      'allow_multiple', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("allow_multiple" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, name, valueType, color, allowMultiple];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
   static const String $name = 'tag_definitions';
   @override
-  VerificationContext validateIntegrity(Insertable<TagDefinition> instance,
+  VerificationContext validateIntegrity(Insertable<TagDefinitionRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -61,15 +72,21 @@ class $TagDefinitionsTable extends TagDefinitions
       context.handle(
           _colorMeta, color.isAcceptableOrUnknown(data['color']!, _colorMeta));
     }
+    if (data.containsKey('allow_multiple')) {
+      context.handle(
+          _allowMultipleMeta,
+          allowMultiple.isAcceptableOrUnknown(
+              data['allow_multiple']!, _allowMultipleMeta));
+    }
     return context;
   }
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  TagDefinition map(Map<String, dynamic> data, {String? tablePrefix}) {
+  TagDefinitionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return TagDefinition(
+    return TagDefinitionRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       name: attachedDatabase.typeMapping
@@ -79,6 +96,8 @@ class $TagDefinitionsTable extends TagDefinitions
               DriftSqlType.string, data['${effectivePrefix}value_type'])!),
       color: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}color']),
+      allowMultiple: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}allow_multiple'])!,
     );
   }
 
@@ -91,7 +110,8 @@ class $TagDefinitionsTable extends TagDefinitions
       const EnumNameConverter<TagValueType>(TagValueType.values);
 }
 
-class TagDefinition extends DataClass implements Insertable<TagDefinition> {
+class TagDefinitionRow extends DataClass
+    implements Insertable<TagDefinitionRow> {
   final int id;
 
   /// 사용자에게 보이는 태그 이름. 중복 정의를 막는다.
@@ -102,11 +122,17 @@ class TagDefinition extends DataClass implements Insertable<TagDefinition> {
 
   /// 표시용 색상(ARGB). 미지정 가능.
   final int? color;
-  const TagDefinition(
+
+  /// 한 파일에 이 태그를 여러 번 부여할 수 있는지. 태그 생성 시 사용자가 정한다.
+  /// 불가면 (파일,태그)당 1회로 재부여 시 값이 갱신되고, 허용이면 다중 부여를
+  /// 허용한다. 유형에 따라 달라 DB 유니크 인덱스로 못 걸어 저장소가 강제한다.
+  final bool allowMultiple;
+  const TagDefinitionRow(
       {required this.id,
       required this.name,
       required this.valueType,
-      this.color});
+      this.color,
+      required this.allowMultiple});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -119,6 +145,7 @@ class TagDefinition extends DataClass implements Insertable<TagDefinition> {
     if (!nullToAbsent || color != null) {
       map['color'] = Variable<int>(color);
     }
+    map['allow_multiple'] = Variable<bool>(allowMultiple);
     return map;
   }
 
@@ -129,18 +156,20 @@ class TagDefinition extends DataClass implements Insertable<TagDefinition> {
       valueType: Value(valueType),
       color:
           color == null && nullToAbsent ? const Value.absent() : Value(color),
+      allowMultiple: Value(allowMultiple),
     );
   }
 
-  factory TagDefinition.fromJson(Map<String, dynamic> json,
+  factory TagDefinitionRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return TagDefinition(
+    return TagDefinitionRow(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       valueType: $TagDefinitionsTable.$convertervalueType
           .fromJson(serializer.fromJson<String>(json['valueType'])),
       color: serializer.fromJson<int?>(json['color']),
+      allowMultiple: serializer.fromJson<bool>(json['allowMultiple']),
     );
   }
   @override
@@ -152,81 +181,94 @@ class TagDefinition extends DataClass implements Insertable<TagDefinition> {
       'valueType': serializer.toJson<String>(
           $TagDefinitionsTable.$convertervalueType.toJson(valueType)),
       'color': serializer.toJson<int?>(color),
+      'allowMultiple': serializer.toJson<bool>(allowMultiple),
     };
   }
 
-  TagDefinition copyWith(
+  TagDefinitionRow copyWith(
           {int? id,
           String? name,
           TagValueType? valueType,
-          Value<int?> color = const Value.absent()}) =>
-      TagDefinition(
+          Value<int?> color = const Value.absent(),
+          bool? allowMultiple}) =>
+      TagDefinitionRow(
         id: id ?? this.id,
         name: name ?? this.name,
         valueType: valueType ?? this.valueType,
         color: color.present ? color.value : this.color,
+        allowMultiple: allowMultiple ?? this.allowMultiple,
       );
-  TagDefinition copyWithCompanion(TagDefinitionsCompanion data) {
-    return TagDefinition(
+  TagDefinitionRow copyWithCompanion(TagDefinitionsCompanion data) {
+    return TagDefinitionRow(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       valueType: data.valueType.present ? data.valueType.value : this.valueType,
       color: data.color.present ? data.color.value : this.color,
+      allowMultiple: data.allowMultiple.present
+          ? data.allowMultiple.value
+          : this.allowMultiple,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('TagDefinition(')
+    return (StringBuffer('TagDefinitionRow(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('valueType: $valueType, ')
-          ..write('color: $color')
+          ..write('color: $color, ')
+          ..write('allowMultiple: $allowMultiple')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, valueType, color);
+  int get hashCode => Object.hash(id, name, valueType, color, allowMultiple);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is TagDefinition &&
+      (other is TagDefinitionRow &&
           other.id == this.id &&
           other.name == this.name &&
           other.valueType == this.valueType &&
-          other.color == this.color);
+          other.color == this.color &&
+          other.allowMultiple == this.allowMultiple);
 }
 
-class TagDefinitionsCompanion extends UpdateCompanion<TagDefinition> {
+class TagDefinitionsCompanion extends UpdateCompanion<TagDefinitionRow> {
   final Value<int> id;
   final Value<String> name;
   final Value<TagValueType> valueType;
   final Value<int?> color;
+  final Value<bool> allowMultiple;
   const TagDefinitionsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.valueType = const Value.absent(),
     this.color = const Value.absent(),
+    this.allowMultiple = const Value.absent(),
   });
   TagDefinitionsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required TagValueType valueType,
     this.color = const Value.absent(),
+    this.allowMultiple = const Value.absent(),
   })  : name = Value(name),
         valueType = Value(valueType);
-  static Insertable<TagDefinition> custom({
+  static Insertable<TagDefinitionRow> custom({
     Expression<int>? id,
     Expression<String>? name,
     Expression<String>? valueType,
     Expression<int>? color,
+    Expression<bool>? allowMultiple,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (valueType != null) 'value_type': valueType,
       if (color != null) 'color': color,
+      if (allowMultiple != null) 'allow_multiple': allowMultiple,
     });
   }
 
@@ -234,12 +276,14 @@ class TagDefinitionsCompanion extends UpdateCompanion<TagDefinition> {
       {Value<int>? id,
       Value<String>? name,
       Value<TagValueType>? valueType,
-      Value<int?>? color}) {
+      Value<int?>? color,
+      Value<bool>? allowMultiple}) {
     return TagDefinitionsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       valueType: valueType ?? this.valueType,
       color: color ?? this.color,
+      allowMultiple: allowMultiple ?? this.allowMultiple,
     );
   }
 
@@ -259,6 +303,9 @@ class TagDefinitionsCompanion extends UpdateCompanion<TagDefinition> {
     if (color.present) {
       map['color'] = Variable<int>(color.value);
     }
+    if (allowMultiple.present) {
+      map['allow_multiple'] = Variable<bool>(allowMultiple.value);
+    }
     return map;
   }
 
@@ -268,14 +315,15 @@ class TagDefinitionsCompanion extends UpdateCompanion<TagDefinition> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('valueType: $valueType, ')
-          ..write('color: $color')
+          ..write('color: $color, ')
+          ..write('allowMultiple: $allowMultiple')
           ..write(')'))
         .toString();
   }
 }
 
 class $FileNodesTable extends FileNodes
-    with TableInfo<$FileNodesTable, FileNode> {
+    with TableInfo<$FileNodesTable, FileNodeRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -337,7 +385,7 @@ class $FileNodesTable extends FileNodes
   String get actualTableName => $name;
   static const String $name = 'file_nodes';
   @override
-  VerificationContext validateIntegrity(Insertable<FileNode> instance,
+  VerificationContext validateIntegrity(Insertable<FileNodeRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -388,9 +436,9 @@ class $FileNodesTable extends FileNodes
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  FileNode map(Map<String, dynamic> data, {String? tablePrefix}) {
+  FileNodeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return FileNode(
+    return FileNodeRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       path: attachedDatabase.typeMapping
@@ -414,7 +462,7 @@ class $FileNodesTable extends FileNodes
   }
 }
 
-class FileNode extends DataClass implements Insertable<FileNode> {
+class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   final int id;
 
   /// 관리 폴더 루트 기준 경로. 같은 노드를 한 번만 인덱싱한다.
@@ -430,7 +478,7 @@ class FileNode extends DataClass implements Insertable<FileNode> {
 
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   final DateTime lastSeenAt;
-  const FileNode(
+  const FileNodeRow(
       {required this.id,
       required this.path,
       required this.isDirectory,
@@ -473,10 +521,10 @@ class FileNode extends DataClass implements Insertable<FileNode> {
     );
   }
 
-  factory FileNode.fromJson(Map<String, dynamic> json,
+  factory FileNodeRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return FileNode(
+    return FileNodeRow(
       id: serializer.fromJson<int>(json['id']),
       path: serializer.fromJson<String>(json['path']),
       isDirectory: serializer.fromJson<bool>(json['isDirectory']),
@@ -501,7 +549,7 @@ class FileNode extends DataClass implements Insertable<FileNode> {
     };
   }
 
-  FileNode copyWith(
+  FileNodeRow copyWith(
           {int? id,
           String? path,
           bool? isDirectory,
@@ -509,7 +557,7 @@ class FileNode extends DataClass implements Insertable<FileNode> {
           Value<DateTime?> modifiedAt = const Value.absent(),
           Value<String?> contentHashPrefix = const Value.absent(),
           DateTime? lastSeenAt}) =>
-      FileNode(
+      FileNodeRow(
         id: id ?? this.id,
         path: path ?? this.path,
         isDirectory: isDirectory ?? this.isDirectory,
@@ -520,8 +568,8 @@ class FileNode extends DataClass implements Insertable<FileNode> {
             : this.contentHashPrefix,
         lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       );
-  FileNode copyWithCompanion(FileNodesCompanion data) {
-    return FileNode(
+  FileNodeRow copyWithCompanion(FileNodesCompanion data) {
+    return FileNodeRow(
       id: data.id.present ? data.id.value : this.id,
       path: data.path.present ? data.path.value : this.path,
       isDirectory:
@@ -539,7 +587,7 @@ class FileNode extends DataClass implements Insertable<FileNode> {
 
   @override
   String toString() {
-    return (StringBuffer('FileNode(')
+    return (StringBuffer('FileNodeRow(')
           ..write('id: $id, ')
           ..write('path: $path, ')
           ..write('isDirectory: $isDirectory, ')
@@ -557,7 +605,7 @@ class FileNode extends DataClass implements Insertable<FileNode> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is FileNode &&
+      (other is FileNodeRow &&
           other.id == this.id &&
           other.path == this.path &&
           other.isDirectory == this.isDirectory &&
@@ -567,7 +615,7 @@ class FileNode extends DataClass implements Insertable<FileNode> {
           other.lastSeenAt == this.lastSeenAt);
 }
 
-class FileNodesCompanion extends UpdateCompanion<FileNode> {
+class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   final Value<int> id;
   final Value<String> path;
   final Value<bool> isDirectory;
@@ -595,7 +643,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNode> {
   })  : path = Value(path),
         isDirectory = Value(isDirectory),
         lastSeenAt = Value(lastSeenAt);
-  static Insertable<FileNode> custom({
+  static Insertable<FileNodeRow> custom({
     Expression<int>? id,
     Expression<String>? path,
     Expression<bool>? isDirectory,
@@ -677,7 +725,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNode> {
 }
 
 class $TagAssignmentsTable extends TagAssignments
-    with TableInfo<$TagAssignmentsTable, TagAssignment> {
+    with TableInfo<$TagAssignmentsTable, TagAssignmentRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -723,7 +771,7 @@ class $TagAssignmentsTable extends TagAssignments
   String get actualTableName => $name;
   static const String $name = 'tag_assignments';
   @override
-  VerificationContext validateIntegrity(Insertable<TagAssignment> instance,
+  VerificationContext validateIntegrity(Insertable<TagAssignmentRow> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
@@ -756,9 +804,9 @@ class $TagAssignmentsTable extends TagAssignments
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  TagAssignment map(Map<String, dynamic> data, {String? tablePrefix}) {
+  TagAssignmentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return TagAssignment(
+    return TagAssignmentRow(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       fileNodeId: attachedDatabase.typeMapping
@@ -776,14 +824,15 @@ class $TagAssignmentsTable extends TagAssignments
   }
 }
 
-class TagAssignment extends DataClass implements Insertable<TagAssignment> {
+class TagAssignmentRow extends DataClass
+    implements Insertable<TagAssignmentRow> {
   final int id;
   final int fileNodeId;
   final int tagDefinitionId;
 
   /// 부여된 값. label 유형 등 값이 없으면 미지정.
   final String? value;
-  const TagAssignment(
+  const TagAssignmentRow(
       {required this.id,
       required this.fileNodeId,
       required this.tagDefinitionId,
@@ -810,10 +859,10 @@ class TagAssignment extends DataClass implements Insertable<TagAssignment> {
     );
   }
 
-  factory TagAssignment.fromJson(Map<String, dynamic> json,
+  factory TagAssignmentRow.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return TagAssignment(
+    return TagAssignmentRow(
       id: serializer.fromJson<int>(json['id']),
       fileNodeId: serializer.fromJson<int>(json['fileNodeId']),
       tagDefinitionId: serializer.fromJson<int>(json['tagDefinitionId']),
@@ -831,19 +880,19 @@ class TagAssignment extends DataClass implements Insertable<TagAssignment> {
     };
   }
 
-  TagAssignment copyWith(
+  TagAssignmentRow copyWith(
           {int? id,
           int? fileNodeId,
           int? tagDefinitionId,
           Value<String?> value = const Value.absent()}) =>
-      TagAssignment(
+      TagAssignmentRow(
         id: id ?? this.id,
         fileNodeId: fileNodeId ?? this.fileNodeId,
         tagDefinitionId: tagDefinitionId ?? this.tagDefinitionId,
         value: value.present ? value.value : this.value,
       );
-  TagAssignment copyWithCompanion(TagAssignmentsCompanion data) {
-    return TagAssignment(
+  TagAssignmentRow copyWithCompanion(TagAssignmentsCompanion data) {
+    return TagAssignmentRow(
       id: data.id.present ? data.id.value : this.id,
       fileNodeId:
           data.fileNodeId.present ? data.fileNodeId.value : this.fileNodeId,
@@ -856,7 +905,7 @@ class TagAssignment extends DataClass implements Insertable<TagAssignment> {
 
   @override
   String toString() {
-    return (StringBuffer('TagAssignment(')
+    return (StringBuffer('TagAssignmentRow(')
           ..write('id: $id, ')
           ..write('fileNodeId: $fileNodeId, ')
           ..write('tagDefinitionId: $tagDefinitionId, ')
@@ -870,14 +919,14 @@ class TagAssignment extends DataClass implements Insertable<TagAssignment> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is TagAssignment &&
+      (other is TagAssignmentRow &&
           other.id == this.id &&
           other.fileNodeId == this.fileNodeId &&
           other.tagDefinitionId == this.tagDefinitionId &&
           other.value == this.value);
 }
 
-class TagAssignmentsCompanion extends UpdateCompanion<TagAssignment> {
+class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
   final Value<int> id;
   final Value<int> fileNodeId;
   final Value<int> tagDefinitionId;
@@ -895,7 +944,7 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignment> {
     this.value = const Value.absent(),
   })  : fileNodeId = Value(fileNodeId),
         tagDefinitionId = Value(tagDefinitionId);
-  static Insertable<TagAssignment> custom({
+  static Insertable<TagAssignmentRow> custom({
     Expression<int>? id,
     Expression<int>? fileNodeId,
     Expression<int>? tagDefinitionId,
@@ -991,6 +1040,7 @@ typedef $$TagDefinitionsTableCreateCompanionBuilder = TagDefinitionsCompanion
   required String name,
   required TagValueType valueType,
   Value<int?> color,
+  Value<bool> allowMultiple,
 });
 typedef $$TagDefinitionsTableUpdateCompanionBuilder = TagDefinitionsCompanion
     Function({
@@ -998,14 +1048,15 @@ typedef $$TagDefinitionsTableUpdateCompanionBuilder = TagDefinitionsCompanion
   Value<String> name,
   Value<TagValueType> valueType,
   Value<int?> color,
+  Value<bool> allowMultiple,
 });
 
-final class $$TagDefinitionsTableReferences
-    extends BaseReferences<_$AppDatabase, $TagDefinitionsTable, TagDefinition> {
+final class $$TagDefinitionsTableReferences extends BaseReferences<
+    _$AppDatabase, $TagDefinitionsTable, TagDefinitionRow> {
   $$TagDefinitionsTableReferences(
       super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignment>>
+  static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignmentRow>>
       _tagAssignmentsRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.tagAssignments,
               aliasName: $_aliasNameGenerator(
@@ -1044,6 +1095,9 @@ class $$TagDefinitionsTableFilterComposer
 
   ColumnFilters<int> get color => $composableBuilder(
       column: $table.color, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get allowMultiple => $composableBuilder(
+      column: $table.allowMultiple, builder: (column) => ColumnFilters(column));
 
   Expression<bool> tagAssignmentsRefs(
       Expression<bool> Function($$TagAssignmentsTableFilterComposer f) f) {
@@ -1087,6 +1141,10 @@ class $$TagDefinitionsTableOrderingComposer
 
   ColumnOrderings<int> get color => $composableBuilder(
       column: $table.color, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get allowMultiple => $composableBuilder(
+      column: $table.allowMultiple,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$TagDefinitionsTableAnnotationComposer
@@ -1109,6 +1167,9 @@ class $$TagDefinitionsTableAnnotationComposer
 
   GeneratedColumn<int> get color =>
       $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<bool> get allowMultiple => $composableBuilder(
+      column: $table.allowMultiple, builder: (column) => column);
 
   Expression<T> tagAssignmentsRefs<T extends Object>(
       Expression<T> Function($$TagAssignmentsTableAnnotationComposer a) f) {
@@ -1135,14 +1196,14 @@ class $$TagDefinitionsTableAnnotationComposer
 class $$TagDefinitionsTableTableManager extends RootTableManager<
     _$AppDatabase,
     $TagDefinitionsTable,
-    TagDefinition,
+    TagDefinitionRow,
     $$TagDefinitionsTableFilterComposer,
     $$TagDefinitionsTableOrderingComposer,
     $$TagDefinitionsTableAnnotationComposer,
     $$TagDefinitionsTableCreateCompanionBuilder,
     $$TagDefinitionsTableUpdateCompanionBuilder,
-    (TagDefinition, $$TagDefinitionsTableReferences),
-    TagDefinition,
+    (TagDefinitionRow, $$TagDefinitionsTableReferences),
+    TagDefinitionRow,
     PrefetchHooks Function({bool tagAssignmentsRefs})> {
   $$TagDefinitionsTableTableManager(
       _$AppDatabase db, $TagDefinitionsTable table)
@@ -1160,24 +1221,28 @@ class $$TagDefinitionsTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<TagValueType> valueType = const Value.absent(),
             Value<int?> color = const Value.absent(),
+            Value<bool> allowMultiple = const Value.absent(),
           }) =>
               TagDefinitionsCompanion(
             id: id,
             name: name,
             valueType: valueType,
             color: color,
+            allowMultiple: allowMultiple,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required String name,
             required TagValueType valueType,
             Value<int?> color = const Value.absent(),
+            Value<bool> allowMultiple = const Value.absent(),
           }) =>
               TagDefinitionsCompanion.insert(
             id: id,
             name: name,
             valueType: valueType,
             color: color,
+            allowMultiple: allowMultiple,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -1195,8 +1260,8 @@ class $$TagDefinitionsTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (tagAssignmentsRefs)
-                    await $_getPrefetchedData<TagDefinition,
-                            $TagDefinitionsTable, TagAssignment>(
+                    await $_getPrefetchedData<TagDefinitionRow,
+                            $TagDefinitionsTable, TagAssignmentRow>(
                         currentTable: table,
                         referencedTable: $$TagDefinitionsTableReferences
                             ._tagAssignmentsRefsTable(db),
@@ -1217,14 +1282,14 @@ class $$TagDefinitionsTableTableManager extends RootTableManager<
 typedef $$TagDefinitionsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $TagDefinitionsTable,
-    TagDefinition,
+    TagDefinitionRow,
     $$TagDefinitionsTableFilterComposer,
     $$TagDefinitionsTableOrderingComposer,
     $$TagDefinitionsTableAnnotationComposer,
     $$TagDefinitionsTableCreateCompanionBuilder,
     $$TagDefinitionsTableUpdateCompanionBuilder,
-    (TagDefinition, $$TagDefinitionsTableReferences),
-    TagDefinition,
+    (TagDefinitionRow, $$TagDefinitionsTableReferences),
+    TagDefinitionRow,
     PrefetchHooks Function({bool tagAssignmentsRefs})>;
 typedef $$FileNodesTableCreateCompanionBuilder = FileNodesCompanion Function({
   Value<int> id,
@@ -1246,10 +1311,10 @@ typedef $$FileNodesTableUpdateCompanionBuilder = FileNodesCompanion Function({
 });
 
 final class $$FileNodesTableReferences
-    extends BaseReferences<_$AppDatabase, $FileNodesTable, FileNode> {
+    extends BaseReferences<_$AppDatabase, $FileNodesTable, FileNodeRow> {
   $$FileNodesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignment>>
+  static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignmentRow>>
       _tagAssignmentsRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.tagAssignments,
               aliasName: $_aliasNameGenerator(
@@ -1405,14 +1470,14 @@ class $$FileNodesTableAnnotationComposer
 class $$FileNodesTableTableManager extends RootTableManager<
     _$AppDatabase,
     $FileNodesTable,
-    FileNode,
+    FileNodeRow,
     $$FileNodesTableFilterComposer,
     $$FileNodesTableOrderingComposer,
     $$FileNodesTableAnnotationComposer,
     $$FileNodesTableCreateCompanionBuilder,
     $$FileNodesTableUpdateCompanionBuilder,
-    (FileNode, $$FileNodesTableReferences),
-    FileNode,
+    (FileNodeRow, $$FileNodesTableReferences),
+    FileNodeRow,
     PrefetchHooks Function({bool tagAssignmentsRefs})> {
   $$FileNodesTableTableManager(_$AppDatabase db, $FileNodesTable table)
       : super(TableManagerState(
@@ -1476,8 +1541,8 @@ class $$FileNodesTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (tagAssignmentsRefs)
-                    await $_getPrefetchedData<FileNode, $FileNodesTable,
-                            TagAssignment>(
+                    await $_getPrefetchedData<FileNodeRow, $FileNodesTable,
+                            TagAssignmentRow>(
                         currentTable: table,
                         referencedTable: $$FileNodesTableReferences
                             ._tagAssignmentsRefsTable(db),
@@ -1498,14 +1563,14 @@ class $$FileNodesTableTableManager extends RootTableManager<
 typedef $$FileNodesTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $FileNodesTable,
-    FileNode,
+    FileNodeRow,
     $$FileNodesTableFilterComposer,
     $$FileNodesTableOrderingComposer,
     $$FileNodesTableAnnotationComposer,
     $$FileNodesTableCreateCompanionBuilder,
     $$FileNodesTableUpdateCompanionBuilder,
-    (FileNode, $$FileNodesTableReferences),
-    FileNode,
+    (FileNodeRow, $$FileNodesTableReferences),
+    FileNodeRow,
     PrefetchHooks Function({bool tagAssignmentsRefs})>;
 typedef $$TagAssignmentsTableCreateCompanionBuilder = TagAssignmentsCompanion
     Function({
@@ -1522,8 +1587,8 @@ typedef $$TagAssignmentsTableUpdateCompanionBuilder = TagAssignmentsCompanion
   Value<String?> value,
 });
 
-final class $$TagAssignmentsTableReferences
-    extends BaseReferences<_$AppDatabase, $TagAssignmentsTable, TagAssignment> {
+final class $$TagAssignmentsTableReferences extends BaseReferences<
+    _$AppDatabase, $TagAssignmentsTable, TagAssignmentRow> {
   $$TagAssignmentsTableReferences(
       super.$_db, super.$_table, super.$_typedResult);
 
@@ -1729,14 +1794,14 @@ class $$TagAssignmentsTableAnnotationComposer
 class $$TagAssignmentsTableTableManager extends RootTableManager<
     _$AppDatabase,
     $TagAssignmentsTable,
-    TagAssignment,
+    TagAssignmentRow,
     $$TagAssignmentsTableFilterComposer,
     $$TagAssignmentsTableOrderingComposer,
     $$TagAssignmentsTableAnnotationComposer,
     $$TagAssignmentsTableCreateCompanionBuilder,
     $$TagAssignmentsTableUpdateCompanionBuilder,
-    (TagAssignment, $$TagAssignmentsTableReferences),
-    TagAssignment,
+    (TagAssignmentRow, $$TagAssignmentsTableReferences),
+    TagAssignmentRow,
     PrefetchHooks Function({bool fileNodeId, bool tagDefinitionId})> {
   $$TagAssignmentsTableTableManager(
       _$AppDatabase db, $TagAssignmentsTable table)
@@ -1832,14 +1897,14 @@ class $$TagAssignmentsTableTableManager extends RootTableManager<
 typedef $$TagAssignmentsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
     $TagAssignmentsTable,
-    TagAssignment,
+    TagAssignmentRow,
     $$TagAssignmentsTableFilterComposer,
     $$TagAssignmentsTableOrderingComposer,
     $$TagAssignmentsTableAnnotationComposer,
     $$TagAssignmentsTableCreateCompanionBuilder,
     $$TagAssignmentsTableUpdateCompanionBuilder,
-    (TagAssignment, $$TagAssignmentsTableReferences),
-    TagAssignment,
+    (TagAssignmentRow, $$TagAssignmentsTableReferences),
+    TagAssignmentRow,
     PrefetchHooks Function({bool fileNodeId, bool tagDefinitionId})>;
 
 class $AppDatabaseManager {

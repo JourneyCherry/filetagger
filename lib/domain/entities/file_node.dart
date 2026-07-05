@@ -11,6 +11,7 @@ class FileNode {
     this.size,
     this.modifiedAt,
     this.contentHashPrefix,
+    this.missingSince,
   });
 
   /// 저장소가 부여한 식별자. 아직 저장 전이면 null.
@@ -26,8 +27,15 @@ class FileNode {
 
   final DateTime? modifiedAt;
 
-  /// 이동 추적용 내용 부분 해시. 스캔 단계에서는 아직 채우지 않는다.
+  /// 이동 추적용 내용 부분 해시. 스캐너가 파일 앞부분을 읽어 채운다.
   final String? contentHashPrefix;
+
+  /// 태그를 보존한 채 "연결 끊김" 상태로 남은 시각. null이면 실제 존재하는
+  /// 노드다. 사라진 태그된 노드가 자동 재연결되지 못했을 때 설정된다.
+  final DateTime? missingSince;
+
+  /// 파일이 사라져 태그만 보존 중인지(수동 재연결 대상).
+  bool get isMissing => missingSince != null;
 
   /// 목록 표시에 쓰는 마지막 경로 세그먼트.
   String get name => path.split('/').last;

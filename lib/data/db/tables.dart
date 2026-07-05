@@ -47,6 +47,11 @@ class FileNodes extends Table {
 
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   DateTimeColumn get lastSeenAt => dateTime()();
+
+  /// 태그가 달린 채로 스캔에서 사라졌지만(이동+수정 등으로 자동 재연결 실패)
+  /// 태그를 잃지 않으려 보존한 "연결 끊김" 상태의 시각. null이면 정상(존재)
+  /// 노드다. 파일이 같은 경로로 다시 나타나거나 사용자가 수동 재연결하면 지워진다.
+  DateTimeColumn get missingSince => dateTime().nullable()();
 }
 
 /// 파일 노드에 태그를 부여한 기록(N:M). 값은 [TagDefinitions.valueType]에

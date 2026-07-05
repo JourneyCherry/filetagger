@@ -17,7 +17,7 @@ class AppDatabase extends _$AppDatabase {
       : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -25,6 +25,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 2) {
             // 태그 정의별 다중 부여 허용 플래그 도입.
             await m.addColumn(tagDefinitions, tagDefinitions.allowMultiple);
+          }
+          if (from < 3) {
+            // 연결 끊김(태그 보존) 상태 도입.
+            await m.addColumn(fileNodes, fileNodes.missingSince);
           }
         },
         beforeOpen: (details) async {

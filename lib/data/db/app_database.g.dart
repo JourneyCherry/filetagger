@@ -464,6 +464,17 @@ class $FileNodesTable extends FileNodes
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _missingSinceMeta = const VerificationMeta(
+    'missingSince',
+  );
+  @override
+  late final GeneratedColumn<DateTime> missingSince = GeneratedColumn<DateTime>(
+    'missing_since',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -473,6 +484,7 @@ class $FileNodesTable extends FileNodes
     modifiedAt,
     contentHashPrefix,
     lastSeenAt,
+    missingSince,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -540,6 +552,15 @@ class $FileNodesTable extends FileNodes
     } else if (isInserting) {
       context.missing(_lastSeenAtMeta);
     }
+    if (data.containsKey('missing_since')) {
+      context.handle(
+        _missingSinceMeta,
+        missingSince.isAcceptableOrUnknown(
+          data['missing_since']!,
+          _missingSinceMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -581,6 +602,10 @@ class $FileNodesTable extends FileNodes
             DriftSqlType.dateTime,
             data['${effectivePrefix}last_seen_at'],
           )!,
+      missingSince: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}missing_since'],
+      ),
     );
   }
 
@@ -606,6 +631,11 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
 
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   final DateTime lastSeenAt;
+
+  /// 태그가 달린 채로 스캔에서 사라졌지만(이동+수정 등으로 자동 재연결 실패)
+  /// 태그를 잃지 않으려 보존한 "연결 끊김" 상태의 시각. null이면 정상(존재)
+  /// 노드다. 파일이 같은 경로로 다시 나타나거나 사용자가 수동 재연결하면 지워진다.
+  final DateTime? missingSince;
   const FileNodeRow({
     required this.id,
     required this.path,
@@ -614,6 +644,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     this.modifiedAt,
     this.contentHashPrefix,
     required this.lastSeenAt,
+    this.missingSince,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -631,6 +662,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       map['content_hash_prefix'] = Variable<String>(contentHashPrefix);
     }
     map['last_seen_at'] = Variable<DateTime>(lastSeenAt);
+    if (!nullToAbsent || missingSince != null) {
+      map['missing_since'] = Variable<DateTime>(missingSince);
+    }
     return map;
   }
 
@@ -649,6 +683,10 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
               ? const Value.absent()
               : Value(contentHashPrefix),
       lastSeenAt: Value(lastSeenAt),
+      missingSince:
+          missingSince == null && nullToAbsent
+              ? const Value.absent()
+              : Value(missingSince),
     );
   }
 
@@ -667,6 +705,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
         json['contentHashPrefix'],
       ),
       lastSeenAt: serializer.fromJson<DateTime>(json['lastSeenAt']),
+      missingSince: serializer.fromJson<DateTime?>(json['missingSince']),
     );
   }
   @override
@@ -680,6 +719,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       'modifiedAt': serializer.toJson<DateTime?>(modifiedAt),
       'contentHashPrefix': serializer.toJson<String?>(contentHashPrefix),
       'lastSeenAt': serializer.toJson<DateTime>(lastSeenAt),
+      'missingSince': serializer.toJson<DateTime?>(missingSince),
     };
   }
 
@@ -691,6 +731,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     Value<DateTime?> modifiedAt = const Value.absent(),
     Value<String?> contentHashPrefix = const Value.absent(),
     DateTime? lastSeenAt,
+    Value<DateTime?> missingSince = const Value.absent(),
   }) => FileNodeRow(
     id: id ?? this.id,
     path: path ?? this.path,
@@ -702,6 +743,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
             ? contentHashPrefix.value
             : this.contentHashPrefix,
     lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+    missingSince: missingSince.present ? missingSince.value : this.missingSince,
   );
   FileNodeRow copyWithCompanion(FileNodesCompanion data) {
     return FileNodeRow(
@@ -718,6 +760,10 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
               : this.contentHashPrefix,
       lastSeenAt:
           data.lastSeenAt.present ? data.lastSeenAt.value : this.lastSeenAt,
+      missingSince:
+          data.missingSince.present
+              ? data.missingSince.value
+              : this.missingSince,
     );
   }
 
@@ -730,7 +776,8 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           ..write('size: $size, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('contentHashPrefix: $contentHashPrefix, ')
-          ..write('lastSeenAt: $lastSeenAt')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('missingSince: $missingSince')
           ..write(')'))
         .toString();
   }
@@ -744,6 +791,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     modifiedAt,
     contentHashPrefix,
     lastSeenAt,
+    missingSince,
   );
   @override
   bool operator ==(Object other) =>
@@ -755,7 +803,8 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           other.size == this.size &&
           other.modifiedAt == this.modifiedAt &&
           other.contentHashPrefix == this.contentHashPrefix &&
-          other.lastSeenAt == this.lastSeenAt);
+          other.lastSeenAt == this.lastSeenAt &&
+          other.missingSince == this.missingSince);
 }
 
 class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
@@ -766,6 +815,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   final Value<DateTime?> modifiedAt;
   final Value<String?> contentHashPrefix;
   final Value<DateTime> lastSeenAt;
+  final Value<DateTime?> missingSince;
   const FileNodesCompanion({
     this.id = const Value.absent(),
     this.path = const Value.absent(),
@@ -774,6 +824,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.modifiedAt = const Value.absent(),
     this.contentHashPrefix = const Value.absent(),
     this.lastSeenAt = const Value.absent(),
+    this.missingSince = const Value.absent(),
   });
   FileNodesCompanion.insert({
     this.id = const Value.absent(),
@@ -783,6 +834,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.modifiedAt = const Value.absent(),
     this.contentHashPrefix = const Value.absent(),
     required DateTime lastSeenAt,
+    this.missingSince = const Value.absent(),
   }) : path = Value(path),
        isDirectory = Value(isDirectory),
        lastSeenAt = Value(lastSeenAt);
@@ -794,6 +846,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Expression<DateTime>? modifiedAt,
     Expression<String>? contentHashPrefix,
     Expression<DateTime>? lastSeenAt,
+    Expression<DateTime>? missingSince,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -803,6 +856,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       if (modifiedAt != null) 'modified_at': modifiedAt,
       if (contentHashPrefix != null) 'content_hash_prefix': contentHashPrefix,
       if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
+      if (missingSince != null) 'missing_since': missingSince,
     });
   }
 
@@ -814,6 +868,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Value<DateTime?>? modifiedAt,
     Value<String?>? contentHashPrefix,
     Value<DateTime>? lastSeenAt,
+    Value<DateTime?>? missingSince,
   }) {
     return FileNodesCompanion(
       id: id ?? this.id,
@@ -823,6 +878,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       modifiedAt: modifiedAt ?? this.modifiedAt,
       contentHashPrefix: contentHashPrefix ?? this.contentHashPrefix,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      missingSince: missingSince ?? this.missingSince,
     );
   }
 
@@ -850,6 +906,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     if (lastSeenAt.present) {
       map['last_seen_at'] = Variable<DateTime>(lastSeenAt.value);
     }
+    if (missingSince.present) {
+      map['missing_since'] = Variable<DateTime>(missingSince.value);
+    }
     return map;
   }
 
@@ -862,7 +921,8 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
           ..write('size: $size, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('contentHashPrefix: $contentHashPrefix, ')
-          ..write('lastSeenAt: $lastSeenAt')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('missingSince: $missingSince')
           ..write(')'))
         .toString();
   }
@@ -1555,6 +1615,7 @@ typedef $$FileNodesTableCreateCompanionBuilder =
       Value<DateTime?> modifiedAt,
       Value<String?> contentHashPrefix,
       required DateTime lastSeenAt,
+      Value<DateTime?> missingSince,
     });
 typedef $$FileNodesTableUpdateCompanionBuilder =
     FileNodesCompanion Function({
@@ -1565,6 +1626,7 @@ typedef $$FileNodesTableUpdateCompanionBuilder =
       Value<DateTime?> modifiedAt,
       Value<String?> contentHashPrefix,
       Value<DateTime> lastSeenAt,
+      Value<DateTime?> missingSince,
     });
 
 final class $$FileNodesTableReferences
@@ -1637,6 +1699,11 @@ class $$FileNodesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get missingSince => $composableBuilder(
+    column: $table.missingSince,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> tagAssignmentsRefs(
     Expression<bool> Function($$TagAssignmentsTableFilterComposer f) f,
   ) {
@@ -1706,6 +1773,11 @@ class $$FileNodesTableOrderingComposer
     column: $table.lastSeenAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get missingSince => $composableBuilder(
+    column: $table.missingSince,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FileNodesTableAnnotationComposer
@@ -1743,6 +1815,11 @@ class $$FileNodesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get lastSeenAt => $composableBuilder(
     column: $table.lastSeenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get missingSince => $composableBuilder(
+    column: $table.missingSince,
     builder: (column) => column,
   );
 
@@ -1807,6 +1884,7 @@ class $$FileNodesTableTableManager
                 Value<DateTime?> modifiedAt = const Value.absent(),
                 Value<String?> contentHashPrefix = const Value.absent(),
                 Value<DateTime> lastSeenAt = const Value.absent(),
+                Value<DateTime?> missingSince = const Value.absent(),
               }) => FileNodesCompanion(
                 id: id,
                 path: path,
@@ -1815,6 +1893,7 @@ class $$FileNodesTableTableManager
                 modifiedAt: modifiedAt,
                 contentHashPrefix: contentHashPrefix,
                 lastSeenAt: lastSeenAt,
+                missingSince: missingSince,
               ),
           createCompanionCallback:
               ({
@@ -1825,6 +1904,7 @@ class $$FileNodesTableTableManager
                 Value<DateTime?> modifiedAt = const Value.absent(),
                 Value<String?> contentHashPrefix = const Value.absent(),
                 required DateTime lastSeenAt,
+                Value<DateTime?> missingSince = const Value.absent(),
               }) => FileNodesCompanion.insert(
                 id: id,
                 path: path,
@@ -1833,6 +1913,7 @@ class $$FileNodesTableTableManager
                 modifiedAt: modifiedAt,
                 contentHashPrefix: contentHashPrefix,
                 lastSeenAt: lastSeenAt,
+                missingSince: missingSince,
               ),
           withReferenceMapper:
               (p0) =>

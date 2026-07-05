@@ -15,6 +15,7 @@ import '../providers/settings_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../widgets/file_toolbar.dart';
+import '../widgets/reconnect_dialog.dart';
 import '../widgets/tag_assign_dialog.dart';
 import '../widgets/tag_chip.dart';
 import '../widgets/tag_value_prompt.dart';
@@ -31,6 +32,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _scanning = false;
   bool _picking = false;
+
+  /// watcher가 트리거한 백그라운드 재스캔이 진행 중인지. 전면 스피너를 띄우지
+  /// 않으며(_scanning과 별개), 재스캔 중복 실행을 막는 데 쓴다.
+  bool _backgroundScanning = false;
+
+  /// 겹쳐 뜨는 선택 바가 차지하는 높이만큼 목록 하단에 확보하는 여백.
+  static const double _selectionBarReserve = 64;
 
   /// 선택된 파일 노드 id들과 범위 선택(shift)의 기준점.
   final Set<int> _selectedIds = {};
@@ -90,6 +98,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// watcher가 감지한 디스크 변화에 맞춰 조용히 재스캔한다. 전면 스피너를 띄우지
+  /// 않고(목록은 Drift 스트림으로 갱신됨), 병합 프롬프트도 반복하지 않는다.
+  /// 다른 스캔이 진행 중이면 건너뛴다(다음 변화 신호가 다시 트리거한다).
+  Future<void> _backgroundScan() async {
+    if (_scanning || _backgroundScanning) return;
+    final usecase = ref.read(scanWorkspaceProvider);
+    final root = ref.read(workspaceRootProvider);
+    if (usecase == null || root == null) return;
+
+    _backgroundScanning = true;
+    try {
+      await usecase(root);
+    } catch (_) {
+      // 백그라운드 재스캔 실패는 조용히 무시한다(다음 변화 때 재시도).
+    } finally {
+      _backgroundScanning = false;
+    }
+  }
+
   void _clearSelection() {
     _selectedIds.clear();
     _anchorId = null;
@@ -131,6 +158,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _anchorId = id;
       }
     });
+  }
+
+  /// 선택이 정확히 연결 끊긴(보존) 노드 하나면 그 노드를 반환한다. 이때
+  /// 액션 바 버튼이 '태그 부여' 대신 '원본 파일 찾기'로 바뀐다.
+  FileNode? get _singleMissingSelected {
+    if (_selectedIds.length != 1) return null;
+    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
+    final matches = items.where((n) => n.id == _selectedIds.first);
+    if (matches.isEmpty) return null;
+    final node = matches.first;
+    return node.isMissing ? node : null;
+  }
+
+  /// 보존 노드의 원본 파일을 사용자가 골라 태그를 수동 재연결한다. 후보는
+  /// 태그가 하나도 없는 실제(연결 안 끊긴) 노드다.
+  Future<void> _reconnectSelected() async {
+    final missing = _singleMissingSelected;
+    if (missing == null || missing.id == null) return;
+
+    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
+    final assignmentsByFile =
+        ref.read(assignmentsByFileProvider).valueOrNull ?? const {};
+    final candidates = items
+        .where((n) =>
+            !n.isMissing &&
+            n.id != null &&
+            (assignmentsByFile[n.id] ?? const []).isEmpty)
+        .toList();
+
+    final action = await showReconnectDialog(
+      context,
+      missing: missing,
+      candidates: candidates,
+    );
+    final repo = ref.read(fileNodeRepositoryProvider);
+    if (repo == null) return;
+    switch (action) {
+      case null:
+        return;
+      case ReconnectToTarget(:final target):
+        if (target.id == null) return;
+        await repo.reconnectNode(
+          missingNodeId: missing.id!,
+          targetNodeId: target.id!,
+        );
+      case ReconnectRemove():
+        await repo.removeNode(missing.id!);
+    }
+    if (mounted) setState(_clearSelection);
   }
 
   Future<void> _assignToSelection() async {
@@ -205,6 +281,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final database = ref.watch(databaseProvider);
     final recentFolders = ref.watch(recentFoldersProvider);
 
+    // 디스크 변화(watcher, 디바운스됨)를 구독해 백그라운드 재스캔을 트리거한다.
+    ref.listen(workspaceChangesProvider, (_, next) {
+      next.whenData((_) => _backgroundScan());
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('File Tagger'),
@@ -250,8 +331,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const Divider(height: 32),
                 const FileToolbar(),
                 const SizedBox(height: 12),
-                Expanded(child: _buildFileList()),
-                _buildSelectionBar(),
+                // 선택 정보 바는 목록을 밀어내지 않고 위에 반투명하게 겹쳐 띄운다.
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(child: _buildFileList()),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: _buildSelectionBar(),
+                      ),
+                    ],
+                  ),
+                ),
               ] else
                 Expanded(child: _buildRecentFolders(recentFolders)),
             ],
@@ -289,6 +382,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       data: (items) {
         if (items.isEmpty) return Text(_emptyMessage(filterActive));
         return ListView.builder(
+          // 겹쳐 뜬 선택 바에 마지막 항목이 영구히 가리지 않도록 여백을 둔다.
+          padding: EdgeInsets.only(
+            bottom: _selectedIds.isEmpty ? 0 : _selectionBarReserve,
+          ),
           itemCount: items.length,
           itemBuilder: (context, index) =>
               _fileTile(items, index, assignmentsByFile),
@@ -318,8 +415,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildSelectionBar() {
     if (_selectedIds.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
+    // 연결 끊긴 노드 하나만 선택되면 '태그 부여' 대신 '원본 파일 찾기'를 보인다.
+    final missing = _singleMissingSelected;
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        // 목록을 완전히 가리지 않도록 반투명 배경으로 겹쳐 띄운다.
+        color: scheme.surface.withValues(alpha: 0.85),
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Row(
         children: [
           Text('${_selectedIds.length}개 선택'),
@@ -339,11 +444,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(width: 8),
           ],
-          FilledButton.icon(
-            onPressed: _assignToSelection,
-            icon: const Icon(Icons.sell_outlined),
-            label: const Text('태그 부여'),
-          ),
+          if (missing != null)
+            FilledButton.icon(
+              onPressed: _reconnectSelected,
+              icon: const Icon(Icons.link),
+              label: const Text('원본 파일 찾기'),
+            )
+          else
+            FilledButton.icon(
+              onPressed: _assignToSelection,
+              icon: const Icon(Icons.sell_outlined),
+              label: const Text('태그 부여'),
+            ),
         ],
       ),
     );
@@ -405,6 +517,7 @@ class _FileNodeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final missing = node.isMissing;
     return ListTile(
       dense: true,
       selected: selected,
@@ -413,13 +526,29 @@ class _FileNodeTile extends StatelessWidget {
       selectedColor: scheme.onPrimaryContainer,
       onTap: onTap,
       leading: Icon(
-        node.isDirectory ? Icons.folder : Icons.insert_drive_file_outlined,
+        missing
+            ? Icons.link_off
+            : (node.isDirectory
+                ? Icons.folder
+                : Icons.insert_drive_file_outlined),
+        color: missing ? scheme.error : null,
       ),
-      title: Text(node.name),
+      title: Text(
+        node.name,
+        style: missing ? TextStyle(color: scheme.error) : null,
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(node.path),
+          if (missing)
+            Text(
+              '연결 끊김 — 원본 파일을 찾아 태그를 재연결하세요',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: scheme.error),
+            ),
           if (assignments.isNotEmpty) ...[
             const SizedBox(height: 4),
             Wrap(

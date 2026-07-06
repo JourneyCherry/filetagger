@@ -5,14 +5,18 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final mtime = DateTime(2024, 1, 1, 12, 30, 15);
 
-  FileNode file(String path, {int size = 10, String hash = 'abc', DateTime? at}) =>
-      FileNode(
-        path: path,
-        isDirectory: false,
-        size: size,
-        modifiedAt: at ?? mtime,
-        contentHashPrefix: hash,
-      );
+  FileNode file(
+    String path, {
+    int size = 10,
+    String hash = 'abc',
+    DateTime? at,
+  }) => FileNode(
+    path: path,
+    isDirectory: false,
+    size: size,
+    modifiedAt: at ?? mtime,
+    contentHashPrefix: hash,
+  );
 
   const tracker = MoveTracker();
 
@@ -28,8 +32,10 @@ void main() {
 
   test('수정시각이 초 미만으로만 달라도 같은 파일로 본다', () {
     final old = file('old/a.txt', at: DateTime(2024, 1, 1, 12, 30, 15));
-    final moved = file('new/a.txt',
-        at: DateTime(2024, 1, 1, 12, 30, 15, 800)); // 밀리초 차이
+    final moved = file(
+      'new/a.txt',
+      at: DateTime(2024, 1, 1, 12, 30, 15, 800),
+    ); // 밀리초 차이
 
     final result = tracker.match([old], [moved]);
 
@@ -59,11 +65,44 @@ void main() {
     expect(tracker.match([old1, old2], [cand]), isEmpty);
   });
 
-  test('폴더는 매칭 대상이 아니다', () {
-    const oldDir = FileNode(path: 'old/dir', isDirectory: true);
-    const newDir = FileNode(path: 'new/dir', isDirectory: true);
+  FileNode dir(String path, {String? sig}) =>
+      FileNode(path: path, isDirectory: true, childSignature: sig);
 
-    expect(tracker.match([oldDir], [newDir]), isEmpty);
+  test('자식 시그니처가 같은 유일한 폴더 쌍을 이동으로 매칭한다', () {
+    final old = dir('old/d', sig: 'sig1');
+    final moved = dir('new/d', sig: 'sig1');
+
+    final result = tracker.match([old], [moved]);
+
+    expect(result[old], moved);
+  });
+
+  test('자식 시그니처가 다르면 폴더를 매칭하지 않는다', () {
+    expect(
+      tracker.match([dir('old/d', sig: 'a')], [dir('new/d', sig: 'b')]),
+      isEmpty,
+    );
+  });
+
+  test('시그니처가 없는(빈) 폴더는 매칭하지 않는다', () {
+    expect(tracker.match([dir('old/d')], [dir('new/d')]), isEmpty);
+  });
+
+  test('같은 시그니처 폴더 후보가 여럿이면(모호) 매칭하지 않는다', () {
+    final old = dir('old/d', sig: 's');
+    expect(
+      tracker.match([old], [dir('new/d1', sig: 's'), dir('new/d2', sig: 's')]),
+      isEmpty,
+    );
+  });
+
+  test('파일과 폴더는 시그니처 문자열이 같아도 서로 매칭하지 않는다', () {
+    // 파일 해시와 폴더 시그니처가 우연히 같은 문자열이어도 유형이 달라 매칭 불가.
+    final f = file('old/x', hash: 'same');
+    final d = dir('new/x', sig: 'same');
+
+    expect(tracker.match([f], [d]), isEmpty);
+    expect(tracker.match([d], [f]), isEmpty);
   });
 
   test('서로 다른 두 이동을 각각 올바르게 매칭한다', () {

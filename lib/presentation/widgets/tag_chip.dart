@@ -30,13 +30,23 @@ class TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final shown = formatTagValue(definition.valueType, value);
-    final label = shown == null ? definition.name : '${definition.name}: $shown';
+    final label = shown == null
+        ? definition.name
+        : '${definition.name}: $shown';
 
-    final hasColor = definition.color != null;
-    final background =
-        hasColor ? Color(definition.color!) : scheme.secondaryContainer;
-    final foreground =
-        hasColor ? foregroundOn(background) : scheme.onSecondaryContainer;
+    final Color background;
+    final Color foreground;
+    if (definition.isSystem) {
+      // 시스템 태그는 사용자 색과 무관하게 늘 회색 고정.
+      background = const Color(kSystemTagColor);
+      foreground = foregroundOn(background);
+    } else if (definition.color != null) {
+      background = Color(definition.color!);
+      foreground = foregroundOn(background);
+    } else {
+      background = scheme.secondaryContainer;
+      foreground = scheme.onSecondaryContainer;
+    }
     final labelWidget = Text(label, style: TextStyle(color: foreground));
 
     if (onPressed != null || onDeleted != null) {

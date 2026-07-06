@@ -17,3 +17,8 @@ const String databaseFileName = 'filetagger.sqlite';
 ///
 /// 관리 폴더가 아니라 OS 앱데이터 폴더에 저장된다.
 const String settingsFileName = 'settings.json';
+
+/// 워크스페이스별 보기 설정(필터·정렬) 파일 이름.
+///
+/// [filetaggerDirName] 폴더 안에 저장되어 폴더 이동·복사 시 함께 따라온다.
+const String viewSettingsFileName = 'view.json';

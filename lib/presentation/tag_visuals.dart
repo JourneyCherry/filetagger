@@ -27,6 +27,10 @@ const List<int> tagColorPalette = <int>[
   0xFF90A4AE, // blue grey
 ];
 
+/// 시스템 태그(자동 파생)의 고정 배경색(회색). 사용자 색과 구분해 늘 이 색으로
+/// 칠한다. 값의 단일 출처로 두어 칩이 이 상수만 참조한다.
+const int kSystemTagColor = 0xFF9E9E9E;
+
 /// 저장된 색 정수를 [Color]로. 미지정이면 테마 기본색을 쓴다.
 Color tagColorOf(int? argb, BuildContext context) {
   if (argb == null) return Theme.of(context).colorScheme.secondaryContainer;

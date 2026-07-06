@@ -453,6 +453,37 @@ class $FileNodesTable extends FileNodes
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  @override
+  late final GeneratedColumnWithTypeConverter<FolderManageMode?, String>
+  manageMode = GeneratedColumn<String>(
+    'manage_mode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<FolderManageMode?>($FileNodesTable.$convertermanageModen);
+  static const VerificationMeta _childSignatureMeta = const VerificationMeta(
+    'childSignature',
+  );
+  @override
+  late final GeneratedColumn<String> childSignature = GeneratedColumn<String>(
+    'child_signature',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _imageDimensionsMeta = const VerificationMeta(
+    'imageDimensions',
+  );
+  @override
+  late final GeneratedColumn<String> imageDimensions = GeneratedColumn<String>(
+    'image_dimensions',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
     'lastSeenAt',
   );
@@ -483,6 +514,9 @@ class $FileNodesTable extends FileNodes
     size,
     modifiedAt,
     contentHashPrefix,
+    manageMode,
+    childSignature,
+    imageDimensions,
     lastSeenAt,
     missingSince,
   ];
@@ -538,6 +572,24 @@ class $FileNodesTable extends FileNodes
         contentHashPrefix.isAcceptableOrUnknown(
           data['content_hash_prefix']!,
           _contentHashPrefixMeta,
+        ),
+      );
+    }
+    if (data.containsKey('child_signature')) {
+      context.handle(
+        _childSignatureMeta,
+        childSignature.isAcceptableOrUnknown(
+          data['child_signature']!,
+          _childSignatureMeta,
+        ),
+      );
+    }
+    if (data.containsKey('image_dimensions')) {
+      context.handle(
+        _imageDimensionsMeta,
+        imageDimensions.isAcceptableOrUnknown(
+          data['image_dimensions']!,
+          _imageDimensionsMeta,
         ),
       );
     }
@@ -597,6 +649,20 @@ class $FileNodesTable extends FileNodes
         DriftSqlType.string,
         data['${effectivePrefix}content_hash_prefix'],
       ),
+      manageMode: $FileNodesTable.$convertermanageModen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}manage_mode'],
+        ),
+      ),
+      childSignature: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}child_signature'],
+      ),
+      imageDimensions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_dimensions'],
+      ),
       lastSeenAt:
           attachedDatabase.typeMapping.read(
             DriftSqlType.dateTime,
@@ -613,6 +679,13 @@ class $FileNodesTable extends FileNodes
   $FileNodesTable createAlias(String alias) {
     return $FileNodesTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<FolderManageMode, String, String>
+  $convertermanageMode = const EnumNameConverter<FolderManageMode>(
+    FolderManageMode.values,
+  );
+  static JsonTypeConverter2<FolderManageMode?, String?, String?>
+  $convertermanageModen = JsonTypeConverter2.asNullable($convertermanageMode);
 }
 
 class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
@@ -629,6 +702,17 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   /// 이동 추적 시 동일 파일 후보를 가리기 위한 내용 부분 해시.
   final String? contentHashPrefix;
 
+  /// 폴더의 관리 방식(불투명/관리). 폴더 노드에만 설정된다. 이름 기반 저장.
+  /// 처음 발견되는 폴더는 불투명이 기본이며, null은 파일(또는 방식 미지정)이다.
+  final FolderManageMode? manageMode;
+
+  /// 폴더 이동 추적용, 직속 자식 구성의 부분 시그니처. 폴더 노드에만 채워진다.
+  final String? childSignature;
+
+  /// 이미지 파일의 픽셀 크기("가로x세로"). 스캐너가 헤더를 파싱해 채운다. 이미지가
+  /// 아니거나 크기를 못 읽으면 미지정. 시스템 태그 '이미지 크기'의 원본.
+  final String? imageDimensions;
+
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   final DateTime lastSeenAt;
 
@@ -643,6 +727,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     this.size,
     this.modifiedAt,
     this.contentHashPrefix,
+    this.manageMode,
+    this.childSignature,
+    this.imageDimensions,
     required this.lastSeenAt,
     this.missingSince,
   });
@@ -660,6 +747,17 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     }
     if (!nullToAbsent || contentHashPrefix != null) {
       map['content_hash_prefix'] = Variable<String>(contentHashPrefix);
+    }
+    if (!nullToAbsent || manageMode != null) {
+      map['manage_mode'] = Variable<String>(
+        $FileNodesTable.$convertermanageModen.toSql(manageMode),
+      );
+    }
+    if (!nullToAbsent || childSignature != null) {
+      map['child_signature'] = Variable<String>(childSignature);
+    }
+    if (!nullToAbsent || imageDimensions != null) {
+      map['image_dimensions'] = Variable<String>(imageDimensions);
     }
     map['last_seen_at'] = Variable<DateTime>(lastSeenAt);
     if (!nullToAbsent || missingSince != null) {
@@ -682,6 +780,18 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           contentHashPrefix == null && nullToAbsent
               ? const Value.absent()
               : Value(contentHashPrefix),
+      manageMode:
+          manageMode == null && nullToAbsent
+              ? const Value.absent()
+              : Value(manageMode),
+      childSignature:
+          childSignature == null && nullToAbsent
+              ? const Value.absent()
+              : Value(childSignature),
+      imageDimensions:
+          imageDimensions == null && nullToAbsent
+              ? const Value.absent()
+              : Value(imageDimensions),
       lastSeenAt: Value(lastSeenAt),
       missingSince:
           missingSince == null && nullToAbsent
@@ -704,6 +814,11 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       contentHashPrefix: serializer.fromJson<String?>(
         json['contentHashPrefix'],
       ),
+      manageMode: $FileNodesTable.$convertermanageModen.fromJson(
+        serializer.fromJson<String?>(json['manageMode']),
+      ),
+      childSignature: serializer.fromJson<String?>(json['childSignature']),
+      imageDimensions: serializer.fromJson<String?>(json['imageDimensions']),
       lastSeenAt: serializer.fromJson<DateTime>(json['lastSeenAt']),
       missingSince: serializer.fromJson<DateTime?>(json['missingSince']),
     );
@@ -718,6 +833,11 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       'size': serializer.toJson<int?>(size),
       'modifiedAt': serializer.toJson<DateTime?>(modifiedAt),
       'contentHashPrefix': serializer.toJson<String?>(contentHashPrefix),
+      'manageMode': serializer.toJson<String?>(
+        $FileNodesTable.$convertermanageModen.toJson(manageMode),
+      ),
+      'childSignature': serializer.toJson<String?>(childSignature),
+      'imageDimensions': serializer.toJson<String?>(imageDimensions),
       'lastSeenAt': serializer.toJson<DateTime>(lastSeenAt),
       'missingSince': serializer.toJson<DateTime?>(missingSince),
     };
@@ -730,6 +850,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     Value<int?> size = const Value.absent(),
     Value<DateTime?> modifiedAt = const Value.absent(),
     Value<String?> contentHashPrefix = const Value.absent(),
+    Value<FolderManageMode?> manageMode = const Value.absent(),
+    Value<String?> childSignature = const Value.absent(),
+    Value<String?> imageDimensions = const Value.absent(),
     DateTime? lastSeenAt,
     Value<DateTime?> missingSince = const Value.absent(),
   }) => FileNodeRow(
@@ -742,6 +865,11 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
         contentHashPrefix.present
             ? contentHashPrefix.value
             : this.contentHashPrefix,
+    manageMode: manageMode.present ? manageMode.value : this.manageMode,
+    childSignature:
+        childSignature.present ? childSignature.value : this.childSignature,
+    imageDimensions:
+        imageDimensions.present ? imageDimensions.value : this.imageDimensions,
     lastSeenAt: lastSeenAt ?? this.lastSeenAt,
     missingSince: missingSince.present ? missingSince.value : this.missingSince,
   );
@@ -758,6 +886,16 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           data.contentHashPrefix.present
               ? data.contentHashPrefix.value
               : this.contentHashPrefix,
+      manageMode:
+          data.manageMode.present ? data.manageMode.value : this.manageMode,
+      childSignature:
+          data.childSignature.present
+              ? data.childSignature.value
+              : this.childSignature,
+      imageDimensions:
+          data.imageDimensions.present
+              ? data.imageDimensions.value
+              : this.imageDimensions,
       lastSeenAt:
           data.lastSeenAt.present ? data.lastSeenAt.value : this.lastSeenAt,
       missingSince:
@@ -776,6 +914,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           ..write('size: $size, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('contentHashPrefix: $contentHashPrefix, ')
+          ..write('manageMode: $manageMode, ')
+          ..write('childSignature: $childSignature, ')
+          ..write('imageDimensions: $imageDimensions, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('missingSince: $missingSince')
           ..write(')'))
@@ -790,6 +931,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     size,
     modifiedAt,
     contentHashPrefix,
+    manageMode,
+    childSignature,
+    imageDimensions,
     lastSeenAt,
     missingSince,
   );
@@ -803,6 +947,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           other.size == this.size &&
           other.modifiedAt == this.modifiedAt &&
           other.contentHashPrefix == this.contentHashPrefix &&
+          other.manageMode == this.manageMode &&
+          other.childSignature == this.childSignature &&
+          other.imageDimensions == this.imageDimensions &&
           other.lastSeenAt == this.lastSeenAt &&
           other.missingSince == this.missingSince);
 }
@@ -814,6 +961,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   final Value<int?> size;
   final Value<DateTime?> modifiedAt;
   final Value<String?> contentHashPrefix;
+  final Value<FolderManageMode?> manageMode;
+  final Value<String?> childSignature;
+  final Value<String?> imageDimensions;
   final Value<DateTime> lastSeenAt;
   final Value<DateTime?> missingSince;
   const FileNodesCompanion({
@@ -823,6 +973,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.size = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.contentHashPrefix = const Value.absent(),
+    this.manageMode = const Value.absent(),
+    this.childSignature = const Value.absent(),
+    this.imageDimensions = const Value.absent(),
     this.lastSeenAt = const Value.absent(),
     this.missingSince = const Value.absent(),
   });
@@ -833,6 +986,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.size = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.contentHashPrefix = const Value.absent(),
+    this.manageMode = const Value.absent(),
+    this.childSignature = const Value.absent(),
+    this.imageDimensions = const Value.absent(),
     required DateTime lastSeenAt,
     this.missingSince = const Value.absent(),
   }) : path = Value(path),
@@ -845,6 +1001,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Expression<int>? size,
     Expression<DateTime>? modifiedAt,
     Expression<String>? contentHashPrefix,
+    Expression<String>? manageMode,
+    Expression<String>? childSignature,
+    Expression<String>? imageDimensions,
     Expression<DateTime>? lastSeenAt,
     Expression<DateTime>? missingSince,
   }) {
@@ -855,6 +1014,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       if (size != null) 'size': size,
       if (modifiedAt != null) 'modified_at': modifiedAt,
       if (contentHashPrefix != null) 'content_hash_prefix': contentHashPrefix,
+      if (manageMode != null) 'manage_mode': manageMode,
+      if (childSignature != null) 'child_signature': childSignature,
+      if (imageDimensions != null) 'image_dimensions': imageDimensions,
       if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
       if (missingSince != null) 'missing_since': missingSince,
     });
@@ -867,6 +1029,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Value<int?>? size,
     Value<DateTime?>? modifiedAt,
     Value<String?>? contentHashPrefix,
+    Value<FolderManageMode?>? manageMode,
+    Value<String?>? childSignature,
+    Value<String?>? imageDimensions,
     Value<DateTime>? lastSeenAt,
     Value<DateTime?>? missingSince,
   }) {
@@ -877,6 +1042,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       size: size ?? this.size,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       contentHashPrefix: contentHashPrefix ?? this.contentHashPrefix,
+      manageMode: manageMode ?? this.manageMode,
+      childSignature: childSignature ?? this.childSignature,
+      imageDimensions: imageDimensions ?? this.imageDimensions,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       missingSince: missingSince ?? this.missingSince,
     );
@@ -903,6 +1071,17 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     if (contentHashPrefix.present) {
       map['content_hash_prefix'] = Variable<String>(contentHashPrefix.value);
     }
+    if (manageMode.present) {
+      map['manage_mode'] = Variable<String>(
+        $FileNodesTable.$convertermanageModen.toSql(manageMode.value),
+      );
+    }
+    if (childSignature.present) {
+      map['child_signature'] = Variable<String>(childSignature.value);
+    }
+    if (imageDimensions.present) {
+      map['image_dimensions'] = Variable<String>(imageDimensions.value);
+    }
     if (lastSeenAt.present) {
       map['last_seen_at'] = Variable<DateTime>(lastSeenAt.value);
     }
@@ -921,6 +1100,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
           ..write('size: $size, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('contentHashPrefix: $contentHashPrefix, ')
+          ..write('manageMode: $manageMode, ')
+          ..write('childSignature: $childSignature, ')
+          ..write('imageDimensions: $imageDimensions, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('missingSince: $missingSince')
           ..write(')'))
@@ -1614,6 +1796,9 @@ typedef $$FileNodesTableCreateCompanionBuilder =
       Value<int?> size,
       Value<DateTime?> modifiedAt,
       Value<String?> contentHashPrefix,
+      Value<FolderManageMode?> manageMode,
+      Value<String?> childSignature,
+      Value<String?> imageDimensions,
       required DateTime lastSeenAt,
       Value<DateTime?> missingSince,
     });
@@ -1625,6 +1810,9 @@ typedef $$FileNodesTableUpdateCompanionBuilder =
       Value<int?> size,
       Value<DateTime?> modifiedAt,
       Value<String?> contentHashPrefix,
+      Value<FolderManageMode?> manageMode,
+      Value<String?> childSignature,
+      Value<String?> imageDimensions,
       Value<DateTime> lastSeenAt,
       Value<DateTime?> missingSince,
     });
@@ -1691,6 +1879,22 @@ class $$FileNodesTableFilterComposer
 
   ColumnFilters<String> get contentHashPrefix => $composableBuilder(
     column: $table.contentHashPrefix,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<FolderManageMode?, FolderManageMode, String>
+  get manageMode => $composableBuilder(
+    column: $table.manageMode,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get childSignature => $composableBuilder(
+    column: $table.childSignature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageDimensions => $composableBuilder(
+    column: $table.imageDimensions,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1769,6 +1973,21 @@ class $$FileNodesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get manageMode => $composableBuilder(
+    column: $table.manageMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get childSignature => $composableBuilder(
+    column: $table.childSignature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imageDimensions => $composableBuilder(
+    column: $table.imageDimensions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get lastSeenAt => $composableBuilder(
     column: $table.lastSeenAt,
     builder: (column) => ColumnOrderings(column),
@@ -1810,6 +2029,22 @@ class $$FileNodesTableAnnotationComposer
 
   GeneratedColumn<String> get contentHashPrefix => $composableBuilder(
     column: $table.contentHashPrefix,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<FolderManageMode?, String> get manageMode =>
+      $composableBuilder(
+        column: $table.manageMode,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get childSignature => $composableBuilder(
+    column: $table.childSignature,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get imageDimensions => $composableBuilder(
+    column: $table.imageDimensions,
     builder: (column) => column,
   );
 
@@ -1883,6 +2118,9 @@ class $$FileNodesTableTableManager
                 Value<int?> size = const Value.absent(),
                 Value<DateTime?> modifiedAt = const Value.absent(),
                 Value<String?> contentHashPrefix = const Value.absent(),
+                Value<FolderManageMode?> manageMode = const Value.absent(),
+                Value<String?> childSignature = const Value.absent(),
+                Value<String?> imageDimensions = const Value.absent(),
                 Value<DateTime> lastSeenAt = const Value.absent(),
                 Value<DateTime?> missingSince = const Value.absent(),
               }) => FileNodesCompanion(
@@ -1892,6 +2130,9 @@ class $$FileNodesTableTableManager
                 size: size,
                 modifiedAt: modifiedAt,
                 contentHashPrefix: contentHashPrefix,
+                manageMode: manageMode,
+                childSignature: childSignature,
+                imageDimensions: imageDimensions,
                 lastSeenAt: lastSeenAt,
                 missingSince: missingSince,
               ),
@@ -1903,6 +2144,9 @@ class $$FileNodesTableTableManager
                 Value<int?> size = const Value.absent(),
                 Value<DateTime?> modifiedAt = const Value.absent(),
                 Value<String?> contentHashPrefix = const Value.absent(),
+                Value<FolderManageMode?> manageMode = const Value.absent(),
+                Value<String?> childSignature = const Value.absent(),
+                Value<String?> imageDimensions = const Value.absent(),
                 required DateTime lastSeenAt,
                 Value<DateTime?> missingSince = const Value.absent(),
               }) => FileNodesCompanion.insert(
@@ -1912,6 +2156,9 @@ class $$FileNodesTableTableManager
                 size: size,
                 modifiedAt: modifiedAt,
                 contentHashPrefix: contentHashPrefix,
+                manageMode: manageMode,
+                childSignature: childSignature,
+                imageDimensions: imageDimensions,
                 lastSeenAt: lastSeenAt,
                 missingSince: missingSince,
               ),

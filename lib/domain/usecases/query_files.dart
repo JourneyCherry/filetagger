@@ -24,8 +24,24 @@ class QueryFiles {
       for (final file in files)
         if (filter.matches(_tagsOf(file, assignmentsByFile))) file,
     ];
+    filtered.sort(
+      comparator(
+        assignmentsByFile: assignmentsByFile,
+        sort: sort,
+        definitionsById: definitionsById,
+      ),
+    );
+    return filtered;
+  }
 
-    filtered.sort((a, b) {
+  /// 다단계 태그 정렬 + 이름 안정화 비교기. 평면 목록 정렬과 트리의 형제 정렬이
+  /// 같은 규칙을 쓰도록 공개한다.
+  Comparator<FileNode> comparator({
+    required Map<int, List<AssignedTag>> assignmentsByFile,
+    required FileSortOrder sort,
+    required Map<int, TagDefinition> definitionsById,
+  }) {
+    return (a, b) {
       for (final key in sort.keys) {
         final cmp = _compareByKey(
           a,
@@ -38,8 +54,7 @@ class QueryFiles {
       }
       // 정렬 단계가 없거나 모든 단계가 동률이면 이름으로 안정화한다.
       return _compareName(a, b);
-    });
-    return filtered;
+    };
   }
 
   int _compareByKey(

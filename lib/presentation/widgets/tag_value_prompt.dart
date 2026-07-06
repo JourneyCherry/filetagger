@@ -37,7 +37,8 @@ Future<TagValueResult?> promptTagValue(
     case TagValueType.number:
       return showDialog<TagValueResult>(
         context: context,
-        builder: (_) => _TextValueDialog(definition: definition, initial: initial),
+        builder: (_) =>
+            _TextValueDialog(definition: definition, initial: initial),
       );
   }
 }

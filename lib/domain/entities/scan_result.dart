@@ -2,10 +2,7 @@ import 'file_node.dart';
 
 /// 한 번의 워크스페이스 스캔 결과.
 class ScanResult {
-  const ScanResult({
-    required this.nodes,
-    required this.nestedFiletaggerDirs,
-  });
+  const ScanResult({required this.nodes, required this.nestedFiletaggerDirs});
 
   /// 스캔으로 관측된 파일/폴더 노드들.
   final List<FileNode> nodes;

@@ -13,15 +13,24 @@ FileNode _file(int id, String path, {bool dir = false}) =>
 
 AssignedTag _assign(int fileId, int defId, TagValueType type, String? value) =>
     AssignedTag(
-      assignment:
-          TagAssignment(fileNodeId: fileId, tagDefinitionId: defId, value: value),
+      assignment: TagAssignment(
+        fileNodeId: fileId,
+        tagDefinitionId: defId,
+        value: value,
+      ),
       definition: TagDefinition(id: defId, name: 'tag$defId', valueType: type),
     );
 
-const _priority =
-    TagDefinition(id: 7, name: 'priority', valueType: TagValueType.number);
-const _stage =
-    TagDefinition(id: 8, name: 'stage', valueType: TagValueType.text);
+const _priority = TagDefinition(
+  id: 7,
+  name: 'priority',
+  valueType: TagValueType.number,
+);
+const _stage = TagDefinition(
+  id: 8,
+  name: 'stage',
+  valueType: TagValueType.text,
+);
 
 void main() {
   const query = QueryFiles();
@@ -78,9 +87,11 @@ void main() {
       files: files,
       assignmentsByFile: assignments,
       filter: const FileFilter(),
-      sort: const FileSortOrder(keys: [
-        SortKey(tagDefinitionId: 7, direction: SortDirection.descending),
-      ]),
+      sort: const FileSortOrder(
+        keys: [
+          SortKey(tagDefinitionId: 7, direction: SortDirection.descending),
+        ],
+      ),
       definitionsById: const {7: _priority},
     );
     expect(desc.map((f) => f.id), [1, 2, 3]);
@@ -105,10 +116,9 @@ void main() {
       assignmentsByFile: assignments,
       filter: const FileFilter(),
       // 1순위 stage(오름), 2순위 priority(오름).
-      sort: const FileSortOrder(keys: [
-        SortKey(tagDefinitionId: 8),
-        SortKey(tagDefinitionId: 7),
-      ]),
+      sort: const FileSortOrder(
+        keys: [SortKey(tagDefinitionId: 8), SortKey(tagDefinitionId: 7)],
+      ),
       definitionsById: const {7: _priority, 8: _stage},
     );
     // stage x끼리는 priority로 2<9 → 2,1 순, 그 뒤 stage y인 3.
@@ -116,7 +126,11 @@ void main() {
   });
 
   test('label 정렬은 방향과 무관하게 부여된 요소를 위로, 없는 요소는 뒤로', () {
-    const fav = TagDefinition(id: 9, name: 'fav', valueType: TagValueType.label);
+    const fav = TagDefinition(
+      id: 9,
+      name: 'fav',
+      valueType: TagValueType.label,
+    );
     final files = [_file(1, 'a'), _file(2, 'b'), _file(3, 'c')];
     final assignments = {
       1: [_assign(1, 9, TagValueType.label, null)],
@@ -128,7 +142,9 @@ void main() {
         files: files,
         assignmentsByFile: assignments,
         filter: const FileFilter(),
-        sort: FileSortOrder(keys: [SortKey(tagDefinitionId: 9, direction: dir)]),
+        sort: FileSortOrder(
+          keys: [SortKey(tagDefinitionId: 9, direction: dir)],
+        ),
         definitionsById: const {9: fav},
       );
       // 부여된 1,3이 앞(그 안에서 이름순), 미부여 2는 방향과 무관하게 뒤.

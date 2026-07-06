@@ -6,10 +6,10 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants.dart';
 
-// NOTE(installer): 이 파일은 현재 앱에 배선되어 있지 않다(참고 구현). 최근 폴더
-// 영속화는 인스톨러 도입 후 설치 디렉토리 저장 방식으로 재구현 예정이며, 그
-// 전까지 recentFoldersProvider는 세션 메모리로만 동작한다. 직렬화 로직은 테스트로
-// 계속 검증된다.
+// 최근 폴더 목록 영속화에 배선된 저장소. 저장 위치는 `path_provider`(공식
+// flutter.dev 패키지)의 앱데이터 폴더(`getApplicationSupportDirectory`)로, 데스크톱
+// 3종을 모두 지원한다. 포터블 배포 시 실행 파일 옆 저장 분기는 인스톨러 도입과
+// 함께 검토한다(백로그).
 
 /// 머신 단위 전역 설정. 관리 폴더가 아니라 OS 앱데이터 폴더에 저장된다.
 class AppSettings {
@@ -24,9 +24,8 @@ class AppSettings {
   Map<String, dynamic> toJson() => {'recentFolders': recentFolders};
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
-        recentFolders:
-            (json['recentFolders'] as List?)?.cast<String>() ?? const [],
-      );
+    recentFolders: (json['recentFolders'] as List?)?.cast<String>() ?? const [],
+  );
 }
 
 /// 전역 설정을 JSON 파일로 읽고 쓰는 저장소.

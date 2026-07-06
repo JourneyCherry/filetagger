@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/tag_value_type.dart';
 
 /// 태그의 종류(이름·값 유형·색상). 라벨/키-값 태그를 [valueType] 하나로
@@ -23,7 +24,8 @@ class TagDefinitions extends Table {
   /// 한 파일에 이 태그를 여러 번 부여할 수 있는지. 태그 생성 시 사용자가 정한다.
   /// 불가면 (파일,태그)당 1회로 재부여 시 값이 갱신되고, 허용이면 다중 부여를
   /// 허용한다. 유형에 따라 달라 DB 유니크 인덱스로 못 걸어 저장소가 강제한다.
-  BoolColumn get allowMultiple => boolean().withDefault(const Constant(false))();
+  BoolColumn get allowMultiple =>
+      boolean().withDefault(const Constant(false))();
 }
 
 /// 스캔된 파일/폴더의 인덱스. 경로 외에 이동 추적용 메타(크기·수정시각·
@@ -44,6 +46,17 @@ class FileNodes extends Table {
 
   /// 이동 추적 시 동일 파일 후보를 가리기 위한 내용 부분 해시.
   TextColumn get contentHashPrefix => text().nullable()();
+
+  /// 폴더의 관리 방식(불투명/관리). 폴더 노드에만 설정된다. 이름 기반 저장.
+  /// 처음 발견되는 폴더는 불투명이 기본이며, null은 파일(또는 방식 미지정)이다.
+  TextColumn get manageMode => textEnum<FolderManageMode>().nullable()();
+
+  /// 폴더 이동 추적용, 직속 자식 구성의 부분 시그니처. 폴더 노드에만 채워진다.
+  TextColumn get childSignature => text().nullable()();
+
+  /// 이미지 파일의 픽셀 크기("가로x세로"). 스캐너가 헤더를 파싱해 채운다. 이미지가
+  /// 아니거나 크기를 못 읽으면 미지정. 시스템 태그 '이미지 크기'의 원본.
+  TextColumn get imageDimensions => text().nullable()();
 
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   DateTimeColumn get lastSeenAt => dateTime()();

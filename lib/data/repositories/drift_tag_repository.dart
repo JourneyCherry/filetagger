@@ -29,7 +29,9 @@ class DriftTagRepository implements TagRepository {
     int? color,
     required bool allowMultiple,
   }) async {
-    final row = await _db.into(_db.tagDefinitions).insertReturning(
+    final row = await _db
+        .into(_db.tagDefinitions)
+        .insertReturning(
           TagDefinitionsCompanion.insert(
             name: name,
             valueType: valueType,
@@ -86,9 +88,9 @@ class DriftTagRepository implements TagRepository {
     String? value,
   }) async {
     if (fileNodeIds.isEmpty) return;
-    final def = await (_db.select(_db.tagDefinitions)
-          ..where((t) => t.id.equals(tagDefinitionId)))
-        .getSingleOrNull();
+    final def = await (_db.select(
+      _db.tagDefinitions,
+    )..where((t) => t.id.equals(tagDefinitionId))).getSingleOrNull();
     if (def == null) return;
 
     await _db.transaction(() async {
@@ -98,12 +100,15 @@ class DriftTagRepository implements TagRepository {
           continue;
         }
         // 1회 제한: 이미 있으면 값만 갱신, 없으면 새로 부여(파일별 upsert).
-        final existing = await (_db.select(_db.tagAssignments)
-              ..where((t) =>
-                  t.fileNodeId.equals(fileNodeId) &
-                  t.tagDefinitionId.equals(tagDefinitionId))
-              ..limit(1))
-            .getSingleOrNull();
+        final existing =
+            await (_db.select(_db.tagAssignments)
+                  ..where(
+                    (t) =>
+                        t.fileNodeId.equals(fileNodeId) &
+                        t.tagDefinitionId.equals(tagDefinitionId),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
         if (existing == null) {
           await _insertAssignment(fileNodeId, tagDefinitionId, value);
         } else {
@@ -127,9 +132,9 @@ class DriftTagRepository implements TagRepository {
 
   @override
   Future<void> unassign(int assignmentId) async {
-    await (_db.delete(_db.tagAssignments)
-          ..where((t) => t.id.equals(assignmentId)))
-        .go();
+    await (_db.delete(
+      _db.tagAssignments,
+    )..where((t) => t.id.equals(assignmentId))).go();
   }
 
   @override
@@ -138,10 +143,11 @@ class DriftTagRepository implements TagRepository {
     required int tagDefinitionId,
   }) async {
     if (fileNodeIds.isEmpty) return;
-    await (_db.delete(_db.tagAssignments)
-          ..where((t) =>
+    await (_db.delete(_db.tagAssignments)..where(
+          (t) =>
               t.tagDefinitionId.equals(tagDefinitionId) &
-              t.fileNodeId.isIn(fileNodeIds)))
+              t.fileNodeId.isIn(fileNodeIds),
+        ))
         .go();
   }
 
@@ -150,7 +156,9 @@ class DriftTagRepository implements TagRepository {
     int tagDefinitionId,
     String? value,
   ) {
-    return _db.into(_db.tagAssignments).insert(
+    return _db
+        .into(_db.tagAssignments)
+        .insert(
           TagAssignmentsCompanion.insert(
             fileNodeId: fileNodeId,
             tagDefinitionId: tagDefinitionId,
@@ -160,17 +168,17 @@ class DriftTagRepository implements TagRepository {
   }
 
   TagDefinition _toDefinition(TagDefinitionRow row) => TagDefinition(
-        id: row.id,
-        name: row.name,
-        valueType: row.valueType,
-        color: row.color,
-        allowMultiple: row.allowMultiple,
-      );
+    id: row.id,
+    name: row.name,
+    valueType: row.valueType,
+    color: row.color,
+    allowMultiple: row.allowMultiple,
+  );
 
   TagAssignment _toAssignment(TagAssignmentRow row) => TagAssignment(
-        id: row.id,
-        fileNodeId: row.fileNodeId,
-        tagDefinitionId: row.tagDefinitionId,
-        value: row.value,
-      );
+    id: row.id,
+    fileNodeId: row.fileNodeId,
+    tagDefinitionId: row.tagDefinitionId,
+    value: row.value,
+  );
 }

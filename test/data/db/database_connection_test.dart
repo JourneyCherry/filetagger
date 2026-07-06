@@ -8,10 +8,7 @@ void main() {
     const root = '/some/workspace';
 
     test('.filetagger 폴더를 관리 폴더 루트 아래에 둔다', () {
-      expect(
-        filetaggerDirPath(root),
-        p.join(root, filetaggerDirName),
-      );
+      expect(filetaggerDirPath(root), p.join(root, filetaggerDirName));
     });
 
     test('DB 파일을 .filetagger 폴더 안에 둔다', () {

@@ -54,8 +54,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
     final repo = ref.watch(tagRepositoryProvider);
     final definitions =
         ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
-    final byFile =
-        ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
+    final byFile = ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
 
     // 선택된 파일들에 걸린 부여 기록을 모은다.
     final selectedAssignments = <AssignedTag>[
@@ -139,7 +138,9 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
     final def = group.first.definition;
     final fileCount = group.map((a) => a.fileNodeId).toSet().length;
     final distinctValues = group.map((a) => a.value).toSet();
-    final commonValue = distinctValues.length == 1 ? distinctValues.first : null;
+    final commonValue = distinctValues.length == 1
+        ? distinctValues.first
+        : null;
     final mixedValue = def.hasValue && distinctValues.length > 1;
 
     final subtitleParts = <String>[
@@ -211,7 +212,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       final label = _addDate == null
           ? '오늘 (미선택)'
           : (formatTagValue(TagValueType.date, dateToStoredValue(_addDate!)) ??
-              '');
+                '');
       return Row(
         children: [
           Expanded(child: Text(label)),
@@ -286,7 +287,9 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           value = null;
       }
     }
-    await ref.read(tagRepositoryProvider)?.assignToFiles(
+    await ref
+        .read(tagRepositoryProvider)
+        ?.assignToFiles(
           fileNodeIds: widget.fileNodeIds,
           tagDefinitionId: id,
           value: value,
@@ -299,12 +302,17 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   }
 
   Future<void> _editAssignment(AssignedTag a) async {
-    final result =
-        await promptTagValue(context, a.definition, initial: a.value);
+    final result = await promptTagValue(
+      context,
+      a.definition,
+      initial: a.value,
+    );
     if (result == null) return;
     final assignmentId = a.assignment.id;
     if (assignmentId == null) return;
-    await ref.read(tagRepositoryProvider)?.updateAssignmentValue(
+    await ref
+        .read(tagRepositoryProvider)
+        ?.updateAssignmentValue(
           assignmentId: assignmentId,
           value: result.value,
         );
@@ -315,7 +323,9 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
     if (result == null) return;
     final id = def.id;
     if (id == null) return;
-    await ref.read(tagRepositoryProvider)?.assignToFiles(
+    await ref
+        .read(tagRepositoryProvider)
+        ?.assignToFiles(
           fileNodeIds: widget.fileNodeIds,
           tagDefinitionId: id,
           value: result.value,
@@ -331,7 +341,9 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   Future<void> _unassignAll(TagDefinition def) async {
     final id = def.id;
     if (id == null) return;
-    await ref.read(tagRepositoryProvider)?.unassignFromFiles(
+    await ref
+        .read(tagRepositoryProvider)
+        ?.unassignFromFiles(
           fileNodeIds: widget.fileNodeIds,
           tagDefinitionId: id,
         );

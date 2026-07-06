@@ -151,18 +151,18 @@ class FileFilter {
       FileFilter(conditions: [...conditions, condition]);
 
   FileFilter removeAt(int index) => FileFilter(
-        conditions: [
-          for (var i = 0; i < conditions.length; i++)
-            if (i != index) conditions[i],
-        ],
-      );
+    conditions: [
+      for (var i = 0; i < conditions.length; i++)
+        if (i != index) conditions[i],
+    ],
+  );
 
   FileFilter replaceAt(int index, FilterCondition condition) => FileFilter(
-        conditions: [
-          for (var i = 0; i < conditions.length; i++)
-            if (i == index) condition else conditions[i],
-        ],
-      );
+    conditions: [
+      for (var i = 0; i < conditions.length; i++)
+        if (i == index) condition else conditions[i],
+    ],
+  );
 
   FileFilter reorder(int oldIndex, int newIndex) {
     final next = [...conditions];

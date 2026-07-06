@@ -42,13 +42,16 @@ List<FileNode> sortCandidatesByNameSimilarity(
   List<FileNode> candidates,
 ) {
   final target = targetName.toLowerCase();
-  final scored = [
-    for (final node in candidates)
-      (node: node, distance: _levenshtein(target, node.name.toLowerCase())),
-  ]..sort((a, b) {
-      final byDistance = a.distance.compareTo(b.distance);
-      return byDistance != 0 ? byDistance : a.node.path.compareTo(b.node.path);
-    });
+  final scored =
+      [
+        for (final node in candidates)
+          (node: node, distance: _levenshtein(target, node.name.toLowerCase())),
+      ]..sort((a, b) {
+        final byDistance = a.distance.compareTo(b.distance);
+        return byDistance != 0
+            ? byDistance
+            : a.node.path.compareTo(b.node.path);
+      });
   return [for (final e in scored) e.node];
 }
 
@@ -86,8 +89,10 @@ class _ReconnectDialog extends StatefulWidget {
 }
 
 class _ReconnectDialogState extends State<_ReconnectDialog> {
-  late final List<FileNode> _sorted =
-      sortCandidatesByNameSimilarity(widget.missing.name, widget.candidates);
+  late final List<FileNode> _sorted = sortCandidatesByNameSimilarity(
+    widget.missing.name,
+    widget.candidates,
+  );
   String _query = '';
 
   List<FileNode> get _filtered {
@@ -131,26 +136,29 @@ class _ReconnectDialogState extends State<_ReconnectDialog> {
                 child: widget.candidates.isEmpty
                     ? const Text('연결할 수 있는(태그 없는) 후보 노드가 없습니다.')
                     : filtered.isEmpty
-                        ? const Text('검색 결과가 없습니다.')
-                        : Scrollbar(
-                            child: ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: filtered.length,
-                              itemBuilder: (context, index) {
-                                final node = filtered[index];
-                                return ListTile(
-                                  dense: true,
-                                  leading: Icon(node.isDirectory
-                                      ? Icons.folder
-                                      : Icons.insert_drive_file_outlined),
-                                  title: Text(node.name),
-                                  subtitle: Text(node.path),
-                                  onTap: () => Navigator.of(context)
-                                      .pop(ReconnectToTarget(node)),
-                                );
-                              },
-                            ),
-                          ),
+                    ? const Text('검색 결과가 없습니다.')
+                    : Scrollbar(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final node = filtered[index];
+                            return ListTile(
+                              dense: true,
+                              leading: Icon(
+                                node.isDirectory
+                                    ? Icons.folder
+                                    : Icons.insert_drive_file_outlined,
+                              ),
+                              title: Text(node.name),
+                              subtitle: Text(node.path),
+                              onTap: () => Navigator.of(
+                                context,
+                              ).pop(ReconnectToTarget(node)),
+                            );
+                          },
+                        ),
+                      ),
               ),
             ],
           ),
@@ -164,8 +172,7 @@ class _ReconnectDialogState extends State<_ReconnectDialog> {
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
             ),
-            onPressed: () =>
-                Navigator.of(context).pop(const ReconnectRemove()),
+            onPressed: () => Navigator.of(context).pop(const ReconnectRemove()),
             child: const Text('보존 취소(제거)'),
           ),
         ],

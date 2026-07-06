@@ -7,7 +7,7 @@ import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../providers/file_view_provider.dart';
-import '../providers/tag_provider.dart';
+import '../providers/system_tag_provider.dart';
 import '../tag_visuals.dart';
 import 'dialog_utils.dart';
 import 'tag_picker.dart';
@@ -22,8 +22,8 @@ class FileToolbar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final definitions =
-        ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
+    // 필터·정렬은 사용자 태그 + 시스템 태그를 모두 대상으로 고를 수 있다.
+    final definitions = ref.watch(pickableTagDefinitionsProvider);
     final defsById = ref.watch(definitionsByIdProvider);
     final filter = ref.watch(fileFilterProvider);
     final sort = ref.watch(fileSortProvider);
@@ -86,8 +86,8 @@ class FileToolbar extends ConsumerWidget {
                   child: Text(
                     emptyHint,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 )
               : SizedBox(height: 40, child: list),
@@ -114,8 +114,9 @@ class FileToolbar extends ConsumerWidget {
       buildDefaultDragHandles: false,
       itemCount: filter.conditions.length,
       onReorderItem: (oldIndex, newIndex) {
-        ref.read(fileFilterProvider.notifier).state =
-            filter.reorder(oldIndex, newIndex);
+        ref
+            .read(viewSettingsProvider.notifier)
+            .updateFilter(filter.reorder(oldIndex, newIndex));
       },
       itemBuilder: (context, index) {
         final condition = filter.conditions[index];
@@ -128,14 +129,15 @@ class FileToolbar extends ConsumerWidget {
           onTap: def == null
               ? null
               : () => _openFilterDialog(
-                    context,
-                    ref,
-                    defsById.values.toList(),
-                    editIndex: index,
-                    initial: condition,
-                  ),
-          onDelete: () => ref.read(fileFilterProvider.notifier).state =
-              filter.removeAt(index),
+                  context,
+                  ref,
+                  defsById.values.toList(),
+                  editIndex: index,
+                  initial: condition,
+                ),
+          onDelete: () => ref
+              .read(viewSettingsProvider.notifier)
+              .updateFilter(filter.removeAt(index)),
         );
       },
     );
@@ -155,9 +157,13 @@ class FileToolbar extends ConsumerWidget {
     );
     if (result == null) return;
     final filter = ref.read(fileFilterProvider);
-    ref.read(fileFilterProvider.notifier).state = editIndex == null
-        ? filter.add(result)
-        : filter.replaceAt(editIndex, result);
+    ref
+        .read(viewSettingsProvider.notifier)
+        .updateFilter(
+          editIndex == null
+              ? filter.add(result)
+              : filter.replaceAt(editIndex, result),
+        );
   }
 
   // ── 정렬 ──
@@ -173,8 +179,9 @@ class FileToolbar extends ConsumerWidget {
       buildDefaultDragHandles: false,
       itemCount: sort.keys.length,
       onReorderItem: (oldIndex, newIndex) {
-        ref.read(fileSortProvider.notifier).state =
-            sort.reorder(oldIndex, newIndex);
+        ref
+            .read(viewSettingsProvider.notifier)
+            .updateSort(sort.reorder(oldIndex, newIndex));
       },
       itemBuilder: (context, index) {
         final key = sort.keys[index];
@@ -187,10 +194,12 @@ class FileToolbar extends ConsumerWidget {
           // label은 존재 여부로만 정렬하므로 방향 토글이 의미 없다.
           onToggle: def?.valueType == TagValueType.label
               ? null
-              : () => ref.read(fileSortProvider.notifier).state =
-                  sort.toggleAt(index),
-          onDelete: () =>
-              ref.read(fileSortProvider.notifier).state = sort.removeAt(index),
+              : () => ref
+                    .read(viewSettingsProvider.notifier)
+                    .updateSort(sort.toggleAt(index)),
+          onDelete: () => ref
+              .read(viewSettingsProvider.notifier)
+              .updateSort(sort.removeAt(index)),
         );
       },
     );
@@ -206,8 +215,9 @@ class FileToolbar extends ConsumerWidget {
       builder: (_) => _SortKeyEditor(candidates: candidates),
     );
     if (result == null) return;
-    ref.read(fileSortProvider.notifier).state =
-        ref.read(fileSortProvider).add(result);
+    ref
+        .read(viewSettingsProvider.notifier)
+        .updateSort(ref.read(fileSortProvider).add(result));
   }
 }
 
@@ -401,8 +411,8 @@ String conditionText(FilterCondition condition, TagDefinition def) {
   final op = filterOperatorLabel(condition.operator);
   final operand = def.valueType == TagValueType.date
       ? (formatTagValue(TagValueType.date, condition.operand) ??
-          condition.operand ??
-          '')
+            condition.operand ??
+            '')
       : (condition.operand ?? '');
   return '${def.name} $op $operand';
 }
@@ -509,69 +519,69 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
     return escDismissible(
       context,
       AlertDialog(
-      title: Text(widget.initial == null ? '필터 조건 추가' : '필터 조건 편집'),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TagPicker(
-              definitions: widget.definitions,
-              selectedId: _tagId,
-              onSelected: _onTagSelected,
-            ),
-            if (type != null) ...[
-              const SizedBox(height: 16),
-              SegmentedButton<bool>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: false, label: Text('표시')),
-                  ButtonSegment(value: true, label: Text('제외')),
-                ],
-                selected: {_exclude},
-                onSelectionChanged: (s) => setState(() => _exclude = s.first),
+        title: Text(widget.initial == null ? '필터 조건 추가' : '필터 조건 편집'),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TagPicker(
+                definitions: widget.definitions,
+                selectedId: _tagId,
+                onSelected: _onTagSelected,
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<FilterOperator>(
-                // 태그가 바뀌면 가능한 연산 목록도 바뀌므로, 폼필드를 새로
-                // 만들어(initialValue 재적용) 무효한 선택이 남지 않게 한다.
-                key: ValueKey(_tagId),
-                initialValue: _operator,
-                decoration: const InputDecoration(
-                  labelText: '연산',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  for (final op in operatorsForType(type))
-                    DropdownMenuItem(
-                      value: op,
-                      child: Text(_operatorMenuLabel(op)),
-                    ),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _operator = v);
-                },
-              ),
-              if (_needsOperand) ...[
+              if (type != null) ...[
                 const SizedBox(height: 16),
-                _buildOperandField(type),
+                SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('표시')),
+                    ButtonSegment(value: true, label: Text('제외')),
+                  ],
+                  selected: {_exclude},
+                  onSelectionChanged: (s) => setState(() => _exclude = s.first),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<FilterOperator>(
+                  // 태그가 바뀌면 가능한 연산 목록도 바뀌므로, 폼필드를 새로
+                  // 만들어(initialValue 재적용) 무효한 선택이 남지 않게 한다.
+                  key: ValueKey(_tagId),
+                  initialValue: _operator,
+                  decoration: const InputDecoration(
+                    labelText: '연산',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    for (final op in operatorsForType(type))
+                      DropdownMenuItem(
+                        value: op,
+                        child: Text(_operatorMenuLabel(op)),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _operator = v);
+                  },
+                ),
+                if (_needsOperand) ...[
+                  const SizedBox(height: 16),
+                  _buildOperandField(type),
+                ],
               ],
             ],
-          ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: _tagId == null ? null : _save,
-          child: const Text('확인'),
-        ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: _tagId == null ? null : _save,
+            child: const Text('확인'),
+          ),
+        ],
       ),
     );
   }
@@ -580,7 +590,8 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
     if (type == TagValueType.date) {
       final label = _date == null
           ? '날짜 선택'
-          : (formatTagValue(TagValueType.date, dateToStoredValue(_date!)) ?? '');
+          : (formatTagValue(TagValueType.date, dateToStoredValue(_date!)) ??
+                '');
       return Row(
         children: [
           Expanded(child: Text(label)),
@@ -682,67 +693,68 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
     return escDismissible(
       context,
       AlertDialog(
-      title: const Text('정렬 기준 추가'),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TagPicker(
-              definitions: widget.candidates,
-              selectedId: _tagId,
-              onSelected: (id) => setState(() => _tagId = id),
-            ),
-            if (_tagId != null) ...[
-              const SizedBox(height: 16),
-              if (_isLabel)
-                Text(
-                  '라벨 태그는 방향과 무관하게 부여된 항목을 위로 정렬합니다.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                )
-              else
-                SegmentedButton<SortDirection>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(
-                      value: SortDirection.ascending,
-                      label: Text('오름차순'),
-                      icon: Icon(Icons.arrow_upward, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: SortDirection.descending,
-                      label: Text('내림차순'),
-                      icon: Icon(Icons.arrow_downward, size: 16),
-                    ),
-                  ],
-                  selected: {_direction},
-                  onSelectionChanged: (s) =>
-                      setState(() => _direction = s.first),
-                ),
+        title: const Text('정렬 기준 추가'),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TagPicker(
+                definitions: widget.candidates,
+                selectedId: _tagId,
+                onSelected: (id) => setState(() => _tagId = id),
+              ),
+              if (_tagId != null) ...[
+                const SizedBox(height: 16),
+                if (_isLabel)
+                  Text(
+                    '라벨 태그는 방향과 무관하게 부여된 항목을 위로 정렬합니다.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                else
+                  SegmentedButton<SortDirection>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: SortDirection.ascending,
+                        label: Text('오름차순'),
+                        icon: Icon(Icons.arrow_upward, size: 16),
+                      ),
+                      ButtonSegment(
+                        value: SortDirection.descending,
+                        label: Text('내림차순'),
+                        icon: Icon(Icons.arrow_downward, size: 16),
+                      ),
+                    ],
+                    selected: {_direction},
+                    onSelectionChanged: (s) =>
+                        setState(() => _direction = s.first),
+                  ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: _tagId == null
-              ? null
-              : () => Navigator.of(context).pop(
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: _tagId == null
+                ? null
+                : () => Navigator.of(context).pop(
                     SortKey(
                       tagDefinitionId: _tagId!,
                       // label은 방향이 무의미하므로 오름차순으로 고정.
-                      direction:
-                          _isLabel ? SortDirection.ascending : _direction,
+                      direction: _isLabel
+                          ? SortDirection.ascending
+                          : _direction,
                     ),
                   ),
-          child: const Text('추가'),
-        ),
-      ],
+            child: const Text('추가'),
+          ),
+        ],
       ),
     );
   }

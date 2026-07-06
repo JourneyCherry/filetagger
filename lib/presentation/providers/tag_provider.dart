@@ -21,8 +21,9 @@ final tagDefinitionsProvider = StreamProvider<List<TagDefinition>>((ref) {
 });
 
 /// 파일 노드 id → 그 파일에 부여된 태그 목록. 목록 칩·다이얼로그가 구독한다.
-final assignmentsByFileProvider =
-    StreamProvider<Map<int, List<AssignedTag>>>((ref) {
+final assignmentsByFileProvider = StreamProvider<Map<int, List<AssignedTag>>>((
+  ref,
+) {
   final repo = ref.watch(tagRepositoryProvider);
   if (repo == null) return Stream.value(const {});
   return repo.watchAssignments().map((assignments) {
@@ -31,5 +32,21 @@ final assignmentsByFileProvider =
       grouped.putIfAbsent(assigned.fileNodeId, () => []).add(assigned);
     }
     return grouped;
+  });
+});
+
+/// 태그 정의 id → 그 태그가 부여된 (서로 다른) 파일 노드 수. 태그 삭제 시 영향
+/// 범위를 사용자에게 경고하는 데 쓴다. 부여가 없으면 맵에 키가 없다(0).
+final nodeCountByTagProvider = StreamProvider<Map<int, int>>((ref) {
+  final repo = ref.watch(tagRepositoryProvider);
+  if (repo == null) return Stream.value(const {});
+  return repo.watchAssignments().map((assignments) {
+    final nodesByTag = <int, Set<int>>{};
+    for (final assigned in assignments) {
+      nodesByTag
+          .putIfAbsent(assigned.tagDefinitionId, () => <int>{})
+          .add(assigned.fileNodeId);
+    }
+    return {for (final e in nodesByTag.entries) e.key: e.value.length};
   });
 });

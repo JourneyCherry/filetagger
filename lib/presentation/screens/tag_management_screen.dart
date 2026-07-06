@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../providers/file_view_provider.dart';
+import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
 import '../tag_visuals.dart';
+import '../widgets/tag_chip.dart';
 
 /// 태그 종류(TagDefinition)를 생성·편집·삭제하는 전용 관리 화면.
 class TagManagementScreen extends ConsumerWidget {
@@ -29,14 +33,21 @@ class TagManagementScreen extends ConsumerWidget {
           : definitions.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('태그를 불러오지 못했습니다: $e')),
-              data: (items) => items.isEmpty
-                  ? const Center(child: Text('아직 만든 태그가 없습니다.'))
-                  : ListView.separated(
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) =>
-                          _DefinitionTile(items[index]),
-                    ),
+              data: (items) => ListView(
+                children: [
+                  if (items.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: Text('아직 만든 태그가 없습니다.')),
+                    )
+                  else
+                    for (final d in items) ...[
+                      _DefinitionTile(d),
+                      const Divider(height: 1),
+                    ],
+                  const _SystemTagSection(),
+                ],
+              ),
             ),
     );
   }
@@ -84,29 +95,124 @@ class _DefinitionTile extends ConsumerWidget {
     WidgetRef ref,
     TagDefinition definition,
   ) async {
+    final id = definition.id;
+    if (id == null) return;
+    final repo = ref.read(tagRepositoryProvider);
+    if (repo == null) return;
+
+    // 이 태그가 부여된 파일 수. 하나도 없으면 잃을 게 없으니 곧바로 삭제한다.
+    final assignedNodes =
+        ref.read(nodeCountByTagProvider).valueOrNull?[id] ?? 0;
+    if (assignedNodes == 0) {
+      await repo.deleteDefinition(id);
+      return;
+    }
+
+    // 부여된 파일이 있으면 값이 함께 사라진다고 경고 후 확인받는다.
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('태그 삭제'),
-        content: Text('‘${definition.name}’ 태그와 이 태그의 모든 부여 기록이 '
-            '삭제됩니다. 계속할까요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('삭제'),
-          ),
-        ],
+      builder: (context) => _DeleteConfirmDialog(
+        tagName: definition.name,
+        assignedNodes: assignedNodes,
       ),
     );
     if (ok != true) return;
-    final id = definition.id;
-    if (id != null) {
-      await ref.read(tagRepositoryProvider)?.deleteDefinition(id);
-    }
+    await repo.deleteDefinition(id);
+  }
+}
+
+/// OS/파일에서 파생되는 시스템 태그의 표시 여부를 토글하는 섹션. 시스템 태그는
+/// 생성·삭제·색 변경을 할 수 없고 표시 여부만 켜고 끌 수 있다(값은 표시와 무관하게
+/// 늘 계산되어 필터·정렬에 참여). 표시 설정은 워크스페이스 보기 설정에 저장된다.
+class _SystemTagSection extends ConsumerWidget {
+  const _SystemTagSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = ref.watch(visibleSystemTagIdsProvider);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
+          child: Text('시스템 태그', style: theme.textTheme.titleSmall),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            '파일에서 자동으로 파생되는 태그입니다. 표시 여부만 켜고 끌 수 있습니다.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        for (final tag in SystemTag.values)
+          SwitchListTile(
+            value: visible.contains(tag.id),
+            onChanged: (on) => ref
+                .read(viewSettingsProvider.notifier)
+                .updateSystemTagVisibility(tag.id, on),
+            title: Align(
+              alignment: Alignment.centerLeft,
+              child: TagChip(definition: tag.definition),
+            ),
+            subtitle: Text(
+              tag.editable ? '수정 가능 · ${tagValueTypeLabel(tag.valueType)}'
+                  : tagValueTypeLabel(tag.valueType),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 태그 삭제 확인 다이얼로그. 부여된 파일이 있을 때만 뜨며, 그 값이 함께 제거됨을
+/// 경고 스타일(경고 아이콘·색)로 강조한다.
+class _DeleteConfirmDialog extends StatelessWidget {
+  const _DeleteConfirmDialog({
+    required this.tagName,
+    required this.assignedNodes,
+  });
+
+  final String tagName;
+  final int assignedNodes;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      icon: Icon(Icons.warning_amber_rounded, color: scheme.error),
+      title: const Text('태그 삭제'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('‘$tagName’ 태그를 삭제합니다.'),
+          const SizedBox(height: 12),
+          Text(
+            '$assignedNodes개 파일에 부여된 이 태그의 값이 모두 함께 제거되며, '
+            '되돌릴 수 없습니다.',
+            style: TextStyle(color: scheme.error),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: scheme.error,
+            foregroundColor: scheme.onError,
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('삭제'),
+        ),
+      ],
+    );
   }
 }
 
@@ -223,10 +329,7 @@ class _DefinitionEditorDialogState
               decoration: const InputDecoration(labelText: '값 유형'),
               items: [
                 for (final t in TagValueType.values)
-                  DropdownMenuItem(
-                    value: t,
-                    child: Text(tagValueTypeLabel(t)),
-                  ),
+                  DropdownMenuItem(value: t, child: Text(tagValueTypeLabel(t))),
               ],
               onChanged: _saving
                   ? null

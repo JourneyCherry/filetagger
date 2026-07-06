@@ -41,6 +41,9 @@ dependencies:
   path: ^1.9.0
   file_selector: ^1.0.3
   watcher: ^1.2.1
+  # Windows 숨김/시스템 속성 조회(GetFileAttributesW) FFI 호출용. Dart 팀 공식
+  # 패키지(publisher dart.dev)로 dart:ffi의 UTF-16 문자열/메모리 헬퍼를 제공한다.
+  ffi: ^2.1.0
 
 dev_dependencies:
   flutter_test:

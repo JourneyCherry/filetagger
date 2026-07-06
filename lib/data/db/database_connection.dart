@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants.dart';
+import '../scanner/hidden_entry.dart';
 
 /// 관리 폴더 루트에 대한 `.filetagger/` 폴더 경로.
 String filetaggerDirPath(String workspaceRoot) =>
@@ -24,6 +25,10 @@ LazyDatabase openWorkspaceDatabase(String workspaceRoot) {
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
+    // 만들고 나서(혹은 이미 있던 폴더라도) OS 숨김으로 표시한다. Windows는 숨김
+    // 속성을 실제로 설정해야 하고, POSIX는 dot-prefix라 이미 숨김이다. 이미 숨김
+    // 이면 내부에서 건너뛴다.
+    markPathHidden(dir.path);
     final file = File(databaseFilePath(workspaceRoot));
     return NativeDatabase.createInBackground(file);
   });

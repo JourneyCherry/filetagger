@@ -15,11 +15,11 @@ class SortKey {
   final SortDirection direction;
 
   SortKey toggled() => SortKey(
-        tagDefinitionId: tagDefinitionId,
-        direction: direction == SortDirection.ascending
-            ? SortDirection.descending
-            : SortDirection.ascending,
-      );
+    tagDefinitionId: tagDefinitionId,
+    direction: direction == SortDirection.ascending
+        ? SortDirection.descending
+        : SortDirection.ascending,
+  );
 }
 
 /// 순서 있는 정렬 단계 목록.
@@ -39,18 +39,18 @@ class FileSortOrder {
   FileSortOrder add(SortKey key) => FileSortOrder(keys: [...keys, key]);
 
   FileSortOrder removeAt(int index) => FileSortOrder(
-        keys: [
-          for (var i = 0; i < keys.length; i++)
-            if (i != index) keys[i],
-        ],
-      );
+    keys: [
+      for (var i = 0; i < keys.length; i++)
+        if (i != index) keys[i],
+    ],
+  );
 
   FileSortOrder toggleAt(int index) => FileSortOrder(
-        keys: [
-          for (var i = 0; i < keys.length; i++)
-            if (i == index) keys[i].toggled() else keys[i],
-        ],
-      );
+    keys: [
+      for (var i = 0; i < keys.length; i++)
+        if (i == index) keys[i].toggled() else keys[i],
+    ],
+  );
 
   FileSortOrder reorder(int oldIndex, int newIndex) {
     final next = [...keys];

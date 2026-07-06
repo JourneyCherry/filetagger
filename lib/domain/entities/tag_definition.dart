@@ -11,6 +11,7 @@ class TagDefinition {
     required this.valueType,
     this.color,
     this.allowMultiple = false,
+    this.isSystem = false,
   });
 
   /// 저장소가 부여한 식별자. 아직 저장 전이면 null.
@@ -27,6 +28,10 @@ class TagDefinition {
   /// 한 파일에 이 태그를 여러 번 부여할 수 있는지.
   final bool allowMultiple;
 
+  /// 시스템이 소유하는 태그(OS/파일에서 파생)인지. true면 사용자 CRUD 대상이
+  /// 아니고 회색으로 고정 표시되며 제거할 수 없다. 사용자 정의 태그는 false.
+  final bool isSystem;
+
   /// label은 부착 여부만 갖고 값 입력이 없다. 나머지는 값을 갖는다.
   bool get hasValue => valueType != TagValueType.label;
 
@@ -37,6 +42,7 @@ class TagDefinition {
     int? color,
     bool clearColor = false,
     bool? allowMultiple,
+    bool? isSystem,
   }) {
     return TagDefinition(
       id: id ?? this.id,
@@ -44,6 +50,7 @@ class TagDefinition {
       valueType: valueType ?? this.valueType,
       color: clearColor ? null : (color ?? this.color),
       allowMultiple: allowMultiple ?? this.allowMultiple,
+      isSystem: isSystem ?? this.isSystem,
     );
   }
 }

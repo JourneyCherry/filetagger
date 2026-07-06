@@ -6,10 +6,13 @@ import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 AssignedTag _tag(int defId, TagValueType type, String? value) => AssignedTag(
-      assignment:
-          TagAssignment(fileNodeId: 1, tagDefinitionId: defId, value: value),
-      definition: TagDefinition(id: defId, name: 't$defId', valueType: type),
-    );
+  assignment: TagAssignment(
+    fileNodeId: 1,
+    tagDefinitionId: defId,
+    value: value,
+  ),
+  definition: TagDefinition(id: defId, name: 't$defId', valueType: type),
+);
 
 void main() {
   group('FilterCondition', () {
@@ -57,10 +60,12 @@ void main() {
 
   group('FileFilter', () {
     test('표시 조건은 모두 만족해야 통과(AND)', () {
-      const filter = FileFilter(conditions: [
-        FilterCondition(tagDefinitionId: 1),
-        FilterCondition(tagDefinitionId: 2),
-      ]);
+      const filter = FileFilter(
+        conditions: [
+          FilterCondition(tagDefinitionId: 1),
+          FilterCondition(tagDefinitionId: 2),
+        ],
+      );
       expect(
         filter.matches([
           _tag(1, TagValueType.label, null),
@@ -72,10 +77,12 @@ void main() {
     });
 
     test('제외 조건은 만족하면 무조건 숨김', () {
-      const filter = FileFilter(conditions: [
-        FilterCondition(tagDefinitionId: 1),
-        FilterCondition(tagDefinitionId: 9, exclude: true),
-      ]);
+      const filter = FileFilter(
+        conditions: [
+          FilterCondition(tagDefinitionId: 1),
+          FilterCondition(tagDefinitionId: 9, exclude: true),
+        ],
+      );
       // 표시 조건 만족해도 제외 조건에 걸리면 탈락.
       expect(
         filter.matches([
@@ -106,7 +113,9 @@ void main() {
       expect(f.conditions.map((c) => c.tagDefinitionId), [1]);
 
       f = f.replaceAt(
-          0, const FilterCondition(tagDefinitionId: 1, exclude: true));
+        0,
+        const FilterCondition(tagDefinitionId: 1, exclude: true),
+      );
       expect(f.conditions.single.exclude, isTrue);
     });
   });

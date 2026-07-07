@@ -61,6 +61,51 @@ class DriftTagRepository implements TagRepository {
     await (_db.delete(_db.tagDefinitions)..where((t) => t.id.equals(id))).go();
   }
 
+  @override
+  Future<void> mergeDefinitions({
+    required int targetId,
+    required List<int> sourceIds,
+  }) async {
+    final sources = sourceIds.where((id) => id != targetId).toSet();
+    if (sources.isEmpty) return;
+    await _db.transaction(() async {
+      final target = await (_db.select(
+        _db.tagDefinitions,
+      )..where((t) => t.id.equals(targetId))).getSingleOrNull();
+      if (target == null) return;
+
+      for (final sourceId in sources) {
+        // 다중 부여 불가 태그는 (파일,태그)당 1회라, 같은 파일에 양쪽이 부여돼 있으면
+        // 이관 시 target에 중복이 생긴다. 남길 target의 값을 지키기 위해 그 파일의
+        // source 부여를 먼저 제거한다. (값 유형·다중 허용이 같아 source도 파일당 1회라
+        // 남는 source 부여를 그대로 옮기면 중복이 없다.) target 파일 집합은 앞서 합쳐진
+        // source가 더할 수 있어 매번 다시 조회한다.
+        if (!target.allowMultiple) {
+          final targetFileIds =
+              (await (_db.select(_db.tagAssignments)
+                        ..where((t) => t.tagDefinitionId.equals(targetId)))
+                      .get())
+                  .map((a) => a.fileNodeId)
+                  .toSet();
+          await (_db.delete(_db.tagAssignments)..where(
+                (t) =>
+                    t.tagDefinitionId.equals(sourceId) &
+                    t.fileNodeId.isIn(targetFileIds),
+              ))
+              .go();
+        }
+
+        // 남은 source 부여를 target으로 이관하고, 비운 source 정의를 제거한다.
+        await (_db.update(_db.tagAssignments)
+              ..where((t) => t.tagDefinitionId.equals(sourceId)))
+            .write(TagAssignmentsCompanion(tagDefinitionId: Value(targetId)));
+        await (_db.delete(
+          _db.tagDefinitions,
+        )..where((t) => t.id.equals(sourceId))).go();
+      }
+    });
+  }
+
   // ── 태그 부여 ──
 
   @override

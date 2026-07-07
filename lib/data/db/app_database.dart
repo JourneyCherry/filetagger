@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/nested_tagger_mode.dart';
 import '../../domain/entities/tag_value_type.dart';
 import 'database_connection.dart';
 import 'tables.dart';
@@ -8,7 +9,9 @@ import 'tables.dart';
 part 'app_database.g.dart';
 
 /// 한 관리 폴더에 종속된 태그 DB. 폴더를 바꾸면 새 인스턴스를 연다.
-@DriftDatabase(tables: [TagDefinitions, FileNodes, TagAssignments])
+@DriftDatabase(
+  tables: [TagDefinitions, FileNodes, TagAssignments, NestedWorkspaces],
+)
 class AppDatabase extends _$AppDatabase {
   /// 임의의 실행기로 연다(주로 인메모리 테스트용).
   AppDatabase(super.executor);
@@ -18,7 +21,7 @@ class AppDatabase extends _$AppDatabase {
     : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -45,6 +48,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) {
         // 시스템 태그 '이미지 크기'의 원본. 다음 스캔이 이미지 파일에 채운다.
         await m.addColumn(fileNodes, fileNodes.imageDimensions);
+      }
+      if (from < 6) {
+        // 중첩 워크스페이스 병합 확정 기록(프롬프트 반복 억제).
+        await m.createTable(nestedWorkspaces);
       }
     },
     beforeOpen: (details) async {

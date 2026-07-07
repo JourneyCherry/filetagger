@@ -27,6 +27,18 @@ abstract interface class TagRepository {
   /// 태그 정의를 삭제한다. 관련 부여 기록은 FK cascade로 함께 정리된다.
   Future<void> deleteDefinition(int id);
 
+  /// 여러 태그 정의([sourceIds])를 하나의 정의([targetId])로 합친다. 각 source의
+  /// 부여 기록을 target으로 옮기고 비운 source 정의를 제거한다(target의 이름·색이
+  /// 남음).
+  ///
+  /// target이 다중 부여를 허용하지 않을 때 같은 파일에 양쪽이 부여돼 있으면
+  /// target의 값을 남기고 source 쪽 중복 부여를 정리한다. 모든 정의의 값 유형·다중
+  /// 부여 허용은 같아야 하며, 호출부가 canMergeTags로 이를 보장한다.
+  Future<void> mergeDefinitions({
+    required int targetId,
+    required List<int> sourceIds,
+  });
+
   // ── 태그 부여 ──
 
   /// 전체 부여 기록을 정의와 조인해 스트림한다(목록 칩·다이얼로그 구독용).

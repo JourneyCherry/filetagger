@@ -7,19 +7,23 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/file_types.dart';
+import '../../data/db/schema_probe.dart';
 import '../../data/fs/node_renamer.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/nested_merge_resolution.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/usecases/folder_index_scope.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
+import '../providers/nested_workspace_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
@@ -117,6 +121,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _scan();
   }
 
+  /// 현재 열린 폴더를 닫고 최근 폴더 목록(메인)으로 돌아간다. 워크스페이스 루트를
+  /// 비우면 DB·목록 관련 provider가 자동으로 해제·초기화된다. 화면 로컬 상태
+  /// (선택·펼침)는 여기서 함께 비운다. 스캔 중에는 무시한다.
+  void _closeWorkspace() {
+    if (_busy) return;
+    setState(() {
+      _clearSelection();
+      _expandedFolders.clear();
+      _previewRatioDrag = null;
+    });
+    ref.read(workspaceRootProvider.notifier).state = null;
+  }
+
   Future<void> _scan() async {
     final usecase = ref.read(scanWorkspaceProvider);
     final root = ref.read(workspaceRootProvider);
@@ -127,9 +144,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final result = await usecase(root, rootManageMode: rootMode);
       if (!mounted) return;
-      if (result.nestedFiletaggerDirs.isNotEmpty) {
-        await _promptMerge(result.nestedFiletaggerDirs);
-      }
+      await _reconcileNestedDecisions(result.nestedFiletaggerDirs);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -614,44 +629,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// 중첩된 `.filetagger/`를 발견했을 때 병합 여부를 묻는다.
+  /// 스캔이 관측한 중첩 태거 목록([detectedDirs])을 확정 기록과 맞춘다.
   ///
-  /// TODO(merge): 실제 병합(하위 태그 DB를 현재 워크스페이스로 통합)은 아직
-  /// 미구현이다. 지금은 발견 사실을 알리고 선택만 받는 자리표시 다이얼로그다.
+  /// - 기록에는 있으나 이번에 관측되지 않은(제거·이동된) 태거의 확정 기록은 지운다
+  ///   — 같은 위치에 다시 생기면 사용자에게 다시 묻도록.
+  /// - 아직 처리하지 않은(새로 발견된) 태거만 병합 프롬프트를 띄운다.
+  Future<void> _reconcileNestedDecisions(List<String> detectedDirs) async {
+    final repo = ref.read(nestedWorkspaceRepositoryProvider);
+    if (repo == null) return;
+
+    final decided = await repo.decidedPaths();
+    final detected = detectedDirs.toSet();
+
+    for (final path in decided) {
+      if (!detected.contains(path)) await repo.remove(path);
+    }
+
+    final undecided = detectedDirs
+        .where((d) => !decided.contains(d))
+        .toList();
+    if (undecided.isNotEmpty && mounted) {
+      await _promptMerge(undecided);
+    }
+  }
+
+  /// 중첩된 `.filetagger/`를 발견했을 때, 폴더별로 처리 방식(흡수/독립/무시)을
+  /// 묻고 적용한다. 흡수는 하위 버전이 현재보다 높으면(해석 불가) 비활성화된다.
+  /// '나중에'로 넘긴 폴더는 확정 기록을 남기지 않아 다음 스캔에서 다시 묻는다.
   Future<void> _promptMerge(List<String> nestedDirs) async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('중첩된 태그 폴더 발견'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '아래 하위 폴더가 자체 태그 데이터를 가지고 있습니다. '
-              '현재 워크스페이스로 병합하시겠습니까?',
-            ),
-            const SizedBox(height: 12),
-            for (final dir in nestedDirs) Text('• $dir'),
-          ],
+    final root = ref.read(workspaceRootProvider);
+    final resolver = ref.read(resolveNestedWorkspaceProvider);
+    if (root == null || resolver == null) return;
+    final parentVersion = ref.read(databaseProvider)?.schemaVersion;
+
+    var appliedAny = false;
+    for (final dir in nestedDirs) {
+      if (!mounted) break;
+      final childAbs = p.joinAll([root, ...dir.split('/')]);
+      final childVersion = await readWorkspaceSchemaVersion(childAbs);
+      // 하위 버전이 현재보다 높으면 스키마를 해석할 수 없어 흡수를 막는다(내부 DB를
+      // 읽지 않는 독립/무시는 계속 허용).
+      final canAbsorb =
+          parentVersion != null &&
+          childVersion != null &&
+          childVersion <= parentVersion;
+      if (!mounted) break;
+
+      final resolution = await showDialog<NestedMergeResolution>(
+        context: context,
+        builder: (_) => _NestedMergeDialog(
+          childRelPath: dir,
+          canAbsorb: canAbsorb,
+          childVersion: childVersion,
+          parentVersion: parentVersion,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('나중에'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('병합 기능은 아직 준비 중입니다.')),
-              );
-            },
-            child: const Text('병합'),
-          ),
-        ],
-      ),
-    );
+      );
+      if (resolution == null) continue; // 나중에.
+      await resolver(parentRoot: root, resolution: resolution);
+      appliedAny = true;
+    }
+
+    // 관리 방식 변경·흡수 결과를 반영해 프롬프트 없이 한 번 재스캔한다.
+    if (appliedAny) {
+      final usecase = ref.read(scanWorkspaceProvider);
+      final rootMode = ref.read(rootManageModeProvider);
+      if (usecase != null) {
+        try {
+          await usecase(root, rootManageMode: rootMode);
+        } catch (_) {
+          // 재조정 스캔 실패는 조용히 둔다(다음 변화 때 다시 반영).
+        }
+      }
+    }
   }
 
   @override
@@ -700,6 +749,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               tooltip: '다시 스캔',
               onPressed: _busy ? null : _scan,
               icon: const Icon(Icons.refresh),
+            ),
+            IconButton(
+              tooltip: '폴더 닫기',
+              onPressed: _busy ? null : _closeWorkspace,
+              icon: const Icon(Icons.close),
             ),
           ],
         ],
@@ -1163,6 +1217,136 @@ class _FileNodeTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 중첩된 하위 태거 하나에 대해 처리 방식(흡수/독립/무시)을 고르는 다이얼로그.
+/// '적용'이면 [NestedMergeResolution], '나중에'면 null을 돌려준다.
+class _NestedMergeDialog extends StatefulWidget {
+  const _NestedMergeDialog({
+    required this.childRelPath,
+    required this.canAbsorb,
+    required this.childVersion,
+    required this.parentVersion,
+  });
+
+  final String childRelPath;
+
+  /// 하위 버전이 현재 버전 이하라 흡수(내부 DB 해석)가 가능한지.
+  final bool canAbsorb;
+
+  final int? childVersion;
+  final int? parentVersion;
+
+  @override
+  State<_NestedMergeDialog> createState() => _NestedMergeDialogState();
+}
+
+class _NestedMergeDialogState extends State<_NestedMergeDialog> {
+  // 데이터를 옮기지 않는 비파괴 기본값(독립)으로 시작한다.
+  NestedMergeAction _action = NestedMergeAction.independent;
+
+  // 흡수 후 원본 제거는 되돌릴 수 없어, 기본은 하위 태거를 남기는 쪽(무시 전환)이다.
+  bool _removeSource = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return AlertDialog(
+      title: const Text('중첩된 태그 폴더 발견'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '하위 폴더가 자체 태그 데이터를 가지고 있습니다. 어떻게 처리할지 선택하세요.',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.childRelPath,
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            RadioGroup<NestedMergeAction>(
+              groupValue: _action,
+              onChanged: (v) => setState(() {
+                if (v != null) _action = v;
+              }),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<NestedMergeAction>(
+                    value: NestedMergeAction.absorb,
+                    enabled: widget.canAbsorb,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('흡수'),
+                    subtitle: Text(
+                      widget.canAbsorb
+                          ? '태그와 목록을 현재 워크스페이스로 가져와 관리합니다.'
+                          : '하위 태거가 더 높은 버전이라 흡수할 수 없습니다.',
+                    ),
+                  ),
+                  RadioListTile<NestedMergeAction>(
+                    value: NestedMergeAction.independent,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('독립'),
+                    subtitle: const Text(
+                      '내부를 열지 않는 단일 노드로 두고, 하위 태거는 건드리지 않습니다.',
+                    ),
+                  ),
+                  RadioListTile<NestedMergeAction>(
+                    value: NestedMergeAction.ignore,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('무시'),
+                    subtitle: const Text(
+                      '하위 태거를 무시하고 내부 파일을 현재 규칙으로 인덱싱합니다.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_action == NestedMergeAction.absorb && widget.canAbsorb) ...[
+              const Divider(),
+              CheckboxListTile(
+                value: _removeSource,
+                onChanged: (v) => setState(() => _removeSource = v ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('흡수 후 하위 태그 폴더 제거'),
+                subtitle: Text(
+                  _removeSource
+                      ? '하위 .filetagger 폴더를 삭제합니다(되돌릴 수 없음).'
+                      : '하위 태거를 남기고 이후 ‘무시’로 처리합니다.',
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('나중에'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+            NestedMergeResolution(
+              childRelPath: widget.childRelPath,
+              action: _action,
+              removeSource:
+                  _action == NestedMergeAction.absorb && _removeSource,
+            ),
+          ),
+          child: const Text('적용'),
+        ),
+      ],
     );
   }
 }

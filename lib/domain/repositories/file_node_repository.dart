@@ -52,4 +52,13 @@ abstract interface class FileNodeRepository {
     required int nodeId,
     required FolderManageMode mode,
   });
+
+  /// 폴더 노드의 관리 방식을 **경로**로 설정한다. 방금 스캔으로 발견돼 아직 화면
+  /// 스트림에 반영되지 않았을 수 있는 노드(중첩 병합 결정 적용 등)를 id 조회 없이
+  /// 바로 갱신하는 데 쓴다. [setManageMode]와 달리 하위 즉시 정리는 하지 않으며,
+  /// 범위 변화는 이어지는 재스캔이 반영한다.
+  Future<void> setManageModeByPath({
+    required String path,
+    required FolderManageMode mode,
+  });
 }

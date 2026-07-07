@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/nested_tagger_mode.dart';
 import '../../domain/entities/tag_value_type.dart';
 
 /// 태그의 종류(이름·값 유형·색상). 라벨/키-값 태그를 [valueType] 하나로
@@ -81,4 +82,20 @@ class TagAssignments extends Table {
 
   /// 부여된 값. label 유형 등 값이 없으면 미지정.
   TextColumn get value => text().nullable()();
+}
+
+/// 중첩 워크스페이스(자체 `.filetagger/`를 가진 하위 폴더)에 대해 사용자가 확정한
+/// 병합 상태의 기록. 병합 프롬프트를 반복하지 않도록 스캔이 이 목록을 걸러낸다.
+///
+/// 폴더의 실제 인덱싱 동작은 [FileNodes.manageMode]가 정하므로 여기엔 중복 저장하지
+/// 않고, 확정 사실과 유형만 남긴다.
+@DataClassName('NestedWorkspaceRow')
+class NestedWorkspaces extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 관리 폴더 루트 기준, `.filetagger/`를 소유한 하위 폴더의 상대 경로.
+  TextColumn get path => text().unique()();
+
+  /// 확정된 병합 유형. 이름 기반 저장.
+  TextColumn get mode => textEnum<NestedTaggerMode>()();
 }

@@ -169,6 +169,16 @@ class DriftFileNodeRepository implements FileNodeRepository {
         .write(FileNodesCompanion(manageMode: Value(mode)));
   }
 
+  @override
+  Future<void> setManageModeByPath({
+    required String path,
+    required FolderManageMode mode,
+  }) async {
+    await (_db.update(_db.fileNodes)
+          ..where((t) => t.path.equals(path) & t.isDirectory.equals(true)))
+        .write(FileNodesCompanion(manageMode: Value(mode)));
+  }
+
   /// 사라진 태그된 노드를 새로 나타난 동일-내용 노드에 재연결한다. 옛 노드는
   /// 곧 정리(delete)되므로, 그 전에 태그 부여 기록을 새 노드로 옮긴다.
   Future<void> _relinkMoves(

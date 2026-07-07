@@ -1435,12 +1435,280 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
   }
 }
 
+class $NestedWorkspacesTable extends NestedWorkspaces
+    with TableInfo<$NestedWorkspacesTable, NestedWorkspaceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NestedWorkspacesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _pathMeta = const VerificationMeta('path');
+  @override
+  late final GeneratedColumn<String> path = GeneratedColumn<String>(
+    'path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<NestedTaggerMode, String> mode =
+      GeneratedColumn<String>(
+        'mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<NestedTaggerMode>($NestedWorkspacesTable.$convertermode);
+  @override
+  List<GeneratedColumn> get $columns => [id, path, mode];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'nested_workspaces';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NestedWorkspaceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('path')) {
+      context.handle(
+        _pathMeta,
+        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pathMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NestedWorkspaceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NestedWorkspaceRow(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}id'],
+          )!,
+      path:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}path'],
+          )!,
+      mode: $NestedWorkspacesTable.$convertermode.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}mode'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $NestedWorkspacesTable createAlias(String alias) {
+    return $NestedWorkspacesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<NestedTaggerMode, String, String> $convertermode =
+      const EnumNameConverter<NestedTaggerMode>(NestedTaggerMode.values);
+}
+
+class NestedWorkspaceRow extends DataClass
+    implements Insertable<NestedWorkspaceRow> {
+  final int id;
+
+  /// 관리 폴더 루트 기준, `.filetagger/`를 소유한 하위 폴더의 상대 경로.
+  final String path;
+
+  /// 확정된 병합 유형. 이름 기반 저장.
+  final NestedTaggerMode mode;
+  const NestedWorkspaceRow({
+    required this.id,
+    required this.path,
+    required this.mode,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['path'] = Variable<String>(path);
+    {
+      map['mode'] = Variable<String>(
+        $NestedWorkspacesTable.$convertermode.toSql(mode),
+      );
+    }
+    return map;
+  }
+
+  NestedWorkspacesCompanion toCompanion(bool nullToAbsent) {
+    return NestedWorkspacesCompanion(
+      id: Value(id),
+      path: Value(path),
+      mode: Value(mode),
+    );
+  }
+
+  factory NestedWorkspaceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NestedWorkspaceRow(
+      id: serializer.fromJson<int>(json['id']),
+      path: serializer.fromJson<String>(json['path']),
+      mode: $NestedWorkspacesTable.$convertermode.fromJson(
+        serializer.fromJson<String>(json['mode']),
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'path': serializer.toJson<String>(path),
+      'mode': serializer.toJson<String>(
+        $NestedWorkspacesTable.$convertermode.toJson(mode),
+      ),
+    };
+  }
+
+  NestedWorkspaceRow copyWith({
+    int? id,
+    String? path,
+    NestedTaggerMode? mode,
+  }) => NestedWorkspaceRow(
+    id: id ?? this.id,
+    path: path ?? this.path,
+    mode: mode ?? this.mode,
+  );
+  NestedWorkspaceRow copyWithCompanion(NestedWorkspacesCompanion data) {
+    return NestedWorkspaceRow(
+      id: data.id.present ? data.id.value : this.id,
+      path: data.path.present ? data.path.value : this.path,
+      mode: data.mode.present ? data.mode.value : this.mode,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NestedWorkspaceRow(')
+          ..write('id: $id, ')
+          ..write('path: $path, ')
+          ..write('mode: $mode')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, path, mode);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NestedWorkspaceRow &&
+          other.id == this.id &&
+          other.path == this.path &&
+          other.mode == this.mode);
+}
+
+class NestedWorkspacesCompanion extends UpdateCompanion<NestedWorkspaceRow> {
+  final Value<int> id;
+  final Value<String> path;
+  final Value<NestedTaggerMode> mode;
+  const NestedWorkspacesCompanion({
+    this.id = const Value.absent(),
+    this.path = const Value.absent(),
+    this.mode = const Value.absent(),
+  });
+  NestedWorkspacesCompanion.insert({
+    this.id = const Value.absent(),
+    required String path,
+    required NestedTaggerMode mode,
+  }) : path = Value(path),
+       mode = Value(mode);
+  static Insertable<NestedWorkspaceRow> custom({
+    Expression<int>? id,
+    Expression<String>? path,
+    Expression<String>? mode,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (path != null) 'path': path,
+      if (mode != null) 'mode': mode,
+    });
+  }
+
+  NestedWorkspacesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? path,
+    Value<NestedTaggerMode>? mode,
+  }) {
+    return NestedWorkspacesCompanion(
+      id: id ?? this.id,
+      path: path ?? this.path,
+      mode: mode ?? this.mode,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (path.present) {
+      map['path'] = Variable<String>(path.value);
+    }
+    if (mode.present) {
+      map['mode'] = Variable<String>(
+        $NestedWorkspacesTable.$convertermode.toSql(mode.value),
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NestedWorkspacesCompanion(')
+          ..write('id: $id, ')
+          ..write('path: $path, ')
+          ..write('mode: $mode')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $TagDefinitionsTable tagDefinitions = $TagDefinitionsTable(this);
   late final $FileNodesTable fileNodes = $FileNodesTable(this);
   late final $TagAssignmentsTable tagAssignments = $TagAssignmentsTable(this);
+  late final $NestedWorkspacesTable nestedWorkspaces = $NestedWorkspacesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1449,6 +1717,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     tagDefinitions,
     fileNodes,
     tagAssignments,
+    nestedWorkspaces,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2627,6 +2896,183 @@ typedef $$TagAssignmentsTableProcessedTableManager =
       TagAssignmentRow,
       PrefetchHooks Function({bool fileNodeId, bool tagDefinitionId})
     >;
+typedef $$NestedWorkspacesTableCreateCompanionBuilder =
+    NestedWorkspacesCompanion Function({
+      Value<int> id,
+      required String path,
+      required NestedTaggerMode mode,
+    });
+typedef $$NestedWorkspacesTableUpdateCompanionBuilder =
+    NestedWorkspacesCompanion Function({
+      Value<int> id,
+      Value<String> path,
+      Value<NestedTaggerMode> mode,
+    });
+
+class $$NestedWorkspacesTableFilterComposer
+    extends Composer<_$AppDatabase, $NestedWorkspacesTable> {
+  $$NestedWorkspacesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<NestedTaggerMode, NestedTaggerMode, String>
+  get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+}
+
+class $$NestedWorkspacesTableOrderingComposer
+    extends Composer<_$AppDatabase, $NestedWorkspacesTable> {
+  $$NestedWorkspacesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NestedWorkspacesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NestedWorkspacesTable> {
+  $$NestedWorkspacesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<NestedTaggerMode, String> get mode =>
+      $composableBuilder(column: $table.mode, builder: (column) => column);
+}
+
+class $$NestedWorkspacesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NestedWorkspacesTable,
+          NestedWorkspaceRow,
+          $$NestedWorkspacesTableFilterComposer,
+          $$NestedWorkspacesTableOrderingComposer,
+          $$NestedWorkspacesTableAnnotationComposer,
+          $$NestedWorkspacesTableCreateCompanionBuilder,
+          $$NestedWorkspacesTableUpdateCompanionBuilder,
+          (
+            NestedWorkspaceRow,
+            BaseReferences<
+              _$AppDatabase,
+              $NestedWorkspacesTable,
+              NestedWorkspaceRow
+            >,
+          ),
+          NestedWorkspaceRow,
+          PrefetchHooks Function()
+        > {
+  $$NestedWorkspacesTableTableManager(
+    _$AppDatabase db,
+    $NestedWorkspacesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () =>
+                  $$NestedWorkspacesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$NestedWorkspacesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$NestedWorkspacesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> path = const Value.absent(),
+                Value<NestedTaggerMode> mode = const Value.absent(),
+              }) => NestedWorkspacesCompanion(id: id, path: path, mode: mode),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String path,
+                required NestedTaggerMode mode,
+              }) => NestedWorkspacesCompanion.insert(
+                id: id,
+                path: path,
+                mode: mode,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NestedWorkspacesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NestedWorkspacesTable,
+      NestedWorkspaceRow,
+      $$NestedWorkspacesTableFilterComposer,
+      $$NestedWorkspacesTableOrderingComposer,
+      $$NestedWorkspacesTableAnnotationComposer,
+      $$NestedWorkspacesTableCreateCompanionBuilder,
+      $$NestedWorkspacesTableUpdateCompanionBuilder,
+      (
+        NestedWorkspaceRow,
+        BaseReferences<
+          _$AppDatabase,
+          $NestedWorkspacesTable,
+          NestedWorkspaceRow
+        >,
+      ),
+      NestedWorkspaceRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2637,4 +3083,6 @@ class $AppDatabaseManager {
       $$FileNodesTableTableManager(_db, _db.fileNodes);
   $$TagAssignmentsTableTableManager get tagAssignments =>
       $$TagAssignmentsTableTableManager(_db, _db.tagAssignments);
+  $$NestedWorkspacesTableTableManager get nestedWorkspaces =>
+      $$NestedWorkspacesTableTableManager(_db, _db.nestedWorkspaces);
 }

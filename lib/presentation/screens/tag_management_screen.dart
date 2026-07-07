@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../../domain/usecases/merge_tags.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
@@ -65,6 +66,10 @@ class _DefinitionTile extends ConsumerWidget {
       if (definition.allowMultiple) '다중 부여',
     ].join(' · ');
 
+    // 이 태그로 흡수할 수 있는 다른 태그(값 유형·다중 허용이 같은)가 있을 때만 연다.
+    final allDefs = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
+    final canMerge = mergeTargetsFor(definition, allDefs).isNotEmpty;
+
     return ListTile(
       leading: CircleAvatar(
         radius: 12,
@@ -75,6 +80,13 @@ class _DefinitionTile extends ConsumerWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          IconButton(
+            tooltip: canMerge ? '다른 태그를 여기에 합치기' : '합칠 수 있는 태그가 없습니다',
+            icon: const Icon(Icons.merge_outlined),
+            onPressed: canMerge
+                ? () => _openMerge(context, ref, definition)
+                : null,
+          ),
           IconButton(
             tooltip: '편집',
             icon: const Icon(Icons.edit_outlined),
@@ -213,6 +225,136 @@ class _DeleteConfirmDialog extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// 태그 합치기 다이얼로그를 띄운다. 사용자가 고른 태그들의 부여 기록을 [target]으로
+/// 옮기고 고른 태그들의 정의를 제거한다([target]의 이름·색이 남음).
+Future<void> _openMerge(
+  BuildContext context,
+  WidgetRef ref,
+  TagDefinition target,
+) async {
+  await showDialog<void>(
+    context: context,
+    builder: (context) => _MergeDialog(target: target),
+  );
+}
+
+/// 태그 합치기 다이얼로그. 사용자가 고른 태그들(source)의 부여 기록을 [target]으로
+/// 옮기고 그 정의들을 제거한다(target의 이름·색이 남음). 흡수 후보는 값 유형·다중
+/// 부여 허용이 target과 같은 다른 사용자 태그로 한정되며, 여러 개를 동시에 고를 수 있다.
+class _MergeDialog extends ConsumerStatefulWidget {
+  const _MergeDialog({required this.target});
+
+  final TagDefinition target;
+
+  @override
+  ConsumerState<_MergeDialog> createState() => _MergeDialogState();
+}
+
+class _MergeDialogState extends ConsumerState<_MergeDialog> {
+  final Set<int> _selected = {};
+  bool _saving = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = widget.target;
+    final allDefs = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
+    final sources = mergeTargetsFor(target, allDefs);
+    // 목록에서 후보가 사라졌으면(다른 곳에서 삭제/편집) 선택에서 걸러낸다.
+    final sourceIds = {for (final s in sources) s.id};
+    final selectedValid = _selected.where(sourceIds.contains).toSet();
+
+    return AlertDialog(
+      title: Text('‘${target.name}’에 합치기'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '아래에서 고른 태그의 부여 기록을 ‘${target.name}’ 태그로 옮기고, 고른 '
+              '태그들은 제거합니다. ‘${target.name}’의 이름과 색이 유지됩니다.',
+            ),
+            const SizedBox(height: 12),
+            for (final s in sources)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: _selected.contains(s.id),
+                onChanged: _saving
+                    ? null
+                    : (on) => setState(() {
+                        if (on == true) {
+                          _selected.add(s.id!);
+                        } else {
+                          _selected.remove(s.id);
+                        }
+                      }),
+                secondary: CircleAvatar(
+                  radius: 10,
+                  backgroundColor: tagColorOf(s.color, context),
+                ),
+                title: Text(s.name),
+              ),
+            if (!target.allowMultiple) ...[
+              const SizedBox(height: 8),
+              Text(
+                '같은 파일에 두 태그가 모두 있으면 ‘${target.name}’의 값을 유지하고 '
+                '합쳐지는 태그 쪽 값은 버립니다.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _saving || selectedValid.isEmpty
+              ? null
+              : () => _merge(selectedValid),
+          child: const Text('합치기'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _merge(Set<int> sourceIds) async {
+    final targetId = widget.target.id;
+    if (targetId == null || sourceIds.isEmpty) return;
+    final repo = ref.read(tagRepositoryProvider);
+    if (repo == null) return;
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await repo.mergeDefinitions(
+        targetId: targetId,
+        sourceIds: sourceIds.toList(),
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = '합치지 못했습니다: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }
 

@@ -40,10 +40,7 @@ Future<int?> readWorkspaceSchemaVersion(String workspaceRoot) async {
 }
 
 /// SQLite 파일 헤더의 매직 바이트열("SQLite format 3" + 널 종단).
-final List<int> _magic = [
-  ...'SQLite format 3'.codeUnits,
-  0,
-];
+final List<int> _magic = [...'SQLite format 3'.codeUnits, 0];
 
 /// user_version 4바이트(big-endian)의 헤더 내 오프셋.
 const int _userVersionOffset = 60;

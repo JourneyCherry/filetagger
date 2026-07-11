@@ -40,13 +40,15 @@ const int _invalidFileAttributes = 0xFFFFFFFF;
 // 처음 호출될 때만 로드된다(비-Windows에서는 DynamicLibrary.open이 실행되지 않음).
 final DynamicLibrary _kernel32 = DynamicLibrary.open('kernel32.dll');
 final int Function(Pointer<Utf16>) _getFileAttributesW = _kernel32
-    .lookupFunction<Uint32 Function(Pointer<Utf16>), int Function(Pointer<Utf16>)>(
-      'GetFileAttributesW',
-    );
+    .lookupFunction<
+      Uint32 Function(Pointer<Utf16>),
+      int Function(Pointer<Utf16>)
+    >('GetFileAttributesW');
 final int Function(Pointer<Utf16>, int) _setFileAttributesW = _kernel32
-    .lookupFunction<Int32 Function(Pointer<Utf16>, Uint32), int Function(Pointer<Utf16>, int)>(
-      'SetFileAttributesW',
-    );
+    .lookupFunction<
+      Int32 Function(Pointer<Utf16>, Uint32),
+      int Function(Pointer<Utf16>, int)
+    >('SetFileAttributesW');
 
 bool _hasHiddenAttribute(String path) {
   final ptr = path.toNativeUtf16();

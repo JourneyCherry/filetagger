@@ -11,6 +11,7 @@ import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/repositories/view_settings_repository.dart';
 import '../../domain/usecases/build_file_tree.dart';
 import '../../domain/usecases/folder_index_scope.dart';
+import '../../domain/usecases/query_files.dart';
 import 'file_node_provider.dart';
 import 'system_tag_provider.dart';
 import 'tag_provider.dart';
@@ -46,10 +47,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     _repo = repo;
     _loaded = false;
     // 태그 정의가 바뀌면(삭제 등) 사라진 태그를 참조하는 필터·정렬 조건을 정리한다.
-    ref.listen(tagDefinitionsProvider, (_, next) {
-      final defs = next.valueOrNull;
-      if (defs != null) _reconcile(defs);
-    });
+    ref.listen(tagDefinitionsProvider, (_, next) => _reconcileWith(next));
     if (repo != null) _load(repo);
     return const WorkspaceViewSettings();
   }
@@ -61,8 +59,18 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     state = loaded;
     _loaded = true;
     // 로드가 태그 정의보다 늦었을 수 있으니, 현재 정의 기준으로 즉시 정리한다.
-    final defs = ref.read(tagDefinitionsProvider).valueOrNull;
-    if (defs != null) _reconcile(defs);
+    _reconcileWith(ref.read(tagDefinitionsProvider));
+  }
+
+  /// 정의 목록이 **다 실린 뒤에만** 정리한다.
+  ///
+  /// 아직 실리는 중이면 그 자리엔 직전 워크스페이스의(또는 폴더를 열기 전의 빈)
+  /// 목록이 남아 있다. 그걸 기준으로 정리하면 멀쩡한 조건이 "없는 태그"로 몰려
+  /// 지워지고, 지운 결과가 그대로 저장돼 버린다.
+  void _reconcileWith(AsyncValue<List<TagDefinition>> defs) {
+    if (defs.isLoading || defs.hasError) return;
+    final value = defs.valueOrNull;
+    if (value != null) _reconcile(value);
   }
 
   /// 유효한 태그 정의 집합에 없는 조건·정렬 단계를 걷어낸다. 사라진 태그의 부여
@@ -78,20 +86,24 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     };
     final conditions = state.filter.conditions;
     final keys = state.sort.keys;
+    final order = state.tagDisplayOrder;
     final keptConditions = conditions
         .where((c) => validIds.contains(c.tagDefinitionId))
         .toList();
     final keptKeys = keys
         .where((k) => validIds.contains(k.tagDefinitionId))
         .toList();
+    final keptOrder = order.where(validIds.contains).toList();
     if (keptConditions.length == conditions.length &&
-        keptKeys.length == keys.length) {
+        keptKeys.length == keys.length &&
+        keptOrder.length == order.length) {
       return; // 사라진 참조 없음 — 그대로 둔다(불필요한 저장 방지).
     }
     _set(
       state.copyWith(
         filter: FileFilter(conditions: keptConditions),
         sort: FileSortOrder(keys: keptKeys),
+        tagDisplayOrder: keptOrder,
       ),
     );
   }
@@ -111,6 +123,23 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     }
     _set(state.copyWith(visibleSystemTagIds: next));
   }
+
+  /// 태그 칩의 표시 순서(정의 id 나열)를 갱신·저장한다. 여기 없는 태그는 뒤에
+  /// 붙으므로 부분 목록이어도 된다.
+  void updateTagDisplayOrder(List<int> order) =>
+      _set(state.copyWith(tagDisplayOrder: order));
+
+  /// 그룹 트리에서 폴더 [path]의 펼침/접힘을 뒤집고 저장한다(세션을 넘겨 유지).
+  void toggleExpandedFolder(String path) {
+    final next = {...state.expandedFolders};
+    if (!next.remove(path)) next.add(path);
+    _set(state.copyWith(expandedFolders: next));
+  }
+
+  /// 목록의 폴더 묶기(계층 그룹화)를 켜고 끈다. 끄면 모든 항목을 한 단계로 펼쳐
+  /// 폴더 묶음에 따른 태그 전파 효과를 없앤다.
+  void toggleGroupByFolder() =>
+      _set(state.copyWith(groupByFolder: !state.groupByFolder));
 
   /// 프리뷰 분할 비율을 갱신·저장한다(분할선 드래그가 끝났을 때 호출).
   void updatePreviewRatio(double ratio) =>
@@ -143,6 +172,21 @@ final rootManageModeProvider = Provider<FolderManageMode>(
   (ref) => ref.watch(viewSettingsProvider).rootManageMode,
 );
 
+/// 태그 칩의 표시 순서(정의 id 나열). 쓰기는 [viewSettingsProvider]를 통한다.
+final tagDisplayOrderProvider = Provider<List<int>>(
+  (ref) => ref.watch(viewSettingsProvider).tagDisplayOrder,
+);
+
+/// 그룹 트리에서 펼쳐 놓은 폴더 경로들. 쓰기는 [viewSettingsProvider]를 통한다.
+final expandedFoldersProvider = Provider<Set<String>>(
+  (ref) => ref.watch(viewSettingsProvider).expandedFolders,
+);
+
+/// 목록을 폴더 계층으로 묶을지. 쓰기는 [viewSettingsProvider]를 통한다.
+final groupByFolderProvider = Provider<bool>(
+  (ref) => ref.watch(viewSettingsProvider).groupByFolder,
+);
+
 /// 폴더 경로 → effective 관리 모드(상속 반영). 목록 타일 메뉴·힌트가 각 폴더의
 /// 실제 관리 상태를 표시하는 데 쓴다. override(저장값)와 루트 모드로 계산한다.
 final folderResolvedModesProvider = Provider<Map<String, FolderManageMode>>((
@@ -166,20 +210,36 @@ final definitionsByIdProvider = Provider<Map<int, TagDefinition>>((ref) {
 
 /// 필터·정렬을 적용한 표시용 **계층 트리**(그룹 UI). 형제끼리 정렬하고, 필터가
 /// 걸리면 매치된 노드와 그 조상만 남긴다. 로딩/에러 상태는 그대로 전달한다.
+///
+/// 폴더 묶기가 꺼져 있으면 계층을 세우지 않고, 모든 항목을 한 단계 노드로 평평하게
+/// 펼친다. 이때 필터는 매치된 항목만 남겨(조상 폴더를 함께 남기는 전파가 없다) 각
+/// 항목을 독립적으로 다룬다.
 final fileTreeProvider = Provider<AsyncValue<List<FileTreeNode>>>((ref) {
   final nodes = ref.watch(fileNodesProvider);
   final assignments = ref.watch(effectiveAssignmentsByFileProvider);
   final definitionsById = ref.watch(definitionsByIdProvider);
   final filter = ref.watch(fileFilterProvider);
   final sort = ref.watch(fileSortProvider);
+  final grouped = ref.watch(groupByFolderProvider);
 
   return nodes.whenData(
-    (files) => const BuildFileTree()(
-      files: files,
-      assignmentsByFile: assignments,
-      filter: filter,
-      sort: sort,
-      definitionsById: definitionsById,
-    ),
+    (files) => grouped
+        ? const BuildFileTree()(
+            files: files,
+            assignmentsByFile: assignments,
+            filter: filter,
+            sort: sort,
+            definitionsById: definitionsById,
+          )
+        : [
+            for (final node in const QueryFiles()(
+              files: files,
+              assignmentsByFile: assignments,
+              filter: filter,
+              sort: sort,
+              definitionsById: definitionsById,
+            ))
+              FileTreeNode(node, const []),
+          ],
   );
 });

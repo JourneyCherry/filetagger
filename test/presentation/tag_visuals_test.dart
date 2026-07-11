@@ -16,6 +16,28 @@ void main() {
     });
   });
 
+  group('hoverOn (호버 배경색)', () {
+    test('밝은 태그는 어둡게, 어두운 태그는 밝게 옮긴다', () {
+      const light = Color(0xFFFFD54F);
+      const dark = Color(0xFF303030);
+      expect(
+        hoverOn(light).computeLuminance(),
+        lessThan(light.computeLuminance()),
+      );
+      expect(
+        hoverOn(dark).computeLuminance(),
+        greaterThan(dark.computeLuminance()),
+      );
+    });
+
+    test('배경색은 옮기되 불투명하게 유지한다', () {
+      const background = Color(0xFF64B5F6);
+      final hovered = hoverOn(background);
+      expect(hovered, isNot(background));
+      expect(hovered.a, 1.0);
+    });
+  });
+
   group('formatTagValue', () {
     test('label은 값을 표시하지 않는다', () {
       expect(formatTagValue(TagValueType.label, 'anything'), isNull);

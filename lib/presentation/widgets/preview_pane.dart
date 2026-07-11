@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/entities/system_tag.dart';
+import '../../domain/usecases/tag_display_order.dart';
 import '../providers/system_tag_provider.dart';
 import 'file_thumbnail.dart';
+import 'tag_capsule.dart';
 import 'tag_chip.dart';
 
 /// 선택 대상의 미리보기 이미지와 부여된 모든 태그를 보여주는 프리뷰 창.
@@ -81,13 +83,14 @@ class PreviewPane extends ConsumerWidget {
     final all = target.id == null
         ? const <AssignedTag>[]
         : (assignmentsByFile[target.id] ?? const <AssignedTag>[]);
-    // 사용자 태그는 모두, 시스템 태그는 표시로 켠 것만 보인다.
-    final tags = [
+    // 사용자 태그는 모두, 시스템 태그는 표시로 켠 것만 보인다. 목록 행과 같은
+    // 표시 순서를 쓴다.
+    final tags = orderAssignedTags([
       for (final a in all)
         if (!isSystemTagId(a.tagDefinitionId) ||
             visibleSystemTagIds.contains(a.tagDefinitionId))
           a,
-    ];
+    ], ref.watch(effectiveTagDisplayOrderProvider));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -151,13 +154,7 @@ class PreviewPane extends ConsumerWidget {
                         ? null
                         : () => onRemoveAssignment(a),
                   ),
-                ActionChip(
-                  label: const Icon(Icons.add, size: 18),
-                  tooltip: '태그 추가',
-                  onPressed: onAddTag,
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+                CapsuleAddButton(tooltip: '태그 추가', onPressed: onAddTag),
               ],
             ),
           ),

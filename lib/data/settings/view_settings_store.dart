@@ -54,6 +54,9 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
   'previewRatio': s.previewRatio,
   'rootManageMode': s.rootManageMode.name,
   'systemTags': s.visibleSystemTagIds.toList(),
+  'tagOrder': s.tagDisplayOrder,
+  'expanded': s.expandedFolders.toList(),
+  'grouped': s.groupByFolder,
 };
 
 WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
@@ -63,7 +66,23 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       previewRatio: _ratioFromJson(json['previewRatio']),
       rootManageMode: _rootModeFromJson(json['rootManageMode']),
       visibleSystemTagIds: _systemTagsFromJson(json['systemTags']),
+      tagDisplayOrder: _tagOrderFromJson(json['tagOrder']),
+      expandedFolders: _expandedFromJson(json['expanded']),
+      groupByFolder: _groupedFromJson(json['grouped']),
     );
+
+/// 폴더 묶기 여부. 없거나 형식이 어긋나면 기본값(묶음). 기존 워크스페이스는
+/// 이 키가 없어 계층 목록을 그대로 유지한다.
+bool _groupedFromJson(Object? json) => json is bool ? json : true;
+
+/// 펼쳐 둔 폴더 경로 집합. 없거나 형식이 어긋나면 빈 집합(전부 접힘).
+Set<String> _expandedFromJson(Object? json) {
+  if (json is! List) return const <String>{};
+  return {
+    for (final item in json)
+      if (item is String) item,
+  };
+}
 
 /// 표시할 시스템 태그 id 집합. 없거나 형식이 어긋나면 빈 집합(전부 숨김).
 Set<int> _systemTagsFromJson(Object? json) {
@@ -72,6 +91,17 @@ Set<int> _systemTagsFromJson(Object? json) {
     for (final item in json)
       if (item is int) item,
   };
+}
+
+/// 태그 표시 순서. 없거나 형식이 어긋나면 빈 목록(기존 표시 순서 유지).
+/// 중복 id는 처음 것만 남겨 순위가 갈라지지 않게 한다.
+List<int> _tagOrderFromJson(Object? json) {
+  if (json is! List) return const <int>[];
+  final seen = <int>{};
+  return [
+    for (final item in json)
+      if (item is int && seen.add(item)) item,
+  ];
 }
 
 /// 저장된 루트 관리 방식. 알 수 없거나 없으면 기본값. 루트는 불투명이 될 수

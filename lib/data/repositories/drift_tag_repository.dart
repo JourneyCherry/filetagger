@@ -82,9 +82,9 @@ class DriftTagRepository implements TagRepository {
         // source가 더할 수 있어 매번 다시 조회한다.
         if (!target.allowMultiple) {
           final targetFileIds =
-              (await (_db.select(_db.tagAssignments)
-                        ..where((t) => t.tagDefinitionId.equals(targetId)))
-                      .get())
+              (await (_db.select(
+                    _db.tagAssignments,
+                  )..where((t) => t.tagDefinitionId.equals(targetId))).get())
                   .map((a) => a.fileNodeId)
                   .toSet();
           await (_db.delete(_db.tagAssignments)..where(

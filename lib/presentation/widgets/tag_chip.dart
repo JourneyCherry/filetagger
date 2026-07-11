@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/tag_definition.dart';
 import '../tag_visuals.dart';
+import 'tag_capsule.dart';
 
-/// 태그를 배경색이 채워진 칩으로 표시한다. 값 태그는 "이름: 값", label은
-/// 이름만 보여준다. 글자색은 배경 대비 접근성 기준으로 자동 선택한다.
+/// 태그를 배경색이 채워진 캡슐로 표시한다. 값 태그는 이름과 값을 구분선으로 나눠,
+/// label은 이름만 보여준다. 글자색은 배경 대비 접근성 기준으로 자동 선택한다.
 ///
-/// [onPressed]나 [onDeleted]가 있으면 상호작용 칩(InputChip)이 되어 호버·클릭
-/// 피드백이 생기고, 없으면 표시 전용 칩(Chip)이 된다.
+/// 겉모습은 공통 [TagCapsule]이 쥔다 — 알약 모양·테두리·구분선. [onPressed]가 있으면
+/// 눌러 편집할 수 있고 호버 피드백이 생기며, [onDeleted]가 있으면 제거(x) 버튼이 붙는다.
+/// 순서 편집 목록에 놓일 땐 [dragIndex]로 캡슐 안에 드래그 손잡이를 켠다.
 class TagChip extends StatelessWidget {
   const TagChip({
     super.key,
@@ -15,24 +17,25 @@ class TagChip extends StatelessWidget {
     this.value,
     this.onPressed,
     this.onDeleted,
+    this.dragIndex,
   });
 
   final TagDefinition definition;
   final String? value;
 
-  /// 지정하면 칩을 눌러 편집할 수 있고 호버 피드백이 생긴다.
+  /// 지정하면 캡슐을 눌러 편집할 수 있고 호버 피드백이 생긴다.
   final VoidCallback? onPressed;
 
-  /// 지정하면 칩에 삭제(x) 버튼이 붙는다.
+  /// 지정하면 캡슐에 삭제(x) 버튼이 붙는다.
   final VoidCallback? onDeleted;
+
+  /// 지정하면 캡슐 왼쪽에 순서 변경 드래그 손잡이가 켜진다(ReorderableListView 안에서).
+  final int? dragIndex;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final shown = formatTagValue(definition.valueType, value);
-    final label = shown == null
-        ? definition.name
-        : '${definition.name}: $shown';
 
     final Color background;
     final Color foreground;
@@ -47,26 +50,15 @@ class TagChip extends StatelessWidget {
       background = scheme.secondaryContainer;
       foreground = scheme.onSecondaryContainer;
     }
-    final labelWidget = Text(label, style: TextStyle(color: foreground));
 
-    if (onPressed != null || onDeleted != null) {
-      return InputChip(
-        label: labelWidget,
-        backgroundColor: background,
-        onPressed: onPressed,
-        onDeleted: onDeleted,
-        deleteIconColor: foreground,
-        side: BorderSide.none,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
-      );
-    }
-    return Chip(
-      label: labelWidget,
-      backgroundColor: background,
-      side: BorderSide.none,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
+    return TagCapsule(
+      background: background,
+      foreground: foreground,
+      name: definition.name,
+      value: shown == null ? null : Text(shown),
+      onTap: onPressed,
+      onDelete: onDeleted,
+      dragIndex: dragIndex,
     );
   }
 }

@@ -125,6 +125,66 @@ void main() {
     expect(loaded.visibleSystemTagIds, isEmpty);
   });
 
+  test('태그 표시 순서를 저장하고 그대로 불러온다', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(const WorkspaceViewSettings(tagDisplayOrder: [3, -1, 1]));
+    final loaded = await store.load();
+    expect(loaded.tagDisplayOrder, [3, -1, 1]);
+  });
+
+  test('태그 표시 순서가 없거나 형식에 안 맞으면 빈 목록이 기본', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"tagOrder":"oops"}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.tagDisplayOrder, isEmpty);
+  });
+
+  test('태그 표시 순서의 중복·비정수 항목은 걸러낸다', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"tagOrder":[2,"x",1,2]}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.tagDisplayOrder, [2, 1]);
+  });
+
+  test('펼쳐 둔 폴더 경로를 저장하고 그대로 불러온다', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(
+      const WorkspaceViewSettings(expandedFolders: {'a', 'a/b'}),
+    );
+    final loaded = await store.load();
+    expect(loaded.expandedFolders, {'a', 'a/b'});
+  });
+
+  test('펼침 상태가 없거나 형식에 안 맞으면 빈 집합(전부 접힘)이 기본', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"expanded":"oops"}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.expandedFolders, isEmpty);
+  });
+
+  test('폴더 묶기 여부를 저장하고 그대로 불러온다', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(const WorkspaceViewSettings(groupByFolder: false));
+    final loaded = await store.load();
+    expect(loaded.groupByFolder, isFalse);
+  });
+
+  test('폴더 묶기 설정이 없으면 기본값(묶음)을 쓴다', () async {
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.groupByFolder, isTrue);
+  });
+
+  test('폴더 묶기 값이 bool이 아니면 기본값(묶음)으로 복구한다', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"grouped":"oops"}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.groupByFolder, isTrue);
+  });
+
   test('저장 파일이 없으면 기본값(빈 설정)을 준다', () async {
     final loaded = await JsonViewSettingsStore(root.path).load();
     expect(loaded.isEmpty, isTrue);

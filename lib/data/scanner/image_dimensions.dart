@@ -9,11 +9,7 @@ library;
 /// [bytes](파일 앞부분)에서 이미지 크기를 "가로x세로"로 읽는다. 실패 시 null.
 String? readImageDimensions(List<int> bytes) {
   final size =
-      _png(bytes) ??
-      _gif(bytes) ??
-      _bmp(bytes) ??
-      _webp(bytes) ??
-      _jpeg(bytes);
+      _png(bytes) ?? _gif(bytes) ?? _bmp(bytes) ?? _webp(bytes) ?? _jpeg(bytes);
   if (size == null) return null;
   return '${size.$1}x${size.$2}';
 }

@@ -32,7 +32,11 @@ enum SystemTag {
     displayName: '파일 이름',
     valueType: TagValueType.text,
     editable: true,
-  );
+  ),
+
+  /// 디렉토리 표식(label). 폴더에만 붙어 일반 파일과 구분한다. 파일은 값 없음이라
+  /// '있음'으로 폴더만, '제외'로 파일만 걸러낼 수 있다.
+  folder(id: -6, displayName: '폴더', valueType: TagValueType.label);
 
   const SystemTag({
     required this.id,
@@ -75,6 +79,9 @@ enum SystemTag {
         return node.imageDimensions;
       case SystemTag.fileName:
         return node.name;
+      case SystemTag.folder:
+        // label이므로 값은 의미 없다 — 폴더에만 존재 표식('')을 달고 파일은 없음.
+        return node.isDirectory ? '' : null;
     }
   }
 }

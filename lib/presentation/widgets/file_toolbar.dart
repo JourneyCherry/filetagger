@@ -2,23 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/platform.dart';
 import '../../domain/entities/file_filter.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../common/capsule_text_field.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../tag_visuals.dart';
 import 'dialog_utils.dart';
+import 'filter_condition_chip.dart';
+import 'filter_query_field.dart';
+import 'sort_key_chip.dart';
+import 'sort_query_field.dart';
 import 'tag_picker.dart';
+
+/// 조건 줄 하나의 높이. 조건 칩과 텍스트 입력이 같은 자리를 나눠 쓰므로, 어느 쪽을
+/// 그리든 줄 높이가 흔들리지 않도록 한 값에서 가져다 쓴다.
+const double _rowHeight = 40;
 
 /// 파일 목록 위에 놓이는 필터·정렬 도구 모음.
 ///
-/// 필터와 정렬을 각각 "태그처럼 추가·재배치하는 조건 칩"으로 다룬다. 필터는
-/// 표시/제외 조건과 값 비교를, 정렬은 태그+방향을 칩 하나로 나타내며 드래그로
-/// 순서를 바꾼다(정렬은 순서가 우선순위). 상태는 [file_view_provider]에 있다.
+/// 필터와 정렬을 각각 "태그처럼 추가·재배치하는 조건"으로 다룬다. 필터는 표시/제외
+/// 조건과 값 비교를, 정렬은 태그+방향을 하나로 나타낸다(정렬은 순서가 우선순위).
+/// 상태는 [file_view_provider]에 있다.
+///
+/// 데스크톱은 두 줄 모두 텍스트 입력([FilterQueryField]·[SortQueryField])을 늘 띄워
+/// 두고, '+' 버튼의 다이얼로그가 그 위에 조건을 얹는다(두 경로가 같은 곳을 고친다).
+/// 모바일은 텍스트 입력 대신 조건 칩과 다이얼로그로 편집한다. 어느 쪽이든 조건은
+/// 같은 곳(`viewSettingsProvider`)에 저장된다.
 class FileToolbar extends ConsumerWidget {
-  const FileToolbar({super.key});
+  const FileToolbar({super.key, this.showFilter = true, this.showSort = true});
+
+  /// 필터 조건 줄을 그릴지. 데스크톱 '보기' 메뉴가 토글한다(조건 자체는 남는다).
+  final bool showFilter;
+
+  /// 정렬 조건 줄을 그릴지. 데스크톱 '보기' 메뉴가 토글한다(조건 자체는 남는다).
+  final bool showSort;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,31 +56,43 @@ class FileToolbar extends ConsumerWidget {
     ];
 
     return Column(
+      // 바텀시트(모바일)처럼 높이가 느슨하게 주어지는 자리에서도 내용만큼만 차지한다.
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildRow(
-          context: context,
-          label: '필터',
-          isEmpty: filter.isEmpty,
-          emptyHint: '조건 없음 · 모든 항목 표시',
-          list: _buildFilterList(context, ref, filter, defsById),
-          onAdd: definitions.isEmpty
-              ? null
-              : () => _openFilterDialog(context, ref, definitions),
-          addTooltip: '필터 조건 추가',
-        ),
-        const SizedBox(height: 8),
-        _buildRow(
-          context: context,
-          label: '정렬',
-          isEmpty: sort.isEmpty,
-          emptyHint: '기본(이름순)',
-          list: _buildSortList(context, ref, sort, defsById),
-          onAdd: sortCandidates.isEmpty
-              ? null
-              : () => _openSortDialog(context, ref, sortCandidates),
-          addTooltip: '정렬 기준 추가',
-        ),
+        if (showFilter)
+          _buildRow(
+            context: context,
+            label: '필터',
+            content: _buildFilterContent(
+              context,
+              ref,
+              filter,
+              definitions,
+              defsById,
+            ),
+            onAdd: definitions.isEmpty
+                ? null
+                : () => showFilterConditionDialog(context, ref, definitions),
+            addTooltip: '필터 조건 추가',
+          ),
+        if (showFilter && showSort) const SizedBox(height: 8),
+        if (showSort)
+          _buildRow(
+            context: context,
+            label: '정렬',
+            content: _buildSortContent(
+              context,
+              ref,
+              sort,
+              definitions,
+              defsById,
+            ),
+            onAdd: sortCandidates.isEmpty
+                ? null
+                : () => _openSortDialog(context, ref, sortCandidates),
+            addTooltip: '정렬 기준 추가',
+          ),
       ],
     );
   }
@@ -67,9 +100,7 @@ class FileToolbar extends ConsumerWidget {
   Widget _buildRow({
     required BuildContext context,
     required String label,
-    required bool isEmpty,
-    required String emptyHint,
-    required Widget list,
+    required Widget content,
     required VoidCallback? onAdd,
     required String addTooltip,
   }) {
@@ -79,19 +110,7 @@ class FileToolbar extends ConsumerWidget {
           width: 40,
           child: Text(label, style: Theme.of(context).textTheme.labelLarge),
         ),
-        Expanded(
-          child: isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    emptyHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              : SizedBox(height: 40, child: list),
-        ),
+        Expanded(child: content),
         IconButton(
           icon: const Icon(Icons.add),
           tooltip: addTooltip,
@@ -101,7 +120,57 @@ class FileToolbar extends ConsumerWidget {
     );
   }
 
+  /// 조건 칩 목록. 비어 있으면 목록 대신 안내 문구를 보여준다.
+  Widget _buildListContent(
+    BuildContext context, {
+    required bool isEmpty,
+    required String emptyHint,
+    required Widget list,
+  }) {
+    if (!isEmpty) return SizedBox(height: _rowHeight, child: list);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        emptyHint,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
   // ── 필터 ──
+
+  /// 텍스트 입력은 데스크톱에서만 낸다 — 캡슐을 되펼치는 조작이 백스페이스/Delete를
+  /// 전제하고, 자동완성 목록이 소프트 키보드와 자리를 다투기 때문이다. 모바일은
+  /// 조건 칩과 다이얼로그로 편집한다.
+  Widget _buildFilterContent(
+    BuildContext context,
+    WidgetRef ref,
+    FileFilter filter,
+    List<TagDefinition> definitions,
+    Map<int, TagDefinition> defsById,
+  ) {
+    if (isDesktopPlatform && definitions.isNotEmpty) {
+      return _EditableRow(
+        hasChips: filter.conditions.isNotEmpty,
+        chips: _buildFilterList(context, ref, filter, defsById),
+        buildField: (focusNode, autofocus) => FilterQueryField(
+          focusNode: focusNode,
+          autofocus: autofocus,
+          filter: filter,
+          definitions: definitions,
+          onChanged: ref.read(viewSettingsProvider.notifier).updateFilter,
+        ),
+      );
+    }
+    return _buildListContent(
+      context,
+      isEmpty: filter.isEmpty,
+      emptyHint: '조건 없음 · 모든 항목 표시',
+      list: _buildFilterList(context, ref, filter, defsById),
+    );
+  }
 
   Widget _buildFilterList(
     BuildContext context,
@@ -128,7 +197,7 @@ class FileToolbar extends ConsumerWidget {
           definition: def,
           onTap: def == null
               ? null
-              : () => _openFilterDialog(
+              : () => showFilterConditionDialog(
                   context,
                   ref,
                   defsById.values.toList(),
@@ -143,30 +212,36 @@ class FileToolbar extends ConsumerWidget {
     );
   }
 
-  Future<void> _openFilterDialog(
+  // ── 정렬 ──
+
+  /// 필터와 같은 이유로 텍스트 입력은 데스크톱에서만 낸다.
+  Widget _buildSortContent(
     BuildContext context,
     WidgetRef ref,
-    List<TagDefinition> definitions, {
-    int? editIndex,
-    FilterCondition? initial,
-  }) async {
-    final result = await showDialog<FilterCondition>(
-      context: context,
-      builder: (_) =>
-          _FilterConditionEditor(definitions: definitions, initial: initial),
+    FileSortOrder sort,
+    List<TagDefinition> definitions,
+    Map<int, TagDefinition> defsById,
+  ) {
+    if (isDesktopPlatform && definitions.isNotEmpty) {
+      return _EditableRow(
+        hasChips: sort.keys.isNotEmpty,
+        chips: _buildSortList(context, ref, sort, defsById),
+        buildField: (focusNode, autofocus) => SortQueryField(
+          focusNode: focusNode,
+          autofocus: autofocus,
+          sort: sort,
+          definitions: definitions,
+          onChanged: ref.read(viewSettingsProvider.notifier).updateSort,
+        ),
+      );
+    }
+    return _buildListContent(
+      context,
+      isEmpty: sort.isEmpty,
+      emptyHint: '기본(이름순)',
+      list: _buildSortList(context, ref, sort, defsById),
     );
-    if (result == null) return;
-    final filter = ref.read(fileFilterProvider);
-    ref
-        .read(viewSettingsProvider.notifier)
-        .updateFilter(
-          editIndex == null
-              ? filter.add(result)
-              : filter.replaceAt(editIndex, result),
-        );
   }
-
-  // ── 정렬 ──
 
   Widget _buildSortList(
     BuildContext context,
@@ -221,47 +296,107 @@ class FileToolbar extends ConsumerWidget {
   }
 }
 
-/// 조건/정렬 칩 왼쪽의 드래그 손잡이(순서 변경용).
-class _DragHandle extends StatelessWidget {
-  const _DragHandle({required this.index, required this.color});
+/// 데스크톱 조건 줄. 한 자리를 조건 칩과 텍스트 입력이 번갈아 쓴다.
+///
+/// 편집 중이 아닐 때는 칩을 그려 손잡이 드래그(순서 변경)·탭(편집)·x(삭제)를 받고,
+/// 빈 곳을 누르면 그 자리에 텍스트 입력이 들어서며 포커스를 가져간다. 포커스를 잃으면
+/// 다시 칩으로 돌아온다(그 길목에서 접히지 못한 원문이 정리되므로 칩과 텍스트가 늘
+/// 같은 것을 보여준다).
+class _EditableRow extends StatefulWidget {
+  const _EditableRow({
+    required this.buildField,
+    required this.chips,
+    required this.hasChips,
+  });
 
-  final int index;
-  final Color color;
+  final Widget Function(FocusNode focusNode, bool autofocus) buildField;
+  final Widget chips;
+
+  /// 그릴 칩이 있는지. 없으면 늘 텍스트 입력을 낸다(입력 안내 문구가 보이도록).
+  final bool hasChips;
+
+  @override
+  State<_EditableRow> createState() => _EditableRowState();
+}
+
+class _EditableRowState extends State<_EditableRow> {
+  final FocusNode _focus = FocusNode();
+
+  /// 텍스트 입력이 이 자리를 쓰고 있는지. 칩을 눌러 들어오고, 포커스를 잃어 나간다.
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_onFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChanged);
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (_focus.hasFocus == _editing) return;
+    setState(() => _editing = _focus.hasFocus);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ReorderableDragStartListener(
-      index: index,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.grab,
-        child: Icon(Icons.drag_indicator, size: 16, color: color),
-      ),
+    final showChips = widget.hasChips && !_editing;
+    return SizedBox(
+      height: _rowHeight,
+      child: showChips
+          // 칩이 먼저 탭을 가져가고, 칩 사이·뒤의 빈 곳만 여기로 떨어진다.
+          // 텍스트 입력과 같은 만큼 들여써, 칩↔텍스트 전환에서 캡슐 시작점이
+          // 어긋나지 않게 한다.
+          ? GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => setState(() => _editing = true),
+              child: Padding(
+                padding: const EdgeInsets.only(left: kCapsuleFieldInset),
+                child: widget.chips,
+              ),
+            )
+          : Align(
+              alignment: Alignment.centerLeft,
+              child: widget.buildField(_focus, _editing),
+            ),
     );
   }
 }
 
-/// 칩 오른쪽의 즉시 삭제(x) 버튼. 부여 태그 칩의 삭제 아이콘과 같은 모양.
-class _ChipDeleteButton extends StatelessWidget {
-  const _ChipDeleteButton({required this.color, required this.onDelete});
-
-  final Color color;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkResponse(
-      onTap: onDelete,
-      radius: 16,
-      child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: Icon(Icons.cancel, size: 18, color: color),
-      ),
-    );
-  }
+/// 필터 조건 편집기를 열어 조건을 추가하거나 [editIndex] 위치의 조건을 바꾼다.
+///
+/// 툴바의 '+' 버튼과 조건 칩 탭이 함께 쓰는 진입점이다.
+Future<void> showFilterConditionDialog(
+  BuildContext context,
+  WidgetRef ref,
+  List<TagDefinition> definitions, {
+  int? editIndex,
+  FilterCondition? initial,
+}) async {
+  final result = await showDialog<FilterCondition>(
+    context: context,
+    builder: (_) =>
+        _FilterConditionEditor(definitions: definitions, initial: initial),
+  );
+  if (result == null) return;
+  final filter = ref.read(fileFilterProvider);
+  ref
+      .read(viewSettingsProvider.notifier)
+      .updateFilter(
+        editIndex == null
+            ? filter.add(result)
+            : filter.replaceAt(editIndex, result),
+      );
 }
 
-/// 필터 조건 하나를 나타내는 칩. 제외 조건은 흐린 회색에 금지 아이콘,
-/// 표시 조건은 태그색으로 채운다. 탭하면 편집, x로 즉시 제거한다.
+/// 도구모음에 놓인 필터 조건 칩. 겉모습은 텍스트 입력의 캡슐과 공유하고
+/// ([FilterConditionChip]), 여기선 순서 변경 손잡이와 삭제 버튼을 켜 동작까지 붙인다.
+/// 탭하면 편집, x로 즉시 제거한다.
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
     super.key,
@@ -280,57 +415,24 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final def = definition;
-
-    final Color background;
-    final Color foreground;
-    if (condition.exclude) {
-      background = scheme.surfaceContainerHighest;
-      foreground = scheme.onSurfaceVariant;
-    } else if (def?.color != null) {
-      background = Color(def!.color!);
-      foreground = foregroundOn(background);
-    } else {
-      background = scheme.secondaryContainer;
-      foreground = scheme.onSecondaryContainer;
-    }
-
-    final text = def == null ? '(삭제된 태그)' : conditionText(condition, def);
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: Material(
-        color: background,
-        shape: const StadiumBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const StadiumBorder(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _DragHandle(index: index, color: foreground),
-                if (condition.exclude)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 2),
-                    child: Icon(Icons.block, size: 14, color: foreground),
-                  ),
-                Text(text, style: TextStyle(color: foreground)),
-                const SizedBox(width: 2),
-                _ChipDeleteButton(color: foreground, onDelete: onDelete),
-              ],
-            ),
-          ),
-        ),
+    // 가로 목록이 아이템을 줄 높이만큼 세로로 늘리므로, 캡슐이 두꺼워지지 않도록
+    // 제 높이대로 세로 가운데에 둔다(텍스트 입력 안의 캡슐과 같은 두께가 되도록).
+    return Center(
+      widthFactor: 1,
+      child: FilterConditionChip(
+        condition: condition,
+        definition: definition,
+        onTap: onTap,
+        dragIndex: index,
+        onDelete: onDelete,
       ),
     );
   }
 }
 
-/// 정렬 단계 하나를 나타내는 칩(태그 + 방향). 탭하면 방향 토글, x로 제거한다.
-/// label 태그는 방향이 없어 화살표 대신 존재 정렬 아이콘을 보여준다.
+/// 도구모음에 놓인 정렬 단계 칩. 겉모습은 텍스트 입력의 캡슐과 공유하고
+/// ([SortKeyChip]), 여기선 순서 변경 손잡이와 삭제 버튼을 켜 동작까지 붙인다.
+/// 탭하면 방향 토글, x로 즉시 제거한다.
 class _SortChip extends StatelessWidget {
   const _SortChip({
     super.key,
@@ -351,70 +453,19 @@ class _SortChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final foreground = scheme.onSecondaryContainer;
-    final name = definition?.name ?? '(삭제된 태그)';
-    final ascending = sortKey.direction == SortDirection.ascending;
-    final isLabel = definition?.valueType == TagValueType.label;
-
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(name, style: TextStyle(color: foreground)),
-          const SizedBox(width: 2),
-          Icon(
-            isLabel
-                ? Icons.check_circle_outline
-                : (ascending ? Icons.arrow_upward : Icons.arrow_downward),
-            size: 14,
-            color: foreground,
-          ),
-        ],
-      ),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: Material(
-        color: scheme.secondaryContainer,
-        shape: const StadiumBorder(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DragHandle(index: index, color: foreground),
-              if (onToggle != null)
-                InkWell(
-                  onTap: onToggle,
-                  customBorder: const StadiumBorder(),
-                  child: content,
-                )
-              else
-                content,
-              const SizedBox(width: 2),
-              _ChipDeleteButton(color: foreground, onDelete: onDelete),
-            ],
-          ),
-        ),
+    // 가로 목록이 아이템을 줄 높이만큼 세로로 늘리므로, 캡슐이 두꺼워지지 않도록
+    // 제 높이대로 세로 가운데에 둔다(텍스트 입력 안의 캡슐과 같은 두께가 되도록).
+    return Center(
+      widthFactor: 1,
+      child: SortKeyChip(
+        sortKey: sortKey,
+        definition: definition,
+        onTap: onToggle,
+        dragIndex: index,
+        onDelete: onDelete,
       ),
     );
   }
-}
-
-/// 필터 조건 칩에 표시할 문자열. 존재 조건은 태그 이름만, 값 조건은
-/// "이름 연산 값"으로 보여준다(날짜는 보기 좋게 자름).
-String conditionText(FilterCondition condition, TagDefinition def) {
-  if (condition.operator == FilterOperator.exists) return def.name;
-  final op = filterOperatorLabel(condition.operator);
-  final operand = def.valueType == TagValueType.date
-      ? (formatTagValue(TagValueType.date, condition.operand) ??
-            condition.operand ??
-            '')
-      : (condition.operand ?? '');
-  return '${def.name} $op $operand';
 }
 
 /// 태그 하나에 대한 필터 조건(태그·표시/제외·연산·값)을 편집하는 다이얼로그.
@@ -557,7 +608,7 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
                     for (final op in operatorsForType(type))
                       DropdownMenuItem(
                         value: op,
-                        child: Text(_operatorMenuLabel(op)),
+                        child: Text(filterOperatorMenuLabel(op)),
                       ),
                   ],
                   onChanged: (v) {
@@ -637,27 +688,6 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
       ),
       onSubmitted: (_) => _save(),
     );
-  }
-
-  String _operatorMenuLabel(FilterOperator op) {
-    switch (op) {
-      case FilterOperator.exists:
-        return '있음 (존재)';
-      case FilterOperator.equals:
-        return '= 같음';
-      case FilterOperator.notEquals:
-        return '≠ 다름';
-      case FilterOperator.lessThan:
-        return '< 미만';
-      case FilterOperator.lessOrEqual:
-        return '≤ 이하';
-      case FilterOperator.greaterThan:
-        return '> 초과';
-      case FilterOperator.greaterOrEqual:
-        return '≥ 이상';
-      case FilterOperator.contains:
-        return '포함';
-    }
   }
 }
 

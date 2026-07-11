@@ -28,6 +28,7 @@ void main() {
     // 저장·직렬화에 쓰이므로 특정 값이 바뀌지 않아야 한다.
     expect(SystemTag.fileSize.id, -1);
     expect(SystemTag.fileName.id, -5);
+    expect(SystemTag.folder.id, -6);
     expect(systemTagById(-5), SystemTag.fileName);
     expect(systemTagById(999), isNull);
   });
@@ -47,6 +48,7 @@ void main() {
     expect(SystemTag.extension.valueFor(node), 'png'); // 소문자로 정규화
     expect(SystemTag.imageDimensions.valueFor(node), '4x2');
     expect(SystemTag.fileName.valueFor(node), 'photo.PNG');
+    expect(SystemTag.folder.valueFor(node), isNull); // 파일은 폴더 표식 없음
   });
 
   test('valueFor: 확장자 없는 이름·선두 점 이름은 확장자가 없다', () {
@@ -66,16 +68,33 @@ void main() {
     expect(SystemTag.imageDimensions.valueFor(dir), isNull);
     expect(SystemTag.modifiedTime.valueFor(dir), isNotNull);
     expect(SystemTag.fileName.valueFor(dir), 'sub');
+    expect(SystemTag.folder.valueFor(dir), isNotNull); // 폴더 표식이 붙는다
+  });
+
+  test('systemAssignmentsFor: 폴더는 폴더 표식이 붙고 파일은 안 붙는다', () {
+    final dir = FileNode(
+      id: 3,
+      path: 'a/sub',
+      isDirectory: true,
+      modifiedAt: DateTime(2024, 1, 1),
+    );
+    final dirTags = systemAssignmentsFor(dir).map((t) => t.tagDefinitionId);
+    expect(dirTags, contains(SystemTag.folder.id));
+    final fileTags = systemAssignmentsFor(
+      _file(path: 'a/README'),
+    ).map((t) => t.tagDefinitionId);
+    expect(fileTags, isNot(contains(SystemTag.folder.id)));
   });
 
   test('systemAssignmentsFor: 값 있는 시스템 태그만 부여로 묶고 null은 건너뛴다', () {
     final node = _file(
       path: 'a/photo.png',
       imageDimensions: '4x2',
-    ); // 이미지 → 5개 전부
+    ); // 이미지 파일 → 폴더 표식만 빼고 전부
     final tags = systemAssignmentsFor(node);
     expect(tags.map((t) => t.tagDefinitionId).toSet(), {
-      for (final t in SystemTag.values) t.id,
+      for (final t in SystemTag.values)
+        if (t != SystemTag.folder) t.id,
     });
     // 합성 부여이므로 assignment.id는 없다.
     expect(tags.every((t) => t.assignment.id == null), isTrue);

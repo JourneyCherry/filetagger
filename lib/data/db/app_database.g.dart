@@ -120,16 +120,14 @@ class $TagDefinitionsTable extends TagDefinitions
   TagDefinitionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return TagDefinitionRow(
-      id:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}id'],
-          )!,
-      name:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}name'],
-          )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
       valueType: $TagDefinitionsTable.$convertervalueType.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -140,11 +138,10 @@ class $TagDefinitionsTable extends TagDefinitions
         DriftSqlType.int,
         data['${effectivePrefix}color'],
       ),
-      allowMultiple:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.bool,
-            data['${effectivePrefix}allow_multiple'],
-          )!,
+      allowMultiple: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}allow_multiple'],
+      )!,
     );
   }
 
@@ -203,8 +200,9 @@ class TagDefinitionRow extends DataClass
       id: Value(id),
       name: Value(name),
       valueType: Value(valueType),
-      color:
-          color == null && nullToAbsent ? const Value.absent() : Value(color),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
       allowMultiple: Value(allowMultiple),
     );
   }
@@ -257,10 +255,9 @@ class TagDefinitionRow extends DataClass
       name: data.name.present ? data.name.value : this.name,
       valueType: data.valueType.present ? data.valueType.value : this.valueType,
       color: data.color.present ? data.color.value : this.color,
-      allowMultiple:
-          data.allowMultiple.present
-              ? data.allowMultiple.value
-              : this.allowMultiple,
+      allowMultiple: data.allowMultiple.present
+          ? data.allowMultiple.value
+          : this.allowMultiple,
     );
   }
 
@@ -622,21 +619,18 @@ class $FileNodesTable extends FileNodes
   FileNodeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return FileNodeRow(
-      id:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}id'],
-          )!,
-      path:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}path'],
-          )!,
-      isDirectory:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.bool,
-            data['${effectivePrefix}is_directory'],
-          )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      path: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}path'],
+      )!,
+      isDirectory: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_directory'],
+      )!,
       size: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}size'],
@@ -663,11 +657,10 @@ class $FileNodesTable extends FileNodes
         DriftSqlType.string,
         data['${effectivePrefix}image_dimensions'],
       ),
-      lastSeenAt:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.dateTime,
-            data['${effectivePrefix}last_seen_at'],
-          )!,
+      lastSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_seen_at'],
+      )!,
       missingSince: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}missing_since'],
@@ -772,31 +765,25 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       path: Value(path),
       isDirectory: Value(isDirectory),
       size: size == null && nullToAbsent ? const Value.absent() : Value(size),
-      modifiedAt:
-          modifiedAt == null && nullToAbsent
-              ? const Value.absent()
-              : Value(modifiedAt),
-      contentHashPrefix:
-          contentHashPrefix == null && nullToAbsent
-              ? const Value.absent()
-              : Value(contentHashPrefix),
-      manageMode:
-          manageMode == null && nullToAbsent
-              ? const Value.absent()
-              : Value(manageMode),
-      childSignature:
-          childSignature == null && nullToAbsent
-              ? const Value.absent()
-              : Value(childSignature),
-      imageDimensions:
-          imageDimensions == null && nullToAbsent
-              ? const Value.absent()
-              : Value(imageDimensions),
+      modifiedAt: modifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(modifiedAt),
+      contentHashPrefix: contentHashPrefix == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentHashPrefix),
+      manageMode: manageMode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manageMode),
+      childSignature: childSignature == null && nullToAbsent
+          ? const Value.absent()
+          : Value(childSignature),
+      imageDimensions: imageDimensions == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageDimensions),
       lastSeenAt: Value(lastSeenAt),
-      missingSince:
-          missingSince == null && nullToAbsent
-              ? const Value.absent()
-              : Value(missingSince),
+      missingSince: missingSince == null && nullToAbsent
+          ? const Value.absent()
+          : Value(missingSince),
     );
   }
 
@@ -861,15 +848,16 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     isDirectory: isDirectory ?? this.isDirectory,
     size: size.present ? size.value : this.size,
     modifiedAt: modifiedAt.present ? modifiedAt.value : this.modifiedAt,
-    contentHashPrefix:
-        contentHashPrefix.present
-            ? contentHashPrefix.value
-            : this.contentHashPrefix,
+    contentHashPrefix: contentHashPrefix.present
+        ? contentHashPrefix.value
+        : this.contentHashPrefix,
     manageMode: manageMode.present ? manageMode.value : this.manageMode,
-    childSignature:
-        childSignature.present ? childSignature.value : this.childSignature,
-    imageDimensions:
-        imageDimensions.present ? imageDimensions.value : this.imageDimensions,
+    childSignature: childSignature.present
+        ? childSignature.value
+        : this.childSignature,
+    imageDimensions: imageDimensions.present
+        ? imageDimensions.value
+        : this.imageDimensions,
     lastSeenAt: lastSeenAt ?? this.lastSeenAt,
     missingSince: missingSince.present ? missingSince.value : this.missingSince,
   );
@@ -877,31 +865,31 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     return FileNodeRow(
       id: data.id.present ? data.id.value : this.id,
       path: data.path.present ? data.path.value : this.path,
-      isDirectory:
-          data.isDirectory.present ? data.isDirectory.value : this.isDirectory,
+      isDirectory: data.isDirectory.present
+          ? data.isDirectory.value
+          : this.isDirectory,
       size: data.size.present ? data.size.value : this.size,
-      modifiedAt:
-          data.modifiedAt.present ? data.modifiedAt.value : this.modifiedAt,
-      contentHashPrefix:
-          data.contentHashPrefix.present
-              ? data.contentHashPrefix.value
-              : this.contentHashPrefix,
-      manageMode:
-          data.manageMode.present ? data.manageMode.value : this.manageMode,
-      childSignature:
-          data.childSignature.present
-              ? data.childSignature.value
-              : this.childSignature,
-      imageDimensions:
-          data.imageDimensions.present
-              ? data.imageDimensions.value
-              : this.imageDimensions,
-      lastSeenAt:
-          data.lastSeenAt.present ? data.lastSeenAt.value : this.lastSeenAt,
-      missingSince:
-          data.missingSince.present
-              ? data.missingSince.value
-              : this.missingSince,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      contentHashPrefix: data.contentHashPrefix.present
+          ? data.contentHashPrefix.value
+          : this.contentHashPrefix,
+      manageMode: data.manageMode.present
+          ? data.manageMode.value
+          : this.manageMode,
+      childSignature: data.childSignature.present
+          ? data.childSignature.value
+          : this.childSignature,
+      imageDimensions: data.imageDimensions.present
+          ? data.imageDimensions.value
+          : this.imageDimensions,
+      lastSeenAt: data.lastSeenAt.present
+          ? data.lastSeenAt.value
+          : this.lastSeenAt,
+      missingSince: data.missingSince.present
+          ? data.missingSince.value
+          : this.missingSince,
     );
   }
 
@@ -1225,21 +1213,18 @@ class $TagAssignmentsTable extends TagAssignments
   TagAssignmentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return TagAssignmentRow(
-      id:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}id'],
-          )!,
-      fileNodeId:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}file_node_id'],
-          )!,
-      tagDefinitionId:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}tag_definition_id'],
-          )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      fileNodeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}file_node_id'],
+      )!,
+      tagDefinitionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tag_definition_id'],
+      )!,
       value: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}value'],
@@ -1284,8 +1269,9 @@ class TagAssignmentRow extends DataClass
       id: Value(id),
       fileNodeId: Value(fileNodeId),
       tagDefinitionId: Value(tagDefinitionId),
-      value:
-          value == null && nullToAbsent ? const Value.absent() : Value(value),
+      value: value == null && nullToAbsent
+          ? const Value.absent()
+          : Value(value),
     );
   }
 
@@ -1326,12 +1312,12 @@ class TagAssignmentRow extends DataClass
   TagAssignmentRow copyWithCompanion(TagAssignmentsCompanion data) {
     return TagAssignmentRow(
       id: data.id.present ? data.id.value : this.id,
-      fileNodeId:
-          data.fileNodeId.present ? data.fileNodeId.value : this.fileNodeId,
-      tagDefinitionId:
-          data.tagDefinitionId.present
-              ? data.tagDefinitionId.value
-              : this.tagDefinitionId,
+      fileNodeId: data.fileNodeId.present
+          ? data.fileNodeId.value
+          : this.fileNodeId,
+      tagDefinitionId: data.tagDefinitionId.present
+          ? data.tagDefinitionId.value
+          : this.tagDefinitionId,
       value: data.value.present ? data.value.value : this.value,
     );
   }
@@ -1507,16 +1493,14 @@ class $NestedWorkspacesTable extends NestedWorkspaces
   NestedWorkspaceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return NestedWorkspaceRow(
-      id:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.int,
-            data['${effectivePrefix}id'],
-          )!,
-      path:
-          attachedDatabase.typeMapping.read(
-            DriftSqlType.string,
-            data['${effectivePrefix}path'],
-          )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      path: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}path'],
+      )!,
       mode: $NestedWorkspacesTable.$convertermode.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -1956,16 +1940,12 @@ class $$TagDefinitionsTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer:
-              () => $$TagDefinitionsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer:
-              () =>
-                  $$TagDefinitionsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer:
-              () => $$TagDefinitionsTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
+          createFilteringComposer: () =>
+              $$TagDefinitionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TagDefinitionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TagDefinitionsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -1994,16 +1974,14 @@ class $$TagDefinitionsTableTableManager
                 color: color,
                 allowMultiple: allowMultiple,
               ),
-          withReferenceMapper:
-              (p0) =>
-                  p0
-                      .map(
-                        (e) => (
-                          e.readTable(table),
-                          $$TagDefinitionsTableReferences(db, table, e),
-                        ),
-                      )
-                      .toList(),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TagDefinitionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
           prefetchHooksCallback: ({tagAssignmentsRefs = false}) {
             return PrefetchHooks(
               db: db,
@@ -2022,15 +2000,14 @@ class $$TagDefinitionsTableTableManager
                       currentTable: table,
                       referencedTable: $$TagDefinitionsTableReferences
                           ._tagAssignmentsRefsTable(db),
-                      managerFromTypedResult:
-                          (p0) =>
-                              $$TagDefinitionsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).tagAssignmentsRefs,
-                      referencedItemsForCurrentItem:
-                          (item, referencedItems) => referencedItems.where(
+                      managerFromTypedResult: (p0) =>
+                          $$TagDefinitionsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).tagAssignmentsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
                             (e) => e.tagDefinitionId == item.id,
                           ),
                       typedResults: items,
@@ -2373,12 +2350,12 @@ class $$FileNodesTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer:
-              () => $$FileNodesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer:
-              () => $$FileNodesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer:
-              () => $$FileNodesTableAnnotationComposer($db: db, $table: table),
+          createFilteringComposer: () =>
+              $$FileNodesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FileNodesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FileNodesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -2431,16 +2408,14 @@ class $$FileNodesTableTableManager
                 lastSeenAt: lastSeenAt,
                 missingSince: missingSince,
               ),
-          withReferenceMapper:
-              (p0) =>
-                  p0
-                      .map(
-                        (e) => (
-                          e.readTable(table),
-                          $$FileNodesTableReferences(db, table, e),
-                        ),
-                      )
-                      .toList(),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$FileNodesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
           prefetchHooksCallback: ({tagAssignmentsRefs = false}) {
             return PrefetchHooks(
               db: db,
@@ -2459,17 +2434,14 @@ class $$FileNodesTableTableManager
                       currentTable: table,
                       referencedTable: $$FileNodesTableReferences
                           ._tagAssignmentsRefsTable(db),
-                      managerFromTypedResult:
-                          (p0) =>
-                              $$FileNodesTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).tagAssignmentsRefs,
-                      referencedItemsForCurrentItem:
-                          (item, referencedItems) => referencedItems.where(
-                            (e) => e.fileNodeId == item.id,
-                          ),
+                      managerFromTypedResult: (p0) =>
+                          $$FileNodesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).tagAssignmentsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.fileNodeId == item.id),
                       typedResults: items,
                     ),
                 ];
@@ -2776,16 +2748,12 @@ class $$TagAssignmentsTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer:
-              () => $$TagAssignmentsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer:
-              () =>
-                  $$TagAssignmentsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer:
-              () => $$TagAssignmentsTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
+          createFilteringComposer: () =>
+              $$TagAssignmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TagAssignmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TagAssignmentsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -2810,74 +2778,73 @@ class $$TagAssignmentsTableTableManager
                 tagDefinitionId: tagDefinitionId,
                 value: value,
               ),
-          withReferenceMapper:
-              (p0) =>
-                  p0
-                      .map(
-                        (e) => (
-                          e.readTable(table),
-                          $$TagAssignmentsTableReferences(db, table, e),
-                        ),
-                      )
-                      .toList(),
-          prefetchHooksCallback: ({
-            fileNodeId = false,
-            tagDefinitionId = false,
-          }) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins: <
-                T extends TableManagerState<
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic,
-                  dynamic
-                >
-              >(state) {
-                if (fileNodeId) {
-                  state =
-                      state.withJoin(
-                            currentTable: table,
-                            currentColumn: table.fileNodeId,
-                            referencedTable: $$TagAssignmentsTableReferences
-                                ._fileNodeIdTable(db),
-                            referencedColumn:
-                                $$TagAssignmentsTableReferences
-                                    ._fileNodeIdTable(db)
-                                    .id,
-                          )
-                          as T;
-                }
-                if (tagDefinitionId) {
-                  state =
-                      state.withJoin(
-                            currentTable: table,
-                            currentColumn: table.tagDefinitionId,
-                            referencedTable: $$TagAssignmentsTableReferences
-                                ._tagDefinitionIdTable(db),
-                            referencedColumn:
-                                $$TagAssignmentsTableReferences
-                                    ._tagDefinitionIdTable(db)
-                                    .id,
-                          )
-                          as T;
-                }
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TagAssignmentsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({fileNodeId = false, tagDefinitionId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (fileNodeId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.fileNodeId,
+                                    referencedTable:
+                                        $$TagAssignmentsTableReferences
+                                            ._fileNodeIdTable(db),
+                                    referencedColumn:
+                                        $$TagAssignmentsTableReferences
+                                            ._fileNodeIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (tagDefinitionId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.tagDefinitionId,
+                                    referencedTable:
+                                        $$TagAssignmentsTableReferences
+                                            ._tagDefinitionIdTable(db),
+                                    referencedColumn:
+                                        $$TagAssignmentsTableReferences
+                                            ._tagDefinitionIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
-                return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
               },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
         ),
       );
 }
@@ -3008,19 +2975,12 @@ class $$NestedWorkspacesTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer:
-              () =>
-                  $$NestedWorkspacesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer:
-              () => $$NestedWorkspacesTableOrderingComposer(
-                $db: db,
-                $table: table,
-              ),
-          createComputedFieldComposer:
-              () => $$NestedWorkspacesTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
+          createFilteringComposer: () =>
+              $$NestedWorkspacesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NestedWorkspacesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NestedWorkspacesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -3037,16 +2997,9 @@ class $$NestedWorkspacesTableTableManager
                 path: path,
                 mode: mode,
               ),
-          withReferenceMapper:
-              (p0) =>
-                  p0
-                      .map(
-                        (e) => (
-                          e.readTable(table),
-                          BaseReferences(db, table, e),
-                        ),
-                      )
-                      .toList(),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
           prefetchHooksCallback: null,
         ),
       );

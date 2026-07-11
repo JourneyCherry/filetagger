@@ -42,6 +42,26 @@ void main() {
       expect(c.matches([_tag(1, TagValueType.text, 'banana')]), isFalse);
     });
 
+    test('text notContains는 부분 문자열이 없어야 통과', () {
+      const c = FilterCondition(
+        tagDefinitionId: 1,
+        operator: FilterOperator.notContains,
+        operand: 'ap',
+      );
+      expect(c.matches([_tag(1, TagValueType.text, 'banana')]), isTrue);
+      expect(c.matches([_tag(1, TagValueType.text, 'Apple')]), isFalse);
+    });
+
+    test('부정 연산은 태그가 붙어 있어야 만족할 수 있다', () {
+      // 제외 조건과 갈리는 지점: 값 비교는 태그가 없으면 판정 대상이 아니다.
+      const c = FilterCondition(
+        tagDefinitionId: 1,
+        operator: FilterOperator.notContains,
+        operand: 'ap',
+      );
+      expect(c.matches(const []), isFalse);
+    });
+
     test('다중 값 중 하나라도 만족하면 통과', () {
       const c = FilterCondition(
         tagDefinitionId: 1,
@@ -92,6 +112,52 @@ void main() {
         isFalse,
       );
       expect(filter.matches([_tag(1, TagValueType.label, null)]), isTrue);
+    });
+
+    test('부정 연산 표시 조건과 제외 조건은 태그 없는 노드에서 갈린다', () {
+      // "메모가 있고 그게 ap를 안 품은 것만" — 메모 없는 노드는 떨어진다.
+      const notContains = FileFilter(
+        conditions: [
+          FilterCondition(
+            tagDefinitionId: 1,
+            operator: FilterOperator.notContains,
+            operand: 'ap',
+          ),
+        ],
+      );
+      // "ap를 품은 메모만 빼고 다" — 메모 없는 노드는 남는다.
+      const excluded = FileFilter(
+        conditions: [
+          FilterCondition(
+            tagDefinitionId: 1,
+            operator: FilterOperator.contains,
+            operand: 'ap',
+            exclude: true,
+          ),
+        ],
+      );
+      expect(notContains.matches(const []), isFalse);
+      expect(excluded.matches(const []), isTrue);
+
+      // 태그가 붙어 있을 땐 둘이 같은 답을 낸다.
+      final apple = [_tag(1, TagValueType.text, 'Apple')];
+      final banana = [_tag(1, TagValueType.text, 'banana')];
+      expect(notContains.matches(apple), isFalse);
+      expect(excluded.matches(apple), isFalse);
+      expect(notContains.matches(banana), isTrue);
+      expect(excluded.matches(banana), isTrue);
+    });
+
+    test('exists + 제외가 곧 미존재다(별도 notExists 연산이 필요 없는 이유)', () {
+      // 값 비교와 달리 exists는 판정 대상이 "태그가 붙었는가" 자체다. 그래서
+      // 제외 접두사가 정확히 부정이 되고, 태그 없는 노드에서도 어긋나지 않는다.
+      const notExists = FileFilter(
+        conditions: [FilterCondition(tagDefinitionId: 1, exclude: true)],
+      );
+      expect(notExists.matches(const []), isTrue);
+      expect(notExists.matches([_tag(1, TagValueType.label, null)]), isFalse);
+      // 다른 태그만 붙어 있어도 이 태그의 미존재는 성립한다.
+      expect(notExists.matches([_tag(2, TagValueType.label, null)]), isTrue);
     });
 
     test('빈 필터는 모두 통과', () {

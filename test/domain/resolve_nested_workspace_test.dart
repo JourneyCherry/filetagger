@@ -60,9 +60,7 @@ void main() {
       ),
     );
 
-    expect(merger.calls, [
-      ('/root', 'a/b', true),
-    ]);
+    expect(merger.calls, [('/root', 'a/b', true)]);
     expect(files.mode['a/b'], FolderManageMode.managedRecursive);
     // 원본을 지웠으면 남는 중첩이 없어 확정 기록이 불필요하다.
     expect(nested.recorded, isEmpty);
@@ -78,9 +76,7 @@ void main() {
       ),
     );
 
-    expect(merger.calls, [
-      ('/root', 'a/b', false),
-    ]);
+    expect(merger.calls, [('/root', 'a/b', false)]);
     expect(files.mode['a/b'], FolderManageMode.managedRecursive);
     expect(nested.recorded['a/b'], NestedTaggerMode.ignore);
   });

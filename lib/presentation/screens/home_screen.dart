@@ -1,59 +1,46 @@
 import 'dart:io' show FileSystemException;
-import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-import '../../core/file_types.dart';
+import '../../core/platform.dart';
 import '../../data/db/schema_probe.dart';
 import '../../data/fs/node_renamer.dart';
+import '../../data/fs/reveal_in_file_manager.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
-import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_merge_resolution.dart';
 import '../../domain/entities/system_tag.dart';
-import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/usecases/folder_index_scope.dart';
+import '../commands/app_commands.dart';
+import '../commands/command_scope.dart';
+import '../common/file_list_view.dart';
+import '../common/pointer_presence.dart';
+import '../common/preview_split.dart';
+import '../common/selection_controller.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/nested_workspace_provider.dart';
 import '../providers/settings_provider.dart';
-import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/workspace_provider.dart';
-import '../widgets/file_thumbnail.dart';
-import '../widgets/file_toolbar.dart';
+import '../shells/command_context_menu.dart';
+import '../shells/desktop_shell.dart';
+import '../shells/mobile_sheets.dart';
+import '../shells/mobile_shell.dart';
+import '../widgets/folder_manage_menu.dart';
 import '../widgets/preview_pane.dart';
 import '../widgets/reconnect_dialog.dart';
 import '../widgets/tag_assign_dialog.dart';
-import '../widgets/tag_chip.dart';
+import '../widgets/tag_manage_dialog.dart';
+import '../widgets/tag_order_dialog.dart';
 import '../widgets/tag_value_prompt.dart';
 import 'tag_management_screen.dart';
-
-/// 폴더 타일의 관리 방식 메뉴 선택지.
-enum _ManageAction { opaque, managed, toggleRecursive }
-
-/// 트리를 편 뒤의 한 표시 행(노드 + 깊이 + 펼침 상태).
-class _TreeRow {
-  const _TreeRow({
-    required this.node,
-    required this.depth,
-    required this.expandable,
-    required this.expanded,
-  });
-
-  final FileNode node;
-  final int depth;
-  final bool expandable;
-  final bool expanded;
-}
 
 /// 관리 폴더를 열어 스캔한 파일/폴더 목록을 보여주는 메인 화면.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -71,33 +58,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 않으며(_scanning과 별개), 재스캔 중복 실행을 막는 데 쓴다.
   bool _backgroundScanning = false;
 
-  /// 겹쳐 뜨는 선택 바가 차지하는 높이만큼 목록 하단에 확보하는 여백.
-  static const double _selectionBarReserve = 64;
-
-  /// 선택된 파일 노드 id들과 범위 선택(shift)의 기준점.
-  final Set<int> _selectedIds = {};
-  int? _anchorId;
-
-  /// 펼쳐 놓은 폴더 경로들(그룹 트리). 기본은 접힘이라 여기 없으면 접힌 상태다.
-  /// 필터가 걸리면 이 상태와 무관하게 전부 펼쳐 매치를 드러낸다.
-  final Set<String> _expandedFolders = {};
-
-  /// 프리뷰 창을 목록 옆(또는 위)에 표시할지. 앱바 토글로 전환한다.
+  /// 프리뷰 창을 목록 옆(또는 위)에 표시할지. 보기 토글로 전환한다.
   bool _previewVisible = true;
 
-  /// 분할선을 드래그하는 동안의 임시 비율. 드래그가 끝나면 보기 설정에 저장하고
-  /// null로 되돌린다(그 뒤엔 저장된 값을 쓴다).
-  double? _previewRatioDrag;
+  /// 도구모음의 필터·정렬 조건 줄을 보일지(데스크톱 '보기' 메뉴 토글). 숨겨도
+  /// 조건 자체는 그대로 적용된다 — 자리만 접는다.
+  bool _filterBarVisible = true;
+  bool _sortBarVisible = true;
+
+  /// 목록 행에서 태그를 프리뷰처럼 바로 고칠 수 있게 할지(데스크톱 '보기' 메뉴 토글).
+  bool _listEditEnabled = false;
+
+  /// 모바일 선택 모드(롱프레스로 진입, 선택이 비면 빠져나온다). 이 동안 탭은
+  /// 프리뷰 대신 선택 토글이 되고 행 끝에 체크박스가 붙는다. 데스크톱은 보조키로
+  /// 다중 선택하므로 늘 false다.
+  bool _selectionMode = false;
 
   /// 폴더 열기·스캔 등 앱을 잠가야 하는 작업이 진행 중인지. 이 동안에는 폴더
   /// 열기·재스캔·최근 폴더 탭을 막아 네이티브 다이얼로그가 모달처럼 동작하게 한다.
   bool get _busy => _scanning || _picking;
-
-  /// 보조키(ESC 등)를 쓸 수 있는 데스크톱인지. 선택 해제 UI를 이에 맞춰 바꾼다.
-  bool get _isDesktop =>
-      defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.macOS ||
-      defaultTargetPlatform == TargetPlatform.linux;
 
   Future<void> _openFolder() async {
     if (_busy) return;
@@ -122,15 +101,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// 현재 열린 폴더를 닫고 최근 폴더 목록(메인)으로 돌아간다. 워크스페이스 루트를
-  /// 비우면 DB·목록 관련 provider가 자동으로 해제·초기화된다. 화면 로컬 상태
-  /// (선택·펼침)는 여기서 함께 비운다. 스캔 중에는 무시한다.
+  /// 비우면 DB·목록·보기 설정(펼침 상태 포함) provider가 자동으로 해제·초기화된다.
+  /// 화면 로컬 상태(선택)는 여기서 함께 비운다. 스캔 중에는 무시한다.
   void _closeWorkspace() {
     if (_busy) return;
-    setState(() {
-      _clearSelection();
-      _expandedFolders.clear();
-      _previewRatioDrag = null;
-    });
+    _clearSelection();
     ref.read(workspaceRootProvider.notifier).state = null;
   }
 
@@ -177,102 +152,240 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _clearSelection() {
-    _selectedIds.clear();
-    _anchorId = null;
+    ref.read(selectionControllerProvider.notifier).clear();
+    _exitSelectionMode();
   }
 
-  void _toggleExpand(String path) {
-    setState(() {
-      if (!_expandedFolders.remove(path)) _expandedFolders.add(path);
-    });
+  void _exitSelectionMode() {
+    if (_selectionMode && mounted) setState(() => _selectionMode = false);
   }
 
-  /// 필터·정렬된 트리를 표시 순서의 평면 행으로 편다. 접힌 폴더의 자식은 건너뛴다.
-  /// [expandAll]이면(필터 활성 등) 접힘 상태를 무시하고 전부 편다.
-  List<_TreeRow> _flattenTree(
-    List<FileTreeNode> roots, {
-    required bool expandAll,
-  }) {
-    final rows = <_TreeRow>[];
-    void walk(List<FileTreeNode> nodes, int depth) {
-      for (final n in nodes) {
-        final expandable = n.hasChildren;
-        final expanded = expandAll || _expandedFolders.contains(n.node.path);
-        rows.add(
-          _TreeRow(
-            node: n.node,
-            depth: depth,
-            expandable: expandable,
-            expanded: expanded,
-          ),
-        );
-        if (expandable && expanded) walk(n.children, depth + 1);
-      }
+  /// 선택을 개별 토글한다(체크박스·롱프레스·Ctrl 클릭). 마지막 선택이 풀리면
+  /// 모바일 선택 모드에서 함께 빠져나온다.
+  void _toggleNode(int id) {
+    ref.read(selectionControllerProvider.notifier).toggle(id);
+    if (ref.read(selectionControllerProvider).isEmpty) _exitSelectionMode();
+  }
+
+  /// 폴더 펼침/접힘을 뒤집는다(워크스페이스 보기 설정에 저장된다).
+  void _toggleExpand(String path) =>
+      ref.read(viewSettingsProvider.notifier).toggleExpandedFolder(path);
+
+  /// 표시 중인(펼쳐진) 모든 행을 선택한다. 표시 순서는 목록 렌더와 같은
+  /// [flattenTree]로 구해 Shift 범위 선택과 어긋나지 않게 한다.
+  void _selectAll() {
+    final roots = ref.read(fileTreeProvider).valueOrNull;
+    if (roots == null) return;
+    final rows = flattenTree(
+      roots,
+      expandedFolders: ref.read(expandedFoldersProvider),
+      expandAll: !ref.read(fileFilterProvider).isEmpty,
+    );
+    final ids = [
+      for (final r in rows)
+        if (r.node.id != null) r.node.id!,
+    ];
+    ref.read(selectionControllerProvider.notifier).selectAll(ids);
+    if (ids.isEmpty) {
+      _exitSelectionMode();
+    } else if (!isDesktopPlatform && !_selectionMode) {
+      setState(() => _selectionMode = true);
     }
-
-    walk(roots, 0);
-    return rows;
   }
 
-  /// 탐색기식 클릭 선택. 클릭=단일, Shift=범위, Ctrl/Cmd=개별 토글.
-  ///
-  /// TODO(select): 보조키가 없는 모바일/태블릿에서는 선택 모드 토글+체크박스로
-  /// 동작하도록 플랫폼 분기가 필요하다(백로그).
+  /// 선택한 단일 항목을 활성화한다(Enter·컨텍스트 메뉴). 폴더는 펼침/접힘을
+  /// 토글하고, 파일은 프리뷰를 띄운다(이미 보이면 그대로 둔다).
+  void _activateSelected() {
+    final node = _singleSelectedNode;
+    if (node == null) return;
+    if (node.isDirectory && !node.isMissing) {
+      _toggleExpand(node.path);
+    } else {
+      _showPreview(node);
+    }
+  }
+
+  /// [node]의 프리뷰를 드러낸다. 분할이 가능한 폭이면 분할 창을 켜고, 좁으면
+  /// 바텀시트로 띄운다.
+  void _showPreview(FileNode node) {
+    if (_splitAllowed) {
+      if (!_previewVisible) setState(() => _previewVisible = true);
+      return;
+    }
+    _showPreviewSheet(node);
+  }
+
+  Future<void> _showPreviewSheet(FileNode node) {
+    return showPreviewSheet(
+      context,
+      preview: PreviewPane(
+        node: node,
+        selectedCount: 1,
+        onEditAssignment: _editAssignmentFromList,
+        onRemoveAssignment: _removeAssignment,
+        onAddTag: () => _addTagToNode(node),
+      ),
+    );
+  }
+
+  /// 프리뷰를 목록 옆에 나란히 둘 만한 폭인지. 데스크톱은 창을 줄여도 분할을
+  /// 유지한다(분할선을 끌어 프리뷰를 접을 수 있으므로).
+  bool get _splitAllowed =>
+      isDesktopPlatform || prefersSplitPane(MediaQuery.sizeOf(context).width);
+
+  /// 분할 프리뷰가 지금 화면에 떠 있는지(좁은 폭에서는 시트가 대신한다).
+  bool get _splitVisible => _previewVisible && _splitAllowed;
+
+  /// '프리뷰 보기' 명령. 분할을 쓸 수 없는 폭에서는 단일 선택의 프리뷰 시트를 연다.
+  void _togglePreview() {
+    if (!_splitAllowed) {
+      final node = _singleSelectedNode;
+      if (node != null) _showPreviewSheet(node);
+      return;
+    }
+    setState(() => _previewVisible = !_previewVisible);
+  }
+
+  /// 도구모음의 조건 줄을 접었다 편다. 조건은 그대로 적용된 채 자리만 감춘다.
+  void _toggleFilterBar() =>
+      setState(() => _filterBarVisible = !_filterBarVisible);
+
+  void _toggleSortBar() => setState(() => _sortBarVisible = !_sortBarVisible);
+
+  /// 목록 행의 태그를 프리뷰처럼 바로 고칠 수 있게 켜고 끈다.
+  void _toggleListEdit() =>
+      setState(() => _listEditEnabled = !_listEditEnabled);
+
+  /// 목록의 폴더 묶기(계층 그룹화)를 켜고 끈다. 워크스페이스 설정에 저장된다.
+  void _toggleGrouping() =>
+      ref.read(viewSettingsProvider.notifier).toggleGroupByFolder();
+
+  /// 행 탭/클릭 해석. 보조키가 눌려 있으면 플랫폼과 무관하게 탐색기식으로 읽는다
+  /// (Shift=범위, Ctrl/Cmd=개별 토글) — 모바일에 하드웨어 키보드를 붙인 경우의
+  /// 입력 적응이다. 보조키가 없으면 데스크톱은 단일 선택, 모바일은 선택 모드일 때만
+  /// 토글하고 아니면 단일 선택 후 프리뷰를 연다. 선택 상태 변경은
+  /// [SelectionController]에 위임한다.
   void _onTapNode(List<FileNode> items, int index) {
-    final id = items[index].id;
+    final node = items[index];
+    final id = node.id;
     if (id == null) return;
     final keys = HardwareKeyboard.instance;
+    final controller = ref.read(selectionControllerProvider.notifier);
 
-    setState(() {
-      if (keys.isShiftPressed && _anchorId != null) {
-        final anchorIndex = items.indexWhere((n) => n.id == _anchorId);
-        if (anchorIndex == -1) {
-          _selectedIds
-            ..clear()
-            ..add(id);
-          _anchorId = id;
-        } else {
-          final lo = math.min(anchorIndex, index);
-          final hi = math.max(anchorIndex, index);
-          _selectedIds.clear();
-          for (var i = lo; i <= hi; i++) {
-            final nid = items[i].id;
-            if (nid != null) _selectedIds.add(nid);
-          }
-        }
-      } else if (keys.isControlPressed || keys.isMetaPressed) {
-        if (!_selectedIds.remove(id)) _selectedIds.add(id);
-        _anchorId = id;
-      } else {
-        _selectedIds
-          ..clear()
-          ..add(id);
-        _anchorId = id;
-      }
-    });
+    if (keys.isShiftPressed) {
+      controller.selectRange(_orderedIdsOf(items), id);
+      return;
+    }
+    if (keys.isControlPressed || keys.isMetaPressed) {
+      _toggleNode(id);
+      return;
+    }
+    if (_selectionMode) {
+      _toggleNode(id);
+      return;
+    }
+    controller.selectSingle(id);
+    if (!isDesktopPlatform && !node.isDirectory) _showPreview(node);
+  }
+
+  /// 행 롱프레스: 선택 모드로 들어가며 그 행을 선택에 넣는다(모바일 전용).
+  void _onLongPressNode(List<FileNode> items, int index) {
+    final id = items[index].id;
+    if (id == null) return;
+    if (!_selectionMode) setState(() => _selectionMode = true);
+    _toggleNode(id);
+  }
+
+  List<int> _orderedIdsOf(List<FileNode> items) => [
+    for (final n in items)
+      if (n.id != null) n.id!,
+  ];
+
+  /// 행 우클릭: 선택 밖의 행이면 그 행만 선택한 뒤(탐색기와 같은 관용) 새 선택
+  /// 기준으로 명령 활성 상태를 다시 구해 컨텍스트 메뉴를 띄운다. 우클릭한 행이
+  /// 폴더면 관리 방식 항목을 메뉴 끝에 이어 붙인다(체크 = 상속 반영 모드).
+  Future<void> _onSecondaryTapNode(
+    List<FileNode> items,
+    int index,
+    Offset globalPosition,
+  ) async {
+    final node = items[index];
+    final id = node.id;
+    if (id == null) return;
+    final controller = ref.read(selectionControllerProvider.notifier);
+    if (!ref.read(selectionControllerProvider).contains(id)) {
+      controller.selectSingle(id);
+    }
+
+    final handlers = _handlers(
+      ref.read(selectionControllerProvider),
+      ref.read(workspaceRootProvider) != null,
+    );
+    final missing = _singleMissingSelected != null;
+    final resolved = _resolvedModeOf(node);
+    if (!mounted) return;
+    await showCommandContextMenu(
+      context: context,
+      globalPosition: globalPosition,
+      handlers: handlers,
+      items: [
+        AppCommandId.activateNode,
+        null,
+        // 연결 끊긴 노드 하나면 태그 부여 대신 원본 찾기로 안내한다.
+        if (missing) AppCommandId.reconnect else AppCommandId.assignTags,
+        AppCommandId.revealInFileManager,
+        null,
+        AppCommandId.selectAll,
+        AppCommandId.clearSelection,
+      ],
+      extraItems: resolved == null
+          ? const []
+          : [
+              const PopupMenuDivider(),
+              ...folderManageMenuItems<AppCommandId>(
+                resolved: resolved,
+                onSelected: (action) => _onFolderManage(node, resolved, action),
+              ),
+            ],
+    );
+  }
+
+  /// 선택이 정확히 하나면 그 노드. 아니면 null.
+  FileNode? get _singleSelectedNode {
+    final single = ref.read(selectionControllerProvider).singleOrNull;
+    if (single == null) return null;
+    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
+    final matches = items.where((n) => n.id == single);
+    return matches.isEmpty ? null : matches.first;
   }
 
   /// 선택이 정확히 연결 끊긴(보존) 노드 하나면 그 노드를 반환한다. 이때
-  /// 액션 바 버튼이 '태그 부여' 대신 '원본 파일 찾기'로 바뀐다.
+  /// '태그 부여' 자리가 '원본 파일 찾기'로 바뀐다.
   FileNode? get _singleMissingSelected {
-    if (_selectedIds.length != 1) return null;
-    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
-    final matches = items.where((n) => n.id == _selectedIds.first);
-    if (matches.isEmpty) return null;
-    final node = matches.first;
-    return node.isMissing ? node : null;
+    final node = _singleSelectedNode;
+    return node != null && node.isMissing ? node : null;
   }
 
-  /// 겹쳐 뜨는 선택 바(선택 수·ESC 안내·태그 부여/원본 찾기 버튼)가 필요한지.
-  ///
-  /// 단일 선택은 프리뷰 창에서 칩으로 바로 추가·해제하므로 바가 불필요하다.
-  /// 여러 개를 선택했거나(일괄 부여), 프리뷰가 꺼져 있거나(추가 경로가 없음),
-  /// 연결 끊긴 노드 하나를 골라 원본 찾기가 필요할 때만 바를 띄운다.
-  bool get _needsSelectionBar {
-    if (_selectedIds.isEmpty) return false;
-    if (_singleMissingSelected != null) return true;
-    if (_selectedIds.length > 1) return true;
-    return !_previewVisible;
+  /// 선택이 정확히 디스크에 실재하는 노드 하나면 그 노드. 탐색기에서 열기처럼
+  /// 실제 파일을 필요로 하는 명령의 활성 조건이다.
+  FileNode? get _singleExistingSelected {
+    final node = _singleSelectedNode;
+    return node != null && !node.isMissing ? node : null;
+  }
+
+  /// 선택한 항목의 위치를 OS 파일 관리자에서 연다(Windows 탐색기는 항목을 고른 채).
+  Future<void> _revealSelected() async {
+    final node = _singleExistingSelected;
+    final root = ref.read(workspaceRootProvider);
+    if (node == null || root == null) return;
+    try {
+      await const FileManagerRevealer().reveal(
+        workspaceRoot: root,
+        relPath: node.path,
+      );
+    } catch (e) {
+      _showSnack('탐색기에서 열지 못했습니다: $e');
+    }
   }
 
   /// 보존 노드의 원본 파일을 사용자가 골라 태그를 수동 재연결한다. 후보는
@@ -312,12 +425,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case ReconnectRemove():
         await repo.removeNode(missing.id!);
     }
-    if (mounted) setState(_clearSelection);
+    if (mounted) _clearSelection();
   }
 
   Future<void> _assignToSelection() async {
-    if (_selectedIds.isEmpty) return;
-    final ids = _selectedIds.toList();
+    final selection = ref.read(selectionControllerProvider);
+    if (selection.isEmpty) return;
+    final ids = selection.selectedIds.toList();
     final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
     String title;
     if (ids.length == 1) {
@@ -444,57 +558,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// 폴더 타일의 관리 방식 메뉴. `폴더만 관리`(내부 감춤) / `내부 관리` 중 하나와,
-  /// 내부 관리일 때만 켤 수 있는 `재귀적으로 관리` 토글을 보인다. [resolved]는
-  /// 상속까지 반영한 이 폴더의 실제(effective) 모드다.
-  Widget _folderManageMenu(FileNode node, FolderManageMode resolved) {
-    final managedFamily = resolved != FolderManageMode.opaque;
-    return PopupMenuButton<_ManageAction>(
-      tooltip: '폴더 관리 방식',
-      onSelected: (action) => _onFolderManage(node, resolved, action),
-      itemBuilder: (context) => [
-        CheckedPopupMenuItem(
-          value: _ManageAction.opaque,
-          checked: resolved == FolderManageMode.opaque,
-          child: const Text('폴더만 관리 (내부 감춤)'),
-        ),
-        CheckedPopupMenuItem(
-          value: _ManageAction.managed,
-          checked: managedFamily,
-          child: const Text('내부 관리'),
-        ),
-        const PopupMenuDivider(),
-        CheckedPopupMenuItem(
-          value: _ManageAction.toggleRecursive,
-          checked: resolved == FolderManageMode.managedRecursive,
-          // 폴더만 관리(불투명)일 땐 재귀가 의미 없어 체크 불가.
-          enabled: managedFamily,
-          child: const Text('재귀적으로 관리'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _onFolderManage(
+  /// 데스크톱 컨텍스트 메뉴에서 폴더 관리 방식을 골랐을 때. 바뀔 게 없는 선택
+  /// (이미 그 모드)이면 아무 것도 하지 않는다.
+  void _onFolderManage(
     FileNode node,
     FolderManageMode resolved,
-    _ManageAction action,
+    FolderManageAction action,
+  ) {
+    final next = nextManageMode(resolved, action);
+    if (next != null) _applyFolderMode(node, next);
+  }
+
+  /// 폴더 노드면 상속까지 반영한 관리 모드, 아니면(파일·보존 노드) null.
+  FolderManageMode? _resolvedModeOf(FileNode node) =>
+      node.isDirectory && !node.isMissing
+      ? (ref.read(folderResolvedModesProvider)[node.path] ??
+            FolderManageMode.managed)
+      : null;
+
+  /// 모바일: 폴더 관리 방식을 바텀시트에서 고른다(데스크톱 컨텍스트 메뉴에 대응).
+  Future<void> _openFolderManageSheet(
+    FileNode node,
+    FolderManageMode resolved,
   ) async {
-    switch (action) {
-      case _ManageAction.opaque:
-        if (resolved == FolderManageMode.opaque) return;
-        await _applyFolderMode(node, FolderManageMode.opaque);
-      case _ManageAction.managed:
-        // 이미 관리 계열이면 라디오는 무시(재귀 여부는 토글로 바꾼다).
-        if (resolved != FolderManageMode.opaque) return;
-        await _applyFolderMode(node, FolderManageMode.managed);
-      case _ManageAction.toggleRecursive:
-        if (resolved == FolderManageMode.opaque) return;
-        final next = resolved == FolderManageMode.managedRecursive
-            ? FolderManageMode.managed
-            : FolderManageMode.managedRecursive;
-        await _applyFolderMode(node, next);
-    }
+    final mode = await showFolderManageSheet(
+      context,
+      folderName: node.name,
+      resolved: resolved,
+    );
+    if (mode == null || mode == resolved) return;
+    await _applyFolderMode(node, mode);
   }
 
   /// 폴더의 관리 방식 override를 [newMode]로 바꾼다. 범위가 줄어 사라질 하위(태그
@@ -514,27 +607,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _backgroundScan();
   }
 
-  /// 루트 폴더의 관리 방식 메뉴(관리/재귀 관리 토글). 루트는 불투명이 없다.
-  Widget _rootManageMenu(FolderManageMode rootMode) {
-    return PopupMenuButton<bool>(
-      tooltip: '루트 폴더 관리 방식',
-      icon: const Icon(Icons.account_tree_outlined),
-      onSelected: _setRootRecursive,
-      itemBuilder: (context) => [
-        CheckedPopupMenuItem(
-          value: false,
-          checked: rootMode != FolderManageMode.managedRecursive,
-          child: const Text('직속 항목만 관리'),
-        ),
-        CheckedPopupMenuItem(
-          value: true,
-          checked: rootMode == FolderManageMode.managedRecursive,
-          child: const Text('전체 재귀 관리'),
-        ),
-      ],
-    );
-  }
-
+  /// 루트 폴더의 관리 방식(재귀 여부)을 바꾼다. 루트는 불투명이 없어 두 갈래다.
   Future<void> _setRootRecursive(bool recursive) async {
     final current = ref.read(rootManageModeProvider);
     final newMode = recursive
@@ -645,9 +718,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!detected.contains(path)) await repo.remove(path);
     }
 
-    final undecided = detectedDirs
-        .where((d) => !decided.contains(d))
-        .toList();
+    final undecided = detectedDirs.where((d) => !decided.contains(d)).toList();
     if (undecided.isNotEmpty && mounted) {
       await _promptMerge(undecided);
     }
@@ -703,12 +774,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// 지금 상태에서 실행할 수 있는 명령들의 핸들러. 실행할 수 없는 명령은 null로
+  /// 두어 단축키·메뉴·버튼이 함께 비활성화된다.
+  CommandHandlers _handlers(SelectionState selection, bool hasWorkspace) {
+    return CommandHandlers(
+      openFolder: _busy ? null : _openFolder,
+      closeFolder: (!hasWorkspace || _busy) ? null : _closeWorkspace,
+      rescan: (!hasWorkspace || _busy) ? null : _scan,
+      selectAll: hasWorkspace ? _selectAll : null,
+      clearSelection: selection.isEmpty ? null : _clearSelection,
+      activateNode: selection.singleOrNull == null ? null : _activateSelected,
+      assignTags: selection.isEmpty ? null : _assignToSelection,
+      reconnect: _singleMissingSelected == null ? null : _reconnectSelected,
+      revealInFileManager: _singleExistingSelected == null
+          ? null
+          : _revealSelected,
+      manageTags: hasWorkspace ? _openTagManagement : null,
+      // 데스크톱은 표시 순서를 태그 관리 다이얼로그가 함께 다룬다.
+      tagDisplayOrder: (hasWorkspace && !isDesktopPlatform)
+          ? () => showTagOrderDialog(context)
+          : null,
+      // 도구모음·목록 수정 토글은 데스크톱 셸의 크롬에만 있다.
+      toggleFilterBar: (hasWorkspace && isDesktopPlatform)
+          ? _toggleFilterBar
+          : null,
+      toggleSortBar: (hasWorkspace && isDesktopPlatform)
+          ? _toggleSortBar
+          : null,
+      toggleListEdit: (hasWorkspace && isDesktopPlatform)
+          ? _toggleListEdit
+          : null,
+      // 폴더 묶기는 크롬이 아니라 실제 보기 설정이라 두 셸 모두에서 켤 수 있다.
+      toggleGrouping: hasWorkspace ? _toggleGrouping : null,
+      togglePreview: hasWorkspace ? _togglePreview : null,
+    );
+  }
+
+  /// 태그 관리를 연다. 데스크톱은 화면 전환 없이 다이얼로그로(생성·편집·삭제·표시
+  /// 순서를 한 자리에서), 모바일은 전용 화면으로 간다.
+  void _openTagManagement() {
+    if (isDesktopPlatform) {
+      showTagManageDialog(context);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const TagManagementScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final workspaceRoot = ref.watch(workspaceRootProvider);
     // DB는 폴더가 열릴 때 생성/연결된다. 여기서 watch해 생명주기를 활성화한다.
-    final database = ref.watch(databaseProvider);
-    final recentFolders = ref.watch(recentFoldersProvider);
+    ref.watch(databaseProvider);
+    // 선택이 바뀌면 목록 하이라이트·프리뷰·명령 활성 상태가 함께 갱신된다.
+    final selection = ref.watch(selectionControllerProvider);
+    final handlers = _handlers(selection, workspaceRoot != null);
 
     // 디스크 변화(watcher, 디바운스됨)를 구독해 백그라운드 재스캔을 트리거한다.
     ref.listen(workspaceChangesProvider, (_, next) {
@@ -721,317 +842,165 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (prev != null && prev != next) _backgroundScan();
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('File Tagger'),
-        actions: [
-          if (workspaceRoot != null) ...[
-            IconButton(
-              tooltip: _previewVisible ? '프리뷰 숨기기' : '프리뷰 보기',
-              onPressed: () =>
-                  setState(() => _previewVisible = !_previewVisible),
-              icon: Icon(
-                _previewVisible
-                    ? Icons.view_sidebar
-                    : Icons.view_sidebar_outlined,
-              ),
-            ),
-            IconButton(
-              tooltip: '태그 관리',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const TagManagementScreen(),
-                ),
-              ),
-              icon: const Icon(Icons.sell_outlined),
-            ),
-            IconButton(
-              tooltip: '다시 스캔',
-              onPressed: _busy ? null : _scan,
-              icon: const Icon(Icons.refresh),
-            ),
-            IconButton(
-              tooltip: '폴더 닫기',
-              onPressed: _busy ? null : _closeWorkspace,
-              icon: const Icon(Icons.close),
-            ),
-          ],
-        ],
-      ),
-      body: _wrapWithEscToClear(
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FilledButton.icon(
-                onPressed: _busy ? null : _openFolder,
-                icon: const Icon(Icons.folder_open),
-                label: const Text('폴더 열기'),
-              ),
-              const SizedBox(height: 16),
-              if (workspaceRoot != null) ...[
-                Row(
-                  children: [
-                    Text(
-                      '현재 폴더',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const Spacer(),
-                    _rootManageMenu(ref.watch(rootManageModeProvider)),
-                  ],
-                ),
-                Text(workspaceRoot),
-                const SizedBox(height: 4),
-                Text(
-                  database != null ? 'DB 연결됨 (.filetagger)' : 'DB 미연결',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const Divider(height: 32),
-                const FileToolbar(),
-                const SizedBox(height: 12),
-                Expanded(child: _buildContentArea()),
-              ] else
-                Expanded(child: _buildRecentFolders(recentFolders)),
-            ],
-          ),
-        ),
-      ),
+    final body = workspaceRoot != null
+        ? _buildContentArea(selection)
+        : _buildRecentFolders(handlers, ref.watch(recentFoldersProvider));
+
+    if (!isDesktopPlatform) {
+      return MobileShell(
+        handlers: handlers,
+        workspaceRoot: workspaceRoot,
+        selectionCount: selection.length,
+        scanning: _scanning,
+        onOpenFilterSheet: () => showFilterSortSheet(context),
+        // 빈 상태(최근 폴더)만 여백을 준다. 목록은 화면 끝까지 채운다.
+        body: workspaceRoot != null
+            ? body
+            : Padding(padding: const EdgeInsets.all(16), child: body),
+      );
+    }
+
+    return DesktopShell(
+      handlers: handlers,
+      workspaceRoot: workspaceRoot,
+      onOpenRecent: _busy ? null : _openWorkspace,
+      onSetRootRecursive: workspaceRoot == null ? null : _setRootRecursive,
+      scanning: _scanning,
+      previewVisible: _previewVisible,
+      filterBarVisible: _filterBarVisible,
+      sortBarVisible: _sortBarVisible,
+      listEditEnabled: _listEditEnabled,
+      grouped: ref.watch(groupByFolderProvider),
+      body: body,
     );
   }
 
-  /// 데스크톱에서 ESC로 선택을 취소하도록 감싼다. 모바일은 선택 해제 버튼을 쓴다.
-  Widget _wrapWithEscToClear(Widget child) {
-    if (!_isDesktop) return child;
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (_selectedIds.isNotEmpty) setState(_clearSelection);
-        },
-      },
-      child: Focus(autofocus: true, child: child),
-    );
-  }
-
-  /// 목록(+겹친 선택 바)과, 켜져 있으면 프리뷰 창을 반응형으로 배치한다.
-  /// 창이 가로로 넓으면 프리뷰를 왼쪽에, 세로로 길면 위쪽에 둔다.
-  Widget _buildContentArea() {
-    // 선택 정보 바는 목록을 밀어내지 않고 위에 반투명하게 겹쳐 띄운다.
-    final listStack = Stack(
-      children: [
-        Positioned.fill(child: _buildFileList()),
-        Positioned(left: 0, right: 0, bottom: 0, child: _buildSelectionBar()),
-      ],
-    );
-    if (!_previewVisible) return listStack;
-
-    // 드래그 중이면 임시 비율, 아니면 저장된 비율을 쓴다.
-    final ratio =
-        _previewRatioDrag ?? ref.watch(viewSettingsProvider).previewRatio;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontal = preferHorizontalPreview(
-          constraints.maxWidth,
-          constraints.maxHeight,
-        );
-        final total = horizontal ? constraints.maxWidth : constraints.maxHeight;
-        final paneExtent = total * ratio;
-        final pane = _buildPreviewPane();
-        final handle = _buildDragHandle(horizontal: horizontal, total: total);
-        if (horizontal) {
-          return Row(
-            children: [
-              SizedBox(width: paneExtent, child: pane),
-              handle,
-              Expanded(child: listStack),
-            ],
-          );
-        }
-        return Column(
-          children: [
-            SizedBox(height: paneExtent, child: pane),
-            handle,
-            Expanded(child: listStack),
-          ],
-        );
-      },
-    );
-  }
-
-  /// 프리뷰와 목록 사이의 분할선. 드래그하면 비율이 바뀌고, 놓으면 저장한다.
-  /// 커서를 리사이즈 모양으로 바꿔 잡을 수 있음을 알린다.
-  Widget _buildDragHandle({required bool horizontal, required double total}) {
-    return MouseRegion(
-      cursor: horizontal
-          ? SystemMouseCursors.resizeColumn
-          : SystemMouseCursors.resizeRow,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onPanUpdate: (details) {
-          if (total <= 0) return;
-          final delta = horizontal ? details.delta.dx : details.delta.dy;
-          final base =
-              _previewRatioDrag ?? ref.read(viewSettingsProvider).previewRatio;
-          setState(() {
-            _previewRatioDrag = (base + delta / total).clamp(
-              kPreviewRatioMin,
-              kPreviewRatioMax,
-            );
-          });
-        },
-        onPanEnd: (_) {
-          final ratio = _previewRatioDrag;
-          if (ratio != null) {
-            ref.read(viewSettingsProvider.notifier).updatePreviewRatio(ratio);
-          }
-          setState(() => _previewRatioDrag = null);
-        },
-        child: horizontal
-            ? const VerticalDivider(width: 10, thickness: 1)
-            : const Divider(height: 10, thickness: 1),
-      ),
-    );
+  /// 목록과, 분할로 켜져 있으면 프리뷰 창을 함께 배치한다. 좁은 폭에서는 분할
+  /// 대신 프리뷰를 시트로 띄우므로 여기서는 목록만 그린다.
+  Widget _buildContentArea(SelectionState selection) {
+    final list = _buildFileList(selection);
+    if (!_splitVisible) return list;
+    return PreviewSplitView(list: list, preview: _buildPreviewPane());
   }
 
   /// 선택이 정확히 하나일 때 그 노드를 미리본다. 없거나 여럿이면 노드는 null이고
   /// 프리뷰 창이 안내(빈 상태/"N개 선택됨")를 대신 보인다.
   Widget _buildPreviewPane() {
     final items = ref.watch(fileNodesProvider).valueOrNull ?? const [];
+    final selection = ref.read(selectionControllerProvider);
     FileNode? node;
-    if (_selectedIds.length == 1) {
-      final matches = items.where((n) => n.id == _selectedIds.first);
+    final single = selection.singleOrNull;
+    if (single != null) {
+      final matches = items.where((n) => n.id == single);
       if (matches.isNotEmpty) node = matches.first;
     }
     final target = node;
     return PreviewPane(
       node: target,
-      selectedCount: _selectedIds.length,
+      selectedCount: selection.length,
       onEditAssignment: _editAssignmentFromList,
       onRemoveAssignment: _removeAssignment,
       onAddTag: target == null ? () {} : () => _addTagToNode(target),
     );
   }
 
-  Widget _buildFileList() {
-    if (_scanning) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final tree = ref.watch(fileTreeProvider);
-    final assignmentsByFile = ref.watch(effectiveAssignmentsByFileProvider);
-    final visibleSystemTagIds = ref.watch(visibleSystemTagIdsProvider);
-    final resolvedModes = ref.watch(folderResolvedModesProvider);
-    final filterActive = !ref.watch(fileFilterProvider).isEmpty;
-
-    return tree.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('목록을 불러오지 못했습니다: $e'),
-      data: (roots) {
-        // 필터가 걸리면 매치를 드러내기 위해 접힘 상태와 무관하게 전부 편다.
-        final rows = _flattenTree(roots, expandAll: filterActive);
-        if (rows.isEmpty) return Text(_emptyMessage(filterActive));
-        // 범위 선택(shift)이 표시 순서로 동작하도록 편 노드 목록을 넘긴다.
-        final items = [for (final r in rows) r.node];
-        return ListView.builder(
-          // 겹쳐 뜬 선택 바에 마지막 항목이 영구히 가리지 않도록 여백을 둔다.
-          padding: EdgeInsets.only(
-            bottom: _needsSelectionBar ? _selectionBarReserve : 0,
-          ),
-          itemCount: rows.length,
-          itemBuilder: (context, index) => _treeTile(
-            rows,
-            items,
-            index,
-            assignmentsByFile,
-            visibleSystemTagIds,
-            resolvedModes,
-          ),
-        );
-      },
-    );
+  Widget _buildFileList(SelectionState selection) {
+    final desktop = isDesktopPlatform;
+    final content = _scanning
+        ? const Center(child: CircularProgressIndicator())
+        : FileListView(
+            onTapNode: _onTapNode,
+            onLongPressNode: desktop ? null : _onLongPressNode,
+            // 우클릭은 정밀 포인터가 있을 때만 연다(마우스를 붙인 모바일도 포함).
+            onSecondaryTapNode: ref.watch(pointerPresenceProvider)
+                ? _onSecondaryTapNode
+                : null,
+            onEditAssignment: _editAssignmentFromList,
+            // '목록에서 수정'을 켜면 행의 태그 칩이 프리뷰 창처럼 해제·추가까지 받는다.
+            inlineEdit: desktop && _listEditEnabled,
+            onRemoveAssignment: _removeAssignment,
+            onAddTag: _addTagToNode,
+            // 데스크톱은 폴더 관리 방식을 우클릭 컨텍스트 메뉴로 옮겨 행 끝을 비운다.
+            trailingBuilder: desktop
+                ? null
+                : (node, mode) => _mobileTrailing(selection, node, mode),
+            tileWrapper: desktop ? null : _swipeActions,
+            // FAB에 마지막 행이 가리지 않도록 아래를 비워 둔다.
+            padding: desktop
+                ? EdgeInsets.zero
+                : const EdgeInsets.only(bottom: 88),
+          );
+    if (desktop) return content;
+    // 당겨서 재스캔(모바일에는 상시 '다시 스캔' 버튼이 없다). 스캔이 시작되면
+    // 목록이 스피너로 바뀌므로 RefreshIndicator를 그 바깥에 두어 살려 둔다.
+    return RefreshIndicator(onRefresh: _scan, child: content);
   }
 
-  String _emptyMessage(bool filterActive) =>
-      filterActive ? '필터 조건에 맞는 파일이 없습니다.' : '이 폴더에는 표시할 파일이 없습니다.';
-
-  Widget _treeTile(
-    List<_TreeRow> rows,
-    List<FileNode> items,
-    int index,
-    Map<int, List<AssignedTag>> assignmentsByFile,
-    Set<int> visibleSystemTagIds,
-    Map<String, FolderManageMode> resolvedModes,
+  /// 모바일 행 끝: 선택 모드면 체크박스, 아니면 폴더의 관리 방식 시트 버튼.
+  Widget? _mobileTrailing(
+    SelectionState selection,
+    FileNode node,
+    FolderManageMode? resolvedMode,
   ) {
-    final row = rows[index];
-    final node = row.node;
-    // 실제 폴더의 effective 관리 모드(상속 반영). 파일·보존 노드는 메뉴 없음.
-    final showManage = node.isDirectory && !node.isMissing;
-    final resolved = resolvedModes[node.path] ?? FolderManageMode.managed;
-    return _FileNodeTile(
-      node: node,
-      depth: row.depth,
-      expandable: row.expandable,
-      expanded: row.expanded,
-      onToggleExpand: row.expandable ? () => _toggleExpand(node.path) : null,
-      selected: node.id != null && _selectedIds.contains(node.id),
-      assignments: assignmentsByFile[node.id] ?? const [],
-      visibleSystemTagIds: visibleSystemTagIds,
-      onTap: () => _onTapNode(items, index),
-      onEditAssignment: _editAssignmentFromList,
-      folderMode: showManage ? resolved : null,
-      trailing: showManage ? _folderManageMenu(node, resolved) : null,
+    final id = node.id;
+    if (_selectionMode) {
+      return Checkbox(
+        value: id != null && selection.contains(id),
+        onChanged: id == null ? null : (_) => _toggleNode(id),
+      );
+    }
+    if (resolvedMode == null) return null;
+    return IconButton(
+      icon: const Icon(Icons.more_vert),
+      tooltip: '폴더 관리 방식',
+      onPressed: () => _openFolderManageSheet(node, resolvedMode),
     );
   }
 
-  Widget _buildSelectionBar() {
-    if (!_needsSelectionBar) return const SizedBox.shrink();
-    // 연결 끊긴 노드 하나만 선택되면 '태그 부여' 대신 '원본 파일 찾기'를 보인다.
-    final missing = _singleMissingSelected;
+  /// 모바일 스와이프 액션: 오른쪽으로 밀면 태그 부여. 행을 지우는 제스처가 아니므로
+  /// 액션을 실행한 뒤 늘 제자리로 되돌린다. 선택 모드에서는 체크 조작과 겹치지
+  /// 않도록 스와이프를 끈다.
+  Widget _swipeActions(FileNode node, Widget tile) {
+    final id = node.id;
+    if (_selectionMode || id == null) return tile;
+    return Dismissible(
+      key: ValueKey(id),
+      direction: DismissDirection.startToEnd,
+      background: _swipeBackground(AppCommandId.assignTags),
+      confirmDismiss: (_) async {
+        await _addTagToNode(node);
+        return false;
+      },
+      child: tile,
+    );
+  }
+
+  Widget _swipeBackground(AppCommandId id) {
+    final command = commandOf(id);
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      decoration: BoxDecoration(
-        // 목록을 완전히 가리지 않도록 반투명 배경으로 겹쳐 띄운다.
-        color: scheme.surface.withValues(alpha: 0.85),
-        border: Border(top: BorderSide(color: scheme.outlineVariant)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      child: Row(
-        children: [
-          Text('${_selectedIds.length}개 선택'),
-          if (_isDesktop) ...[
-            const SizedBox(width: 8),
-            Text('ESC로 선택 해제', style: Theme.of(context).textTheme.bodySmall),
-          ],
-          const Spacer(),
-          // 데스크톱은 ESC로 해제하므로 버튼을 숨긴다(모바일에서만 노출).
-          if (!_isDesktop) ...[
-            TextButton(
-              onPressed: () => setState(_clearSelection),
-              child: const Text('선택 해제'),
-            ),
-            const SizedBox(width: 8),
-          ],
-          if (missing != null)
-            FilledButton.icon(
-              onPressed: _reconnectSelected,
-              icon: const Icon(Icons.link),
-              label: const Text('원본 파일 찾기'),
-            )
-          else
-            FilledButton.icon(
-              onPressed: _assignToSelection,
-              icon: const Icon(Icons.sell_outlined),
-              label: const Text('태그 부여'),
-            ),
-        ],
-      ),
+      color: scheme.secondaryContainer,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Icon(command.icon, color: scheme.onSecondaryContainer),
     );
   }
 
-  Widget _buildRecentFolders(AsyncValue<List<String>> recentFolders) {
+  /// 열린 폴더가 없을 때의 빈 상태: 폴더 열기 버튼 + 최근 폴더 목록.
+  Widget _buildRecentFolders(
+    CommandHandlers handlers,
+    AsyncValue<List<String>> recentFolders,
+  ) {
+    final openFolder = commandOf(AppCommandId.openFolder);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        FilledButton.icon(
+          onPressed: handlers.openFolder,
+          icon: Icon(openFolder.icon),
+          label: Text(openFolder.label),
+        ),
+        const SizedBox(height: 24),
         Text('최근 폴더', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Expanded(
@@ -1060,163 +1029,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FileNodeTile extends StatelessWidget {
-  const _FileNodeTile({
-    required this.node,
-    required this.selected,
-    required this.assignments,
-    required this.visibleSystemTagIds,
-    required this.onTap,
-    required this.onEditAssignment,
-    this.depth = 0,
-    this.expandable = false,
-    this.expanded = false,
-    this.onToggleExpand,
-    this.folderMode,
-    this.trailing,
-  });
-
-  /// 계층 한 단계당 들여쓰기 폭.
-  static const double _indentUnit = 16;
-
-  final FileNode node;
-  final bool selected;
-  final List<AssignedTag> assignments;
-
-  /// 칩으로 표시할 시스템 태그 id 집합. 여기 없는 시스템 태그 칩은 렌더하지 않는다
-  /// (값은 필터·정렬에 여전히 참여). 사용자 태그 칩은 이 집합과 무관하게 항상 표시.
-  final Set<int> visibleSystemTagIds;
-  final VoidCallback onTap;
-
-  /// 값 태그 칩을 눌렀을 때 그 부여 기록의 값을 바로 수정하는 콜백.
-  final ValueChanged<AssignedTag> onEditAssignment;
-
-  /// 트리 깊이(0=최상위). 들여쓰기에 쓴다.
-  final int depth;
-
-  /// 펼칠 수 있는(자식 있는) 폴더인지. 펼침/접힘 캐럿을 보인다.
-  final bool expandable;
-
-  /// 현재 펼쳐져 있는지. 캐럿 모양을 정한다.
-  final bool expanded;
-
-  /// 캐럿을 눌러 펼침/접힘을 토글하는 콜백. 펼칠 수 없으면 null.
-  final VoidCallback? onToggleExpand;
-
-  /// 폴더일 때 상속까지 반영한 effective 관리 모드. 파일·보존 노드면 null.
-  final FolderManageMode? folderMode;
-
-  /// 타일 오른쪽 끝 위젯(폴더 관리 방식 메뉴 등). 없으면 null.
-  final Widget? trailing;
-
-  /// 렌더할 태그 칩: 사용자 태그는 모두, 시스템 태그는 표시로 켠 것만.
-  List<AssignedTag> get _visibleTags => [
-    for (final a in assignments)
-      if (!isSystemTagId(a.tagDefinitionId) ||
-          visibleSystemTagIds.contains(a.tagDefinitionId))
-        a,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final missing = node.isMissing;
-    return Padding(
-      // 선택 배경이 행 끝까지 번지지 않도록 좌우 여백을 둔다. 계층 깊이만큼 왼쪽을
-      // 더 들여써 그룹 구조를 드러낸다.
-      padding: EdgeInsets.only(
-        left: 4 + depth * _indentUnit,
-        right: 4,
-        top: 1,
-        bottom: 1,
-      ),
-      // 선택 배경을 타일 자체 Material에 칠해 스크롤 뷰포트에 함께 잘리게 한다
-      // (상위 Material에 그려져 목록 밖 정렬·필터 영역까지 번지는 것을 막는다).
-      // 모서리를 둥글게 잘라 파일명·태그와 같은 안쪽 영역에만 칠해지게 한다.
-      child: Material(
-        color: selected ? scheme.primaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          dense: true,
-          selected: selected,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          // 선택 시 글자·아이콘 색만 대비색으로 바꾼다(배경은 위 Material이 칠함).
-          selectedColor: scheme.onPrimaryContainer,
-          onTap: onTap,
-          // 펼침 캐럿(폴더) + 썸네일. 캐럿 자리는 자식 없는 노드도 비워 정렬을 맞춘다.
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 28,
-                child: expandable
-                    ? IconButton(
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                        iconSize: 20,
-                        tooltip: expanded ? '접기' : '펼치기',
-                        icon: Icon(
-                          expanded ? Icons.expand_more : Icons.chevron_right,
-                        ),
-                        onPressed: onToggleExpand,
-                      )
-                    : null,
-              ),
-              // 목록 썸네일은 원본 비율을 유지해 잘리지 않게 담는다(crop 없음).
-              FileThumbnail(node: node, dimension: 40, fit: BoxFit.contain),
-            ],
-          ),
-          trailing: trailing,
-          title: Text(
-            node.name,
-            style: missing ? TextStyle(color: scheme.error) : null,
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(node.path),
-              if (missing)
-                Text(
-                  '연결 끊김 — 원본 파일을 찾아 태그를 재연결하세요',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: scheme.error),
-                ),
-              if (folderMode == FolderManageMode.opaque)
-                Text(
-                  '내부 감춤 — 메뉴에서 ‘내부 관리’로 펼치기',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              if (_visibleTags.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    for (final a in _visibleTags)
-                      TagChip(
-                        definition: a.definition,
-                        value: a.value,
-                        // 값 태그만 눌러 편집 가능(호버 피드백으로 구분). 시스템 태그는
-                        // 수정 가능한 '파일 이름'만 눌러 rename, 나머지는 표시 전용.
-                        onPressed: isEditableAssignment(a)
-                            ? () => onEditAssignment(a)
-                            : null,
-                      ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1262,9 +1074,7 @@ class _NestedMergeDialogState extends State<_NestedMergeDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '하위 폴더가 자체 태그 데이터를 가지고 있습니다. 어떻게 처리할지 선택하세요.',
-            ),
+            const Text('하위 폴더가 자체 태그 데이터를 가지고 있습니다. 어떻게 처리할지 선택하세요.'),
             const SizedBox(height: 8),
             Text(
               widget.childRelPath,
@@ -1305,9 +1115,7 @@ class _NestedMergeDialogState extends State<_NestedMergeDialog> {
                     value: NestedMergeAction.ignore,
                     contentPadding: EdgeInsets.zero,
                     title: const Text('무시'),
-                    subtitle: const Text(
-                      '하위 태거를 무시하고 내부 파일을 현재 규칙으로 인덱싱합니다.',
-                    ),
+                    subtitle: const Text('하위 태거를 무시하고 내부 파일을 현재 규칙으로 인덱싱합니다.'),
                   ),
                 ],
               ),

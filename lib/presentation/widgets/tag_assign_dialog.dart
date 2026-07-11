@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/platform.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
@@ -12,23 +13,43 @@ import 'tag_chip.dart';
 import 'tag_picker.dart';
 import 'tag_value_prompt.dart';
 
-/// 선택한 파일들에 태그를 부여/편집/해제하는 모달 다이얼로그를 띄운다.
+/// 선택한 파일들에 태그를 부여/편집/해제하는 모달을 띄운다.
+///
+/// 데스크톱은 다이얼로그로, 터치 플랫폼은 같은 내용을 바텀시트로 올려 엄지 조작
+/// 범위 안에 둔다(내용·동작은 동일하다).
 Future<void> showTagAssignDialog(
   BuildContext context, {
   required List<int> fileNodeIds,
   required String title,
 }) {
-  return showDialog<void>(
+  if (isDesktopPlatform) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => _TagAssignDialog(fileNodeIds: fileNodeIds, title: title),
+    );
+  }
+  return showModalBottomSheet<void>(
     context: context,
-    builder: (_) => _TagAssignDialog(fileNodeIds: fileNodeIds, title: title),
+    isScrollControlled: true,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (_) =>
+        _TagAssignDialog(fileNodeIds: fileNodeIds, title: title, asSheet: true),
   );
 }
 
 class _TagAssignDialog extends ConsumerStatefulWidget {
-  const _TagAssignDialog({required this.fileNodeIds, required this.title});
+  const _TagAssignDialog({
+    required this.fileNodeIds,
+    required this.title,
+    this.asSheet = false,
+  });
 
   final List<int> fileNodeIds;
   final String title;
+
+  /// 다이얼로그 대신 바텀시트 안에 놓였는지(테두리·닫기 버튼 대신 시트 크롬을 쓴다).
+  final bool asSheet;
 
   @override
   ConsumerState<_TagAssignDialog> createState() => _TagAssignDialogState();
@@ -61,40 +82,61 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       for (final id in widget.fileNodeIds) ...(byFile[id] ?? const []),
     ];
 
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('부여된 태그', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        if (selectedAssignments.isEmpty)
+          const Text('아직 부여된 태그가 없습니다.')
+        else if (_isSingle)
+          _buildSingleFileTags(selectedAssignments)
+        else
+          _buildMultiFileTags(selectedAssignments),
+        const Divider(height: 32),
+        Text('태그 추가', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        if (definitions.isEmpty)
+          const Text('먼저 태그 관리에서 태그를 만들어주세요.')
+        else
+          _buildAddSection(definitions),
+      ],
+    );
+
+    if (widget.asSheet) return _sheet(context, content);
+
     return escDismissible(
       context,
       AlertDialog(
         title: Text(widget.title),
         content: SizedBox(
           width: 420,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('부여된 태그', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
-                if (selectedAssignments.isEmpty)
-                  const Text('아직 부여된 태그가 없습니다.')
-                else if (_isSingle)
-                  _buildSingleFileTags(selectedAssignments)
-                else
-                  _buildMultiFileTags(selectedAssignments),
-                const Divider(height: 32),
-                Text('태그 추가', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
-                if (definitions.isEmpty)
-                  const Text('먼저 태그 관리에서 태그를 만들어주세요.')
-                else
-                  _buildAddSection(definitions),
-              ],
-            ),
-          ),
+          child: SingleChildScrollView(child: content),
         ),
         actions: [
           TextButton(
             onPressed: repo == null ? null : () => Navigator.of(context).pop(),
             child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 바텀시트 크롬: 제목 줄 + 스크롤 본문. 키보드가 올라오면 그만큼 밀어 올린다.
+  Widget _sheet(BuildContext context, Widget content) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(title: Text(widget.title, overflow: TextOverflow.ellipsis)),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: content,
+            ),
           ),
         ],
       ),

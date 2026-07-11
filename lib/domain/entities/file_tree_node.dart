@@ -12,3 +12,12 @@ class FileTreeNode {
 
   bool get hasChildren => children.isNotEmpty;
 }
+
+/// 트리에 남은 전체 노드 수(펼침 상태와 무관). 필터를 통과한 항목 수를 세는 데 쓴다.
+int countTreeNodes(List<FileTreeNode> roots) {
+  var count = 0;
+  for (final root in roots) {
+    count += 1 + countTreeNodes(root.children);
+  }
+  return count;
+}

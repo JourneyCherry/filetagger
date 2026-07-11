@@ -7,6 +7,10 @@ import 'tag_value_type.dart';
 /// [exists]는 값과 무관하게 태그가 붙어 있으면 만족(label 태그의 유일한 연산).
 /// 나머지는 부여된 값 중 하나라도 피연산자와의 비교를 통과하면 만족한다.
 /// 비교는 태그 유형에 맞춰 해석된다([compareTagValues]).
+///
+/// 부정 연산([notEquals]·[notContains])은 조건의 [FilterCondition.exclude]와 다르다.
+/// 부정 연산은 **태그가 붙어 있어야** 만족할 수 있는 표시 조건이고, 제외는 만족하는
+/// 노드를 숨기는 조건이다. 태그가 없는 노드의 취급이 갈린다.
 enum FilterOperator {
   exists,
   equals,
@@ -16,6 +20,7 @@ enum FilterOperator {
   greaterThan,
   greaterOrEqual,
   contains,
+  notContains,
 }
 
 /// 태그 유형별로 고를 수 있는 필터 연산자. label은 값이 없어 존재 여부만,
@@ -30,6 +35,7 @@ List<FilterOperator> operatorsForType(TagValueType type) {
         FilterOperator.equals,
         FilterOperator.notEquals,
         FilterOperator.contains,
+        FilterOperator.notContains,
       ];
     case TagValueType.number:
     case TagValueType.date:
@@ -91,6 +97,8 @@ class FilterCondition {
         return true;
       case FilterOperator.contains:
         return value.toLowerCase().contains(operandValue.toLowerCase());
+      case FilterOperator.notContains:
+        return !value.toLowerCase().contains(operandValue.toLowerCase());
       case FilterOperator.equals:
         return compareTagValues(type, value, operandValue) == 0;
       case FilterOperator.notEquals:

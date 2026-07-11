@@ -9,6 +9,9 @@ import 'package:flutter/material.dart';
 import '../domain/entities/file_filter.dart';
 import '../domain/entities/tag_value_type.dart';
 
+// 저장 형식은 domain이 단일 출처다. 표시 헬퍼와 함께 쓰이므로 여기서 다시 내보낸다.
+export '../domain/entities/tag_value_format.dart' show dateToStoredValue;
+
 /// 태그 정의 색으로 고를 수 있는 프리셋 팔레트(ARGB).
 const List<int> tagColorPalette = <int>[
   0xFFE57373, // red
@@ -49,6 +52,17 @@ Color foregroundOn(Color background) {
   return contrastWithWhite >= contrastWithBlack ? Colors.white : Colors.black;
 }
 
+/// 포인터를 올렸을 때 '누를 수 있음'을 알리는 배경색. 그 칩의 대비색(글자색)을
+/// 옅게 덧칠해 밝은 태그는 어둡게, 어두운 태그는 밝게 옮긴다 — 태그 색이 무엇이든
+/// 변화가 눈에 들어오게 하기 위함이다.
+Color hoverOn(Color background) => Color.alphaBlend(
+  foregroundOn(background).withValues(alpha: _hoverOverlayAlpha),
+  background,
+);
+
+/// 호버 덧칠의 세기. 색이 바뀐 것은 알아채되 태그 색을 잃지 않을 만큼만.
+const double _hoverOverlayAlpha = 0.2;
+
 /// 값 유형의 사용자 표시 라벨.
 String tagValueTypeLabel(TagValueType type) {
   switch (type) {
@@ -82,6 +96,32 @@ String filterOperatorLabel(FilterOperator op) {
       return '≥';
     case FilterOperator.contains:
       return '포함';
+    case FilterOperator.notContains:
+      return '미포함';
+  }
+}
+
+/// 필터 연산자의 설명이 붙은 라벨(연산 선택 목록·자동완성 목록용).
+String filterOperatorMenuLabel(FilterOperator op) {
+  switch (op) {
+    case FilterOperator.exists:
+      return '있음 (존재)';
+    case FilterOperator.equals:
+      return '= 같음';
+    case FilterOperator.notEquals:
+      return '≠ 다름';
+    case FilterOperator.lessThan:
+      return '< 미만';
+    case FilterOperator.lessOrEqual:
+      return '≤ 이하';
+    case FilterOperator.greaterThan:
+      return '> 초과';
+    case FilterOperator.greaterOrEqual:
+      return '≥ 이상';
+    case FilterOperator.contains:
+      return '포함';
+    case FilterOperator.notContains:
+      return '미포함';
   }
 }
 
@@ -100,7 +140,3 @@ String? formatTagValue(TagValueType type, String? value) {
   }
   return value;
 }
-
-/// 날짜 값을 저장용 ISO 문자열로(날짜만, 시각 제거).
-String dateToStoredValue(DateTime date) =>
-    DateTime(date.year, date.month, date.day).toIso8601String();

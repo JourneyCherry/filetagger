@@ -37,10 +37,7 @@ abstract interface class FileNodeRepository {
   /// 노드의 경로를 [oldPath]에서 [newPath]로 재기록한다('파일 이름' 시스템 태그
   /// 편집이 디스크에서 rename된 뒤 인덱스를 맞추는 용도). 폴더면 그 하위 노드들의
   /// 경로 접두도 함께 치환한다. 태그 부여 기록은 노드 id로 걸려 있어 영향받지 않는다.
-  Future<void> renameNode({
-    required String oldPath,
-    required String newPath,
-  });
+  Future<void> renameNode({required String oldPath, required String newPath});
 
   /// 폴더 노드 [nodeId]의 관리 방식을 [mode]로 바꾼다.
   ///

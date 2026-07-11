@@ -9,12 +9,13 @@ import 'database_provider.dart';
 import 'file_node_provider.dart';
 
 /// 현재 워크스페이스 DB에 종속된 중첩 병합 확정 기록 저장소. 열린 폴더가 없으면 null.
-final nestedWorkspaceRepositoryProvider =
-    Provider<NestedWorkspaceRepository?>((ref) {
-      final db = ref.watch(databaseProvider);
-      if (db == null) return null;
-      return DriftNestedWorkspaceRepository(db);
-    });
+final nestedWorkspaceRepositoryProvider = Provider<NestedWorkspaceRepository?>((
+  ref,
+) {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return null;
+  return DriftNestedWorkspaceRepository(db);
+});
 
 /// 하위 태거 DB를 현재 워크스페이스로 흡수하는 병합기. 열린 폴더가 없으면 null.
 final nestedWorkspaceMergerProvider = Provider<NestedWorkspaceMerger?>((ref) {

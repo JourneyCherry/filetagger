@@ -30,6 +30,9 @@ class _FakeStore implements ViewSettingsRepository {
 TagDefinition _def(int id) =>
     TagDefinition(id: id, name: 't$id', valueType: TagValueType.label);
 
+/// 열린 워크스페이스 루트를 흉내내는 스위치. 저장소와 태그 정의가 함께 갈린다.
+final _root = StateProvider<String?>((ref) => null);
+
 /// 이벤트 루프를 몇 바퀴 돌려 비동기 로드·스트림 방출·정리가 끝나게 한다.
 Future<void> _settle() async {
   for (var i = 0; i < 5; i++) {
@@ -107,6 +110,90 @@ void main() {
       SystemTag.fileSize.id,
     ]);
     expect(state.sort.keys.single.tagDefinitionId, SystemTag.modifiedTime.id);
+    expect(store.lastSaved, isNull);
+  });
+
+  test('삭제된 태그를 참조하는 표시 순서 항목을 걷어낸다', () async {
+    final store = _FakeStore(
+      WorkspaceViewSettings(tagDisplayOrder: [2, 1, SystemTag.fileSize.id]),
+    );
+
+    // 태그 2가 삭제된 상태. 시스템 태그 참조는 늘 유효하므로 남는다.
+    final container = ProviderContainer(
+      overrides: [
+        viewSettingsRepositoryProvider.overrideWithValue(store),
+        tagDefinitionsProvider.overrideWith((ref) => Stream.value([_def(1)])),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(viewSettingsProvider, (_, __) {});
+
+    await _settle();
+
+    expect(container.read(viewSettingsProvider).tagDisplayOrder, [
+      1,
+      SystemTag.fileSize.id,
+    ]);
+    expect(store.lastSaved!.tagDisplayOrder, [1, SystemTag.fileSize.id]);
+  });
+
+  test('폴더 펼침 토글은 상태를 뒤집고 디스크에 저장한다', () async {
+    final store = _FakeStore(const WorkspaceViewSettings());
+    final container = ProviderContainer(
+      overrides: [
+        viewSettingsRepositoryProvider.overrideWithValue(store),
+        tagDefinitionsProvider.overrideWith((ref) => Stream.value([_def(1)])),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(viewSettingsProvider, (_, __) {});
+
+    await _settle();
+    final notifier = container.read(viewSettingsProvider.notifier);
+
+    notifier.toggleExpandedFolder('a');
+    expect(container.read(expandedFoldersProvider), {'a'});
+    expect(store.lastSaved!.expandedFolders, {'a'});
+
+    notifier.toggleExpandedFolder('a');
+    expect(container.read(expandedFoldersProvider), isEmpty);
+    expect(store.lastSaved!.expandedFolders, isEmpty);
+  });
+
+  test('폴더를 여는 도중 아직 실리지 않은 정의로 정리하지 않는다', () async {
+    final store = _FakeStore(
+      const WorkspaceViewSettings(
+        filter: FileFilter(conditions: [FilterCondition(tagDefinitionId: 1)]),
+        sort: FileSortOrder(keys: [SortKey(tagDefinitionId: 1)]),
+      ),
+    );
+
+    // 폴더를 여는 순간: 설정 로드(작은 JSON)가 태그 정의 스트림(DB 열기)보다 빠르다.
+    // 그 틈에 정의 자리엔 폴더를 열기 전의 빈 목록이 남아 있다.
+    final container = ProviderContainer(
+      overrides: [
+        viewSettingsRepositoryProvider.overrideWith(
+          (ref) => ref.watch(_root) == null ? null : store,
+        ),
+        tagDefinitionsProvider.overrideWith((ref) {
+          if (ref.watch(_root) == null) return Stream.value(const []);
+          return Stream.fromFuture(
+            Future.delayed(const Duration(milliseconds: 20), () => [_def(1)]),
+          );
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(viewSettingsProvider, (_, __) {});
+    await _settle();
+
+    container.read(_root.notifier).state = 'w';
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+
+    // 빈 목록을 기준으로 정리했다면 조건이 지워지고 그 결과가 저장됐을 것이다.
+    final state = container.read(viewSettingsProvider);
+    expect(state.filter.conditions.single.tagDefinitionId, 1);
+    expect(state.sort.keys.single.tagDefinitionId, 1);
     expect(store.lastSaved, isNull);
   });
 

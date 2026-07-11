@@ -274,42 +274,50 @@ void main() {
   });
 
   group('OS 숨김 파일/폴더 제외', () {
-    test('POSIX: dot-prefix 파일/폴더는 인덱싱·재귀에서 제외한다', () async {
-      await touchFile('visible.txt');
-      await touchFile('.secret.txt');
-      await touchFile('.secretdir/inner.txt');
+    test(
+      'POSIX: dot-prefix 파일/폴더는 인덱싱·재귀에서 제외한다',
+      () async {
+        await touchFile('visible.txt');
+        await touchFile('.secret.txt');
+        await touchFile('.secretdir/inner.txt');
 
-      // 재귀 관리로 열어도 숨김 폴더 하위는 순회하지 않는다.
-      final result = await const DirectoryScanner().scan(
-        root.path,
-        rootManageMode: FolderManageMode.managedRecursive,
-      );
-      final paths = result.nodes.map((n) => n.path).toSet();
+        // 재귀 관리로 열어도 숨김 폴더 하위는 순회하지 않는다.
+        final result = await const DirectoryScanner().scan(
+          root.path,
+          rootManageMode: FolderManageMode.managedRecursive,
+        );
+        final paths = result.nodes.map((n) => n.path).toSet();
 
-      expect(paths, contains('visible.txt'));
-      expect(paths, isNot(contains('.secret.txt')));
-      expect(paths, isNot(contains('.secretdir')));
-      expect(paths, isNot(contains('.secretdir/inner.txt')));
-    }, skip: Platform.isWindows ? 'POSIX 이름 기반 판정 전용' : false);
+        expect(paths, contains('visible.txt'));
+        expect(paths, isNot(contains('.secret.txt')));
+        expect(paths, isNot(contains('.secretdir')));
+        expect(paths, isNot(contains('.secretdir/inner.txt')));
+      },
+      skip: Platform.isWindows ? 'POSIX 이름 기반 판정 전용' : false,
+    );
 
-    test('Windows: 숨김 속성 파일/폴더는 인덱싱·재귀에서 제외한다', () async {
-      await touchFile('visible.txt');
-      await touchFile('secret.txt');
-      await touchFile('secretdir/inner.txt');
-      _markHidden(p.join(root.path, 'secret.txt'));
-      _markHidden(p.join(root.path, 'secretdir'));
+    test(
+      'Windows: 숨김 속성 파일/폴더는 인덱싱·재귀에서 제외한다',
+      () async {
+        await touchFile('visible.txt');
+        await touchFile('secret.txt');
+        await touchFile('secretdir/inner.txt');
+        _markHidden(p.join(root.path, 'secret.txt'));
+        _markHidden(p.join(root.path, 'secretdir'));
 
-      final result = await const DirectoryScanner().scan(
-        root.path,
-        rootManageMode: FolderManageMode.managedRecursive,
-      );
-      final paths = result.nodes.map((n) => n.path).toSet();
+        final result = await const DirectoryScanner().scan(
+          root.path,
+          rootManageMode: FolderManageMode.managedRecursive,
+        );
+        final paths = result.nodes.map((n) => n.path).toSet();
 
-      expect(paths, contains('visible.txt'));
-      expect(paths, isNot(contains('secret.txt')));
-      expect(paths, isNot(contains('secretdir')));
-      expect(paths, isNot(contains('secretdir/inner.txt')));
-    }, skip: Platform.isWindows ? false : '숨김 속성 판정은 Windows 전용');
+        expect(paths, contains('visible.txt'));
+        expect(paths, isNot(contains('secret.txt')));
+        expect(paths, isNot(contains('secretdir')));
+        expect(paths, isNot(contains('secretdir/inner.txt')));
+      },
+      skip: Platform.isWindows ? false : '숨김 속성 판정은 Windows 전용',
+    );
   });
 
   group('부분 해시 재사용(재해시 최적화)', () {

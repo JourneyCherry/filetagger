@@ -22,31 +22,39 @@ void main() {
 
   // markPathHidden은 Windows에서만 실제로 속성을 설정한다. 이름이 dot-prefix가 아닌
   // 폴더를 만들어 표시 전엔 숨김이 아니고, 표시 후엔 isHiddenEntry가 참이 되는지 본다.
-  group('markPathHidden (Windows 숨김 속성 설정)', () {
-    late Directory tempRoot;
+  group(
+    'markPathHidden (Windows 숨김 속성 설정)',
+    () {
+      late Directory tempRoot;
 
-    setUp(() async {
-      tempRoot = await Directory.systemTemp.createTemp('filetagger_hidden_test');
-    });
+      setUp(() async {
+        tempRoot = await Directory.systemTemp.createTemp(
+          'filetagger_hidden_test',
+        );
+      });
 
-    tearDown(() async {
-      if (await tempRoot.exists()) {
-        await tempRoot.delete(recursive: true);
-      }
-    });
+      tearDown(() async {
+        if (await tempRoot.exists()) {
+          await tempRoot.delete(recursive: true);
+        }
+      });
 
-    test('폴더에 숨김 속성을 걸면 숨김으로 판정된다', () {
-      // dot-prefix가 아닌 이름이라 표시 전에는 숨김이 아니다.
-      final dir = Directory('${tempRoot.path}${Platform.pathSeparator}visible');
-      dir.createSync();
-      expect(isHiddenEntry(dir), isFalse);
+      test('폴더에 숨김 속성을 걸면 숨김으로 판정된다', () {
+        // dot-prefix가 아닌 이름이라 표시 전에는 숨김이 아니다.
+        final dir = Directory(
+          '${tempRoot.path}${Platform.pathSeparator}visible',
+        );
+        dir.createSync();
+        expect(isHiddenEntry(dir), isFalse);
 
-      markPathHidden(dir.path);
-      expect(isHiddenEntry(dir), isTrue);
+        markPathHidden(dir.path);
+        expect(isHiddenEntry(dir), isTrue);
 
-      // 멱등: 이미 숨김이어도 그대로 유지된다.
-      markPathHidden(dir.path);
-      expect(isHiddenEntry(dir), isTrue);
-    });
-  }, skip: Platform.isWindows ? false : '숨김 속성 설정은 Windows 전용');
+        // 멱등: 이미 숨김이어도 그대로 유지된다.
+        markPathHidden(dir.path);
+        expect(isHiddenEntry(dir), isTrue);
+      });
+    },
+    skip: Platform.isWindows ? false : '숨김 속성 설정은 Windows 전용',
+  );
 }

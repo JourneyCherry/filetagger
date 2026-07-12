@@ -5,10 +5,12 @@ import 'package:path/path.dart' as p;
 
 import '../../core/constants.dart';
 import '../../domain/entities/file_filter.dart';
+import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/repositories/view_settings_repository.dart';
+import '../../domain/usecases/group_query_text.dart';
 
 /// 보기 설정(필터·정렬)을 워크스페이스의 `.filetagger/` 안 JSON 파일로 읽고 쓴다.
 ///
@@ -56,7 +58,7 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
   'systemTags': s.visibleSystemTagIds.toList(),
   'tagOrder': s.tagDisplayOrder,
   'expanded': s.expandedFolders.toList(),
-  'grouped': s.groupByFolder,
+  'grouping': _groupingToJson(s.grouping),
 };
 
 WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
@@ -68,12 +70,29 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       visibleSystemTagIds: _systemTagsFromJson(json['systemTags']),
       tagDisplayOrder: _tagOrderFromJson(json['tagOrder']),
       expandedFolders: _expandedFromJson(json['expanded']),
-      groupByFolder: _groupedFromJson(json['grouped']),
+      grouping: _groupingFromJson(json['grouping'], json['grouped']),
     );
 
-/// 폴더 묶기 여부. 없거나 형식이 어긋나면 기본값(묶음). 기존 워크스페이스는
-/// 이 키가 없어 계층 목록을 그대로 유지한다.
-bool _groupedFromJson(Object? json) => json is bool ? json : true;
+/// 그룹 단계를 정의 id 나열로 저장한다(폴더 계층 키는 예약 id로). 텍스트·칩
+/// 계층이 그룹 키를 정의 id로 다루는 것과 같은 방식이라 재해석이 단순하다.
+List<int> _groupingToJson(FileGrouping grouping) => [
+  for (final k in grouping.keys) groupKeyId(k),
+];
+
+/// 저장된 그룹. `grouping` 키가 있으면 그걸 읽고, 없으면 구버전 `grouped`(bool)를
+/// 마이그레이션한다(참=폴더 계층, 거짓=평면). 둘 다 없으면 기본(폴더 계층).
+FileGrouping _groupingFromJson(Object? json, Object? legacyGrouped) {
+  if (json is List) {
+    return groupFromKeys([
+      for (final item in json)
+        if (item is int) groupKeyFromId(item),
+    ]);
+  }
+  if (legacyGrouped is bool) {
+    return legacyGrouped ? kDefaultGrouping : const FileGrouping();
+  }
+  return kDefaultGrouping;
+}
 
 /// 펼쳐 둔 폴더 경로 집합. 없거나 형식이 어긋나면 빈 집합(전부 접힘).
 Set<String> _expandedFromJson(Object? json) {

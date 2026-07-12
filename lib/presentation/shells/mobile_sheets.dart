@@ -5,14 +5,12 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
-import '../providers/file_view_provider.dart';
 import '../widgets/file_toolbar.dart';
 
-/// 필터·정렬 도구모음을 시트로 띄운다(모바일에는 상시 도구모음 자리가 없다).
-/// 폴더 묶기 토글도 함께 담아 계층 그룹화를 여기서 켜고 끈다.
+/// 필터·정렬·그룹 도구모음을 시트로 띄운다(모바일에는 상시 도구모음 자리가 없다).
+/// 세 줄이 모두 담겨, 폴더 계층 묶기도 그룹 줄에서 태그처럼 넣고 뺀다.
 Future<void> showFilterSortSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -20,31 +18,9 @@ Future<void> showFilterSortSheet(BuildContext context) {
     useSafeArea: true,
     builder: (_) => const SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(12, 0, 12, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [_GroupingToggle(), SizedBox(height: 8), FileToolbar()],
-      ),
+      child: FileToolbar(),
     ),
   );
-}
-
-/// 폴더 묶기(계층 그룹화)를 켜고 끄는 스위치. 끄면 모든 항목을 한 단계로 펼친다.
-class _GroupingToggle extends ConsumerWidget {
-  const _GroupingToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final grouped = ref.watch(groupByFolderProvider);
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      title: const Text('폴더별로 묶기'),
-      subtitle: const Text('끄면 모든 항목을 같은 단계로 펼칩니다.'),
-      value: grouped,
-      onChanged: (_) =>
-          ref.read(viewSettingsProvider.notifier).toggleGroupByFolder(),
-    );
-  }
 }
 
 /// 폴더 하나의 관리 방식을 고르는 시트. 고르지 않고 닫으면 null.

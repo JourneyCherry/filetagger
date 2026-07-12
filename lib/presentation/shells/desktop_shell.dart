@@ -22,8 +22,8 @@ class DesktopShell extends StatelessWidget {
     required this.previewVisible,
     required this.filterBarVisible,
     required this.sortBarVisible,
+    required this.groupBarVisible,
     required this.listEditEnabled,
-    required this.grouped,
     required this.body,
   });
 
@@ -41,16 +41,14 @@ class DesktopShell extends StatelessWidget {
   final bool scanning;
   final bool previewVisible;
 
-  /// 도구모음의 필터·정렬 조건 줄을 각각 그릴지('보기' 메뉴가 토글).
+  /// 도구모음의 필터·정렬·그룹 조건 줄을 각각 그릴지('보기' 메뉴가 토글).
   final bool filterBarVisible;
   final bool sortBarVisible;
+  final bool groupBarVisible;
 
   /// 목록 행에서 태그를 바로 고칠 수 있는지('보기' 메뉴가 토글). 배치에는 쓰이지
   /// 않고 메뉴의 체크 표시에만 쓴다.
   final bool listEditEnabled;
-
-  /// 목록을 폴더 계층으로 묶고 있는지('보기' 메뉴가 토글). 메뉴의 체크 표시에 쓴다.
-  final bool grouped;
 
   /// 목록·프리뷰(워크스페이스 있음) 또는 최근 폴더 목록(빈 상태).
   final Widget body;
@@ -71,21 +69,22 @@ class DesktopShell extends StatelessWidget {
               AppCommandId.togglePreview: previewVisible,
               AppCommandId.toggleFilterBar: filterBarVisible,
               AppCommandId.toggleSortBar: sortBarVisible,
+              AppCommandId.toggleGrouping: groupBarVisible,
               AppCommandId.toggleListEdit: listEditEnabled,
-              AppCommandId.toggleGrouping: grouped,
             },
             child: Column(
               children: [
                 if (root != null) ...[
                   WorkspaceBreadcrumb(path: root),
                   const Divider(),
-                  // 두 줄을 다 숨기면 도구모음 자리 자체를 비워 목록을 넓게 쓴다.
-                  if (filterBarVisible || sortBarVisible)
+                  // 세 줄을 다 숨기면 도구모음 자리 자체를 비워 목록을 넓게 쓴다.
+                  if (filterBarVisible || sortBarVisible || groupBarVisible)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                       child: FileToolbar(
                         showFilter: filterBarVisible,
                         showSort: sortBarVisible,
+                        showGroup: groupBarVisible,
                       ),
                     ),
                 ],

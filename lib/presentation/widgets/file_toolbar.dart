@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform.dart';
 import '../../domain/entities/file_filter.dart';
+import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
@@ -14,6 +15,8 @@ import '../tag_visuals.dart';
 import 'dialog_utils.dart';
 import 'filter_condition_chip.dart';
 import 'filter_query_field.dart';
+import 'group_key_chip.dart';
+import 'group_query_field.dart';
 import 'sort_key_chip.dart';
 import 'sort_query_field.dart';
 import 'tag_picker.dart';
@@ -33,7 +36,12 @@ const double _rowHeight = 40;
 /// 모바일은 텍스트 입력 대신 조건 칩과 다이얼로그로 편집한다. 어느 쪽이든 조건은
 /// 같은 곳(`viewSettingsProvider`)에 저장된다.
 class FileToolbar extends ConsumerWidget {
-  const FileToolbar({super.key, this.showFilter = true, this.showSort = true});
+  const FileToolbar({
+    super.key,
+    this.showFilter = true,
+    this.showSort = true,
+    this.showGroup = true,
+  });
 
   /// 필터 조건 줄을 그릴지. 데스크톱 '보기' 메뉴가 토글한다(조건 자체는 남는다).
   final bool showFilter;
@@ -41,18 +49,28 @@ class FileToolbar extends ConsumerWidget {
   /// 정렬 조건 줄을 그릴지. 데스크톱 '보기' 메뉴가 토글한다(조건 자체는 남는다).
   final bool showSort;
 
+  /// 그룹 기준 줄을 그릴지. 데스크톱 '보기' 메뉴가 토글한다(기준 자체는 남는다).
+  final bool showGroup;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 필터·정렬은 사용자 태그 + 시스템 태그를 모두 대상으로 고를 수 있다.
+    // 필터·정렬·그룹은 사용자 태그 + 시스템 태그를 모두 대상으로 고를 수 있다.
     final definitions = ref.watch(pickableTagDefinitionsProvider);
     final defsById = ref.watch(definitionsByIdProvider);
     final filter = ref.watch(fileFilterProvider);
     final sort = ref.watch(fileSortProvider);
+    final grouping = ref.watch(groupingProvider);
 
     // 정렬에 아직 쓰지 않은 태그만 추가 후보(태그당 1단계). label도 포함한다.
     final sortCandidates = [
       for (final d in definitions)
         if (d.id != null && !sort.contains(d.id!)) d,
+    ];
+    // 그룹에 아직 쓰지 않은 태그 + (폴더 키가 없으면) 폴더 계층. 폴더 키는 최대 1회.
+    final groupCandidates = [
+      for (final d in definitions)
+        if (d.id != null && !grouping.containsTag(d.id!)) d,
+      if (!grouping.hasFolderHierarchy) folderHierarchyDefinition,
     ];
 
     return Column(
@@ -76,8 +94,8 @@ class FileToolbar extends ConsumerWidget {
                 : () => showFilterConditionDialog(context, ref, definitions),
             addTooltip: '필터 조건 추가',
           ),
-        if (showFilter && showSort) const SizedBox(height: 8),
-        if (showSort)
+        if (showSort) ...[
+          if (showFilter) const SizedBox(height: 8),
           _buildRow(
             context: context,
             label: '정렬',
@@ -93,6 +111,25 @@ class FileToolbar extends ConsumerWidget {
                 : () => _openSortDialog(context, ref, sortCandidates),
             addTooltip: '정렬 기준 추가',
           ),
+        ],
+        if (showGroup) ...[
+          if (showFilter || showSort) const SizedBox(height: 8),
+          _buildRow(
+            context: context,
+            label: '그룹',
+            content: _buildGroupContent(
+              context,
+              ref,
+              grouping,
+              definitions,
+              defsById,
+            ),
+            onAdd: groupCandidates.isEmpty
+                ? null
+                : () => _openGroupDialog(context, ref, groupCandidates),
+            addTooltip: '그룹 기준 추가',
+          ),
+        ],
       ],
     );
   }
@@ -294,6 +331,83 @@ class FileToolbar extends ConsumerWidget {
         .read(viewSettingsProvider.notifier)
         .updateSort(ref.read(fileSortProvider).add(result));
   }
+
+  // ── 그룹 ──
+
+  /// 필터·정렬과 같은 이유로 텍스트 입력은 데스크톱에서만 낸다.
+  Widget _buildGroupContent(
+    BuildContext context,
+    WidgetRef ref,
+    FileGrouping grouping,
+    List<TagDefinition> definitions,
+    Map<int, TagDefinition> defsById,
+  ) {
+    if (isDesktopPlatform && definitions.isNotEmpty) {
+      return _EditableRow(
+        hasChips: grouping.keys.isNotEmpty,
+        chips: _buildGroupList(context, ref, grouping, defsById),
+        buildField: (focusNode, autofocus) => GroupQueryField(
+          focusNode: focusNode,
+          autofocus: autofocus,
+          grouping: grouping,
+          definitions: definitions,
+          onChanged: ref.read(viewSettingsProvider.notifier).updateGrouping,
+        ),
+      );
+    }
+    return _buildListContent(
+      context,
+      isEmpty: grouping.isEmpty,
+      emptyHint: '묶지 않음 · 평면 목록',
+      list: _buildGroupList(context, ref, grouping, defsById),
+    );
+  }
+
+  Widget _buildGroupList(
+    BuildContext context,
+    WidgetRef ref,
+    FileGrouping grouping,
+    Map<int, TagDefinition> defsById,
+  ) {
+    return ReorderableListView.builder(
+      scrollDirection: Axis.horizontal,
+      buildDefaultDragHandles: false,
+      itemCount: grouping.keys.length,
+      onReorderItem: (oldIndex, newIndex) {
+        ref
+            .read(viewSettingsProvider.notifier)
+            .updateGrouping(grouping.reorder(oldIndex, newIndex));
+      },
+      itemBuilder: (context, index) {
+        final key = grouping.keys[index];
+        final def = key is TagGroupKey ? defsById[key.tagDefinitionId] : null;
+        return _GroupChip(
+          key: ObjectKey(key),
+          index: index,
+          groupKey: key,
+          definition: def,
+          onDelete: () => ref
+              .read(viewSettingsProvider.notifier)
+              .updateGrouping(grouping.removeAt(index)),
+        );
+      },
+    );
+  }
+
+  Future<void> _openGroupDialog(
+    BuildContext context,
+    WidgetRef ref,
+    List<TagDefinition> candidates,
+  ) async {
+    final result = await showDialog<GroupKey>(
+      context: context,
+      builder: (_) => _GroupKeyEditor(candidates: candidates),
+    );
+    if (result == null) return;
+    ref
+        .read(viewSettingsProvider.notifier)
+        .updateGrouping(ref.read(groupingProvider).add(result));
+  }
 }
 
 /// 데스크톱 조건 줄. 한 자리를 조건 칩과 텍스트 입력이 번갈아 쓴다.
@@ -461,6 +575,39 @@ class _SortChip extends StatelessWidget {
         sortKey: sortKey,
         definition: definition,
         onTap: onToggle,
+        dragIndex: index,
+        onDelete: onDelete,
+      ),
+    );
+  }
+}
+
+/// 도구모음에 놓인 그룹 단계 칩. 겉모습은 텍스트 입력의 캡슐과 공유하고
+/// ([GroupKeyChip]), 여기선 순서 변경 손잡이와 삭제 버튼을 켜 동작까지 붙인다.
+/// 그룹엔 탭해서 고칠 값·방향이 없어 x로 제거만 한다.
+class _GroupChip extends StatelessWidget {
+  const _GroupChip({
+    super.key,
+    required this.index,
+    required this.groupKey,
+    required this.definition,
+    required this.onDelete,
+  });
+
+  final int index;
+  final GroupKey groupKey;
+  final TagDefinition? definition;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    // 가로 목록이 아이템을 줄 높이만큼 세로로 늘리므로, 캡슐이 두꺼워지지 않도록
+    // 제 높이대로 세로 가운데에 둔다(텍스트 입력 안의 캡슐과 같은 두께가 되도록).
+    return Center(
+      widthFactor: 1,
+      child: GroupKeyChip(
+        groupKey: groupKey,
+        definition: definition,
         dragIndex: index,
         onDelete: onDelete,
       ),
@@ -782,6 +929,52 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
                           : _direction,
                     ),
                   ),
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 그룹 기준(태그 하나)을 추가하는 다이얼로그. 그룹엔 값·방향이 없어 태그만 고른다.
+/// 후보에는 폴더 계층(합성 정의)도 함께 올라, 경로 계층으로 묶는 축을 같은 자리에서
+/// 고른다.
+class _GroupKeyEditor extends StatefulWidget {
+  const _GroupKeyEditor({required this.candidates});
+
+  final List<TagDefinition> candidates;
+
+  @override
+  State<_GroupKeyEditor> createState() => _GroupKeyEditorState();
+}
+
+class _GroupKeyEditorState extends State<_GroupKeyEditor> {
+  int? _tagId;
+
+  @override
+  Widget build(BuildContext context) {
+    return escDismissible(
+      context,
+      AlertDialog(
+        title: const Text('그룹 기준 추가'),
+        content: SizedBox(
+          width: 360,
+          child: TagPicker(
+            definitions: widget.candidates,
+            selectedId: _tagId,
+            onSelected: (id) => setState(() => _tagId = id),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: _tagId == null
+                ? null
+                : () => Navigator.of(context).pop(groupKeyFromId(_tagId!)),
             child: const Text('추가'),
           ),
         ],

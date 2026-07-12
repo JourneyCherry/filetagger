@@ -1,4 +1,5 @@
 import 'file_filter.dart';
+import 'file_grouping.dart';
 import 'file_sort.dart';
 import 'folder_manage_mode.dart';
 
@@ -14,8 +15,14 @@ const double kPreviewRatioMax = 0.7;
 /// 갖는다(불투명은 없음). 기본은 직속 내용만 인덱싱하는 [FolderManageMode.managed].
 const FolderManageMode kDefaultRootManageMode = FolderManageMode.managed;
 
-/// 한 워크스페이스의 보기 설정(필터 + 정렬 + 프리뷰 비율 + 루트 관리 방식 +
-/// 태그 표시 설정 + 트리 펼침 상태 + 폴더 묶기 여부)을 하나로 묶은 값.
+/// 기본 그룹 = 폴더 계층 한 단계. 기존 "폴더 그룹화 켬"과 같은 초기 모습이라,
+/// 그룹 기능이 없던 워크스페이스를 열어도 폴더 트리로 보인다.
+const FileGrouping kDefaultGrouping = FileGrouping(
+  keys: [FolderHierarchyGroupKey()],
+);
+
+/// 한 워크스페이스의 보기 설정(필터 + 정렬 + 그룹 + 프리뷰 비율 + 루트 관리 방식 +
+/// 태그 표시 설정 + 트리 펼침 상태)을 하나로 묶은 값.
 ///
 /// 태그처럼 워크스페이스에 종속되므로 `.filetagger/` 안에 저장해 폴더를 옮겨도
 /// 함께 따라온다. 직렬화(저장 형식)는 data 계층의 저장소가 담당한다.
@@ -28,7 +35,7 @@ class WorkspaceViewSettings {
     this.visibleSystemTagIds = const <int>{},
     this.tagDisplayOrder = const <int>[],
     this.expandedFolders = const <String>{},
-    this.groupByFolder = true,
+    this.grouping = kDefaultGrouping,
   });
 
   final FileFilter filter;
@@ -55,10 +62,9 @@ class WorkspaceViewSettings {
   /// 세션을 넘겨 유지되도록 워크스페이스 설정에 함께 담는다.
   final Set<String> expandedFolders;
 
-  /// 목록을 폴더 계층으로 묶어 보일지. 켜면 폴더 아래로 자식을 들여써 묶고(폴더가
-  /// 매치되는 자손을 함께 드러내는 전파 효과가 생긴다), 끄면 모든 항목을 한 단계로
-  /// 평평하게 펼쳐(폴더 묶음에 따른 전파 없이) 각 항목을 독립적으로 다룬다.
-  final bool groupByFolder;
+  /// 목록을 어떤 그룹 단계로 묶어 보일지(바깥→안쪽). 폴더 계층 키 한 단계면 옛
+  /// 폴더 그룹화와 같고, 비면 평면 목록, 태그 키가 있으면 값별 버킷으로 묶인다.
+  final FileGrouping grouping;
 
   bool get isEmpty => filter.isEmpty && sort.isEmpty;
 
@@ -70,7 +76,7 @@ class WorkspaceViewSettings {
     Set<int>? visibleSystemTagIds,
     List<int>? tagDisplayOrder,
     Set<String>? expandedFolders,
-    bool? groupByFolder,
+    FileGrouping? grouping,
   }) => WorkspaceViewSettings(
     filter: filter ?? this.filter,
     sort: sort ?? this.sort,
@@ -79,6 +85,6 @@ class WorkspaceViewSettings {
     visibleSystemTagIds: visibleSystemTagIds ?? this.visibleSystemTagIds,
     tagDisplayOrder: tagDisplayOrder ?? this.tagDisplayOrder,
     expandedFolders: expandedFolders ?? this.expandedFolders,
-    groupByFolder: groupByFolder ?? this.groupByFolder,
+    grouping: grouping ?? this.grouping,
   );
 }

@@ -61,10 +61,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 프리뷰 창을 목록 옆(또는 위)에 표시할지. 보기 토글로 전환한다.
   bool _previewVisible = true;
 
-  /// 도구모음의 필터·정렬 조건 줄을 보일지(데스크톱 '보기' 메뉴 토글). 숨겨도
-  /// 조건 자체는 그대로 적용된다 — 자리만 접는다.
+  /// 도구모음의 필터·정렬·그룹 조건 줄을 보일지(데스크톱 '보기' 메뉴 토글). 숨겨도
+  /// 조건·기준 자체는 그대로 적용된다 — 자리만 접는다.
   bool _filterBarVisible = true;
   bool _sortBarVisible = true;
+  bool _groupBarVisible = true;
 
   /// 목록 행에서 태그를 프리뷰처럼 바로 고칠 수 있게 할지(데스크톱 '보기' 메뉴 토글).
   bool _listEditEnabled = false;
@@ -176,14 +177,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _selectAll() {
     final roots = ref.read(fileTreeProvider).valueOrNull;
     if (roots == null) return;
-    final rows = flattenTree(
+    final flat = flattenTree(
       roots,
       expandedFolders: ref.read(expandedFoldersProvider),
       expandAll: !ref.read(fileFilterProvider).isEmpty,
     );
     final ids = [
-      for (final r in rows)
-        if (r.node.id != null) r.node.id!,
+      for (final n in flat.nodes)
+        if (n.id != null) n.id!,
     ];
     ref.read(selectionControllerProvider.notifier).selectAll(ids);
     if (ids.isEmpty) {
@@ -252,13 +253,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _toggleSortBar() => setState(() => _sortBarVisible = !_sortBarVisible);
 
+  /// 도구모음의 그룹 기준 줄을 접었다 편다. 기준은 그대로 적용된 채 자리만 감춘다.
+  void _toggleGroupBar() =>
+      setState(() => _groupBarVisible = !_groupBarVisible);
+
   /// 목록 행의 태그를 프리뷰처럼 바로 고칠 수 있게 켜고 끈다.
   void _toggleListEdit() =>
       setState(() => _listEditEnabled = !_listEditEnabled);
-
-  /// 목록의 폴더 묶기(계층 그룹화)를 켜고 끈다. 워크스페이스 설정에 저장된다.
-  void _toggleGrouping() =>
-      ref.read(viewSettingsProvider.notifier).toggleGroupByFolder();
 
   /// 행 탭/클릭 해석. 보조키가 눌려 있으면 플랫폼과 무관하게 탐색기식으로 읽는다
   /// (Shift=범위, Ctrl/Cmd=개별 토글) — 모바일에 하드웨어 키보드를 붙인 경우의
@@ -804,8 +805,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       toggleListEdit: (hasWorkspace && isDesktopPlatform)
           ? _toggleListEdit
           : null,
-      // 폴더 묶기는 크롬이 아니라 실제 보기 설정이라 두 셸 모두에서 켤 수 있다.
-      toggleGrouping: hasWorkspace ? _toggleGrouping : null,
+      // 그룹 줄 토글은 데스크톱 셸의 크롬에만 있다(모바일은 시트에 늘 함께 뜬다).
+      toggleGrouping: (hasWorkspace && isDesktopPlatform)
+          ? _toggleGroupBar
+          : null,
       togglePreview: hasWorkspace ? _togglePreview : null,
     );
   }
@@ -869,8 +872,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       previewVisible: _previewVisible,
       filterBarVisible: _filterBarVisible,
       sortBarVisible: _sortBarVisible,
+      groupBarVisible: _groupBarVisible,
       listEditEnabled: _listEditEnabled,
-      grouped: ref.watch(groupByFolderProvider),
       body: body,
     );
   }

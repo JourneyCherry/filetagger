@@ -161,7 +161,7 @@ final List<AppCommand> appCommands = [
   ),
   const AppCommand(
     id: AppCommandId.toggleGrouping,
-    label: '폴더별로 묶기',
+    label: '그룹 기준 보기',
     intent: ToggleGroupingIntent(),
     icon: Icons.account_tree_outlined,
   ),

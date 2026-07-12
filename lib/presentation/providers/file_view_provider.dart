@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/settings/view_settings_store.dart';
 import '../../domain/entities/file_filter.dart';
+import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
@@ -9,9 +10,8 @@ import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/repositories/view_settings_repository.dart';
-import '../../domain/usecases/build_file_tree.dart';
+import '../../domain/usecases/build_grouped_tree.dart';
 import '../../domain/usecases/folder_index_scope.dart';
-import '../../domain/usecases/query_files.dart';
 import 'file_node_provider.dart';
 import 'system_tag_provider.dart';
 import 'tag_provider.dart';
@@ -87,6 +87,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     final conditions = state.filter.conditions;
     final keys = state.sort.keys;
     final order = state.tagDisplayOrder;
+    final groupKeys = state.grouping.keys;
     final keptConditions = conditions
         .where((c) => validIds.contains(c.tagDefinitionId))
         .toList();
@@ -94,9 +95,16 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
         .where((k) => validIds.contains(k.tagDefinitionId))
         .toList();
     final keptOrder = order.where(validIds.contains).toList();
+    // 폴더 계층 키는 실제 태그가 아니라 늘 유효하다 — 태그 키만 삭제 여부를 본다.
+    final keptGroupKeys = groupKeys
+        .where(
+          (k) => k is FolderHierarchyGroupKey || validIds.contains(groupKeyId(k)),
+        )
+        .toList();
     if (keptConditions.length == conditions.length &&
         keptKeys.length == keys.length &&
-        keptOrder.length == order.length) {
+        keptOrder.length == order.length &&
+        keptGroupKeys.length == groupKeys.length) {
       return; // 사라진 참조 없음 — 그대로 둔다(불필요한 저장 방지).
     }
     _set(
@@ -104,6 +112,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
         filter: FileFilter(conditions: keptConditions),
         sort: FileSortOrder(keys: keptKeys),
         tagDisplayOrder: keptOrder,
+        grouping: FileGrouping(keys: keptGroupKeys),
       ),
     );
   }
@@ -136,10 +145,9 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     _set(state.copyWith(expandedFolders: next));
   }
 
-  /// 목록의 폴더 묶기(계층 그룹화)를 켜고 끈다. 끄면 모든 항목을 한 단계로 펼쳐
-  /// 폴더 묶음에 따른 태그 전파 효과를 없앤다.
-  void toggleGroupByFolder() =>
-      _set(state.copyWith(groupByFolder: !state.groupByFolder));
+  /// 그룹 단계를 통째로 갈아끼우고 저장한다(그룹 줄 편집이 호출).
+  void updateGrouping(FileGrouping grouping) =>
+      _set(state.copyWith(grouping: grouping));
 
   /// 프리뷰 분할 비율을 갱신·저장한다(분할선 드래그가 끝났을 때 호출).
   void updatePreviewRatio(double ratio) =>
@@ -182,9 +190,9 @@ final expandedFoldersProvider = Provider<Set<String>>(
   (ref) => ref.watch(viewSettingsProvider).expandedFolders,
 );
 
-/// 목록을 폴더 계층으로 묶을지. 쓰기는 [viewSettingsProvider]를 통한다.
-final groupByFolderProvider = Provider<bool>(
-  (ref) => ref.watch(viewSettingsProvider).groupByFolder,
+/// 현재 그룹 단계. 쓰기는 [viewSettingsProvider]를 통한다.
+final groupingProvider = Provider<FileGrouping>(
+  (ref) => ref.watch(viewSettingsProvider).grouping,
 );
 
 /// 폴더 경로 → effective 관리 모드(상속 반영). 목록 타일 메뉴·힌트가 각 폴더의
@@ -208,38 +216,27 @@ final definitionsByIdProvider = Provider<Map<int, TagDefinition>>((ref) {
   };
 });
 
-/// 필터·정렬을 적용한 표시용 **계층 트리**(그룹 UI). 형제끼리 정렬하고, 필터가
-/// 걸리면 매치된 노드와 그 조상만 남긴다. 로딩/에러 상태는 그대로 전달한다.
+/// 필터를 적용한 뒤 그룹 단계로 묶은 표시용 트리. 형제끼리 정렬하고, 폴더 계층
+/// 그룹이면 매치된 노드와 그 조상만 남긴다. 로딩/에러 상태는 그대로 전달한다.
 ///
-/// 폴더 묶기가 꺼져 있으면 계층을 세우지 않고, 모든 항목을 한 단계 노드로 평평하게
-/// 펼친다. 이때 필터는 매치된 항목만 남겨(조상 폴더를 함께 남기는 전파가 없다) 각
-/// 항목을 독립적으로 다룬다.
-final fileTreeProvider = Provider<AsyncValue<List<FileTreeNode>>>((ref) {
+/// 그룹이 비면 계층 없이 평면 리프 목록이고(옛 "폴더 그룹화 끔"), 폴더 계층 한
+/// 단계면 옛 폴더 트리, 태그 키가 있으면 값별 [GroupHeaderNode] 버킷으로 묶인다.
+final fileTreeProvider = Provider<AsyncValue<List<TreeItem>>>((ref) {
   final nodes = ref.watch(fileNodesProvider);
   final assignments = ref.watch(effectiveAssignmentsByFileProvider);
   final definitionsById = ref.watch(definitionsByIdProvider);
   final filter = ref.watch(fileFilterProvider);
   final sort = ref.watch(fileSortProvider);
-  final grouped = ref.watch(groupByFolderProvider);
+  final grouping = ref.watch(groupingProvider);
 
   return nodes.whenData(
-    (files) => grouped
-        ? const BuildFileTree()(
-            files: files,
-            assignmentsByFile: assignments,
-            filter: filter,
-            sort: sort,
-            definitionsById: definitionsById,
-          )
-        : [
-            for (final node in const QueryFiles()(
-              files: files,
-              assignmentsByFile: assignments,
-              filter: filter,
-              sort: sort,
-              definitionsById: definitionsById,
-            ))
-              FileTreeNode(node, const []),
-          ],
+    (files) => const BuildGroupedTree()(
+      files: files,
+      assignmentsByFile: assignments,
+      filter: filter,
+      grouping: grouping,
+      sort: sort,
+      definitionsById: definitionsById,
+    ),
   );
 });

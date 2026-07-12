@@ -22,15 +22,22 @@ AssignedTag _assign(int fileId, int defId, TagValueType type, String? value) =>
       definition: TagDefinition(id: defId, name: 'tag$defId', valueType: type),
     );
 
-/// 트리에서 경로로 노드를 찾는다(테스트 편의).
-FileTreeNode? _find(List<FileTreeNode> tree, String path) {
-  for (final n in tree) {
-    if (n.node.path == path) return n;
-    final inChild = _find(n.children, path);
+/// 트리에서 경로로 노드를 찾는다(테스트 편의). BuildFileTree는 파일 노드만 낸다.
+FileTreeNode? _find(List<TreeItem> tree, String path) {
+  for (final item in tree) {
+    if (item is! FileTreeNode) continue;
+    if (item.node.path == path) return item;
+    final inChild = _find(item.children, path);
     if (inChild != null) return inChild;
   }
   return null;
 }
+
+/// 자식 트리 항목들의 경로(모두 파일 노드라고 가정).
+List<String> _paths(List<TreeItem> items) => [
+  for (final item in items)
+    if (item is FileTreeNode) item.node.path,
+];
 
 void main() {
   const build = BuildFileTree();
@@ -56,10 +63,8 @@ void main() {
     expect(tree.map((n) => n.node.path), ['a', 'top.txt']);
     final a = tree.first;
     // a의 자식: 폴더 sub 먼저, 그다음 z.txt.
-    expect(a.children.map((n) => n.node.path), ['a/sub', 'a/z.txt']);
-    expect(_find(tree, 'a/sub')!.children.map((n) => n.node.path), [
-      'a/sub/deep.txt',
-    ]);
+    expect(_paths(a.children), ['a/sub', 'a/z.txt']);
+    expect(_paths(_find(tree, 'a/sub')!.children), ['a/sub/deep.txt']);
   });
 
   test('필터는 매치된 노드와 그 조상만 남기고 나머지 형제는 제외한다', () {
@@ -90,7 +95,7 @@ void main() {
     // a는 자손(hit)이 매치돼 조상으로 남고, b는 매치가 없어 통째로 빠진다.
     expect(tree.map((n) => n.node.path), ['a']);
     // a 아래엔 매치된 hit.txt만 남고 miss.txt는 빠진다.
-    expect(tree.first.children.map((n) => n.node.path), ['a/hit.txt']);
+    expect(_paths(tree.first.children), ['a/hit.txt']);
   });
 
   test('형제 정렬은 태그값 기준으로 적용된다(숫자 오름차순)', () {
@@ -115,9 +120,6 @@ void main() {
     );
 
     // 숫자 오름차순이면 2(small) < 10(big).
-    expect(tree.first.children.map((n) => n.node.path), [
-      'a/small.txt',
-      'a/big.txt',
-    ]);
+    expect(_paths(tree.first.children), ['a/small.txt', 'a/big.txt']);
   });
 }

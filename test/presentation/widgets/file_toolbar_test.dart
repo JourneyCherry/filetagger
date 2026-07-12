@@ -1,4 +1,5 @@
 import 'package:filetagger/domain/entities/file_filter.dart';
+import 'package:filetagger/domain/entities/file_grouping.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:filetagger/domain/entities/workspace_view_settings.dart';
@@ -47,7 +48,39 @@ Future<void> pumpToolbar(WidgetTester tester, FileFilter filter) async {
         home: Scaffold(
           body: SizedBox(
             width: 600,
-            child: FileToolbar(showSort: false),
+            // 필터 줄만 남겨 칩↔텍스트 동작을 분리해 본다(정렬·그룹 줄의 칩이
+            // 손잡이·x 아이콘 수를 흔들지 않도록).
+            child: FileToolbar(showSort: false, showGroup: false),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+/// 그룹 줄만 남긴 도구모음을 띄운다. [grouping]을 주지 않으면 기본(폴더 계층)이다.
+Future<void> pumpGroupToolbar(
+  WidgetTester tester, {
+  FileGrouping? grouping,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        viewSettingsRepositoryProvider.overrideWithValue(
+          _FakeStore(
+            grouping == null
+                ? const WorkspaceViewSettings()
+                : WorkspaceViewSettings(grouping: grouping),
+          ),
+        ),
+        tagDefinitionsProvider.overrideWith((ref) => Stream.value([_rating])),
+      ],
+      child: const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: FileToolbar(showFilter: false, showSort: false),
           ),
         ),
       ),
@@ -125,5 +158,22 @@ void main() {
 
     expect(isEditing(tester), isTrue);
     expect(find.text('태그 이름으로 조건 입력'), findsOneWidget);
+  });
+
+  desktopTestWidgets('그룹 줄은 기본(폴더 계층) 키를 칩으로 그린다', (tester) async {
+    await pumpGroupToolbar(tester);
+
+    // 폴더 계층 키 하나가 칩(손잡이·x 포함)으로 보이고 텍스트 입력은 아니다.
+    expect(isEditing(tester), isFalse);
+    expect(find.text('폴더 계층'), findsOneWidget);
+    expect(find.byIcon(Icons.drag_indicator), findsOneWidget);
+    expect(find.byIcon(Icons.cancel), findsOneWidget);
+  });
+
+  desktopTestWidgets('그룹이 비면 편집 중이 아니어도 텍스트 입력을 낸다', (tester) async {
+    await pumpGroupToolbar(tester, grouping: const FileGrouping());
+
+    expect(isEditing(tester), isTrue);
+    expect(find.text('태그 이름으로 그룹 기준 입력'), findsOneWidget);
   });
 }

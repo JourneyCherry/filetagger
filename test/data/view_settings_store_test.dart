@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:filetagger/data/settings/view_settings_store.dart';
 import 'package:filetagger/domain/entities/file_filter.dart';
+import 'package:filetagger/domain/entities/file_grouping.dart';
 import 'package:filetagger/domain/entities/file_sort.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
 import 'package:filetagger/domain/entities/workspace_view_settings.dart';
@@ -165,24 +166,37 @@ void main() {
     expect(loaded.expandedFolders, isEmpty);
   });
 
-  test('폴더 묶기 여부를 저장하고 그대로 불러온다', () async {
+  test('그룹 단계를 저장하고 그대로 불러온다(폴더 계층 + 태그 키)', () async {
     final store = JsonViewSettingsStore(root.path);
-    await store.save(const WorkspaceViewSettings(groupByFolder: false));
+    const grouping = FileGrouping(
+      keys: [TagGroupKey(7), FolderHierarchyGroupKey()],
+    );
+    await store.save(const WorkspaceViewSettings(grouping: grouping));
     final loaded = await store.load();
-    expect(loaded.groupByFolder, isFalse);
+    expect(loaded.grouping.keys, hasLength(2));
+    expect((loaded.grouping.keys.first as TagGroupKey).tagDefinitionId, 7);
+    expect(loaded.grouping.keys.last, isA<FolderHierarchyGroupKey>());
   });
 
-  test('폴더 묶기 설정이 없으면 기본값(묶음)을 쓴다', () async {
+  test('그룹 설정이 없으면 기본값(폴더 계층)을 쓴다', () async {
     final loaded = await JsonViewSettingsStore(root.path).load();
-    expect(loaded.groupByFolder, isTrue);
+    expect(loaded.grouping.keys, [const FolderHierarchyGroupKey()]);
   });
 
-  test('폴더 묶기 값이 bool이 아니면 기본값(묶음)으로 복구한다', () async {
+  test('구버전 grouped=true는 폴더 계층 그룹으로 마이그레이션된다', () async {
     final file = File('${root.path}/.filetagger/view.json');
     await file.create(recursive: true);
-    await file.writeAsString('{"grouped":"oops"}');
+    await file.writeAsString('{"grouped":true}');
     final loaded = await JsonViewSettingsStore(root.path).load();
-    expect(loaded.groupByFolder, isTrue);
+    expect(loaded.grouping.keys, [const FolderHierarchyGroupKey()]);
+  });
+
+  test('구버전 grouped=false는 평면(빈 그룹)으로 마이그레이션된다', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"grouped":false}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.grouping.isEmpty, isTrue);
   });
 
   test('저장 파일이 없으면 기본값(빈 설정)을 준다', () async {

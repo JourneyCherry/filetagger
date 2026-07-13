@@ -15,9 +15,14 @@ import '../../domain/entities/file_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_merge_resolution.dart';
 import '../../domain/entities/system_tag.dart';
+import '../../domain/entities/view_mode.dart';
+import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/usecases/folder_index_scope.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
+import '../common/ctrl_wheel_zoom.dart';
+import '../common/file_detail_view.dart';
+import '../common/file_icon_view.dart';
 import '../common/file_list_view.dart';
 import '../common/pointer_presence.dart';
 import '../common/preview_split.dart';
@@ -778,6 +783,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 지금 상태에서 실행할 수 있는 명령들의 핸들러. 실행할 수 없는 명령은 null로
   /// 두어 단축키·메뉴·버튼이 함께 비활성화된다.
   CommandHandlers _handlers(SelectionState selection, bool hasWorkspace) {
+    // 자세히 모드는 정렬·그룹 줄을 쓰지 않으므로 그 토글 명령을 비활성화한다.
+    final detailMode = ref.read(viewModeProvider) == ViewMode.detail;
     return CommandHandlers(
       openFolder: _busy ? null : _openFolder,
       closeFolder: (!hasWorkspace || _busy) ? null : _closeWorkspace,
@@ -799,14 +806,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       toggleFilterBar: (hasWorkspace && isDesktopPlatform)
           ? _toggleFilterBar
           : null,
-      toggleSortBar: (hasWorkspace && isDesktopPlatform)
+      toggleSortBar: (hasWorkspace && isDesktopPlatform && !detailMode)
           ? _toggleSortBar
           : null,
       toggleListEdit: (hasWorkspace && isDesktopPlatform)
           ? _toggleListEdit
           : null,
       // 그룹 줄 토글은 데스크톱 셸의 크롬에만 있다(모바일은 시트에 늘 함께 뜬다).
-      toggleGrouping: (hasWorkspace && isDesktopPlatform)
+      toggleGrouping: (hasWorkspace && isDesktopPlatform && !detailMode)
           ? _toggleGroupBar
           : null,
       togglePreview: hasWorkspace ? _togglePreview : null,
@@ -863,6 +870,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
+    // 자세히 모드는 자체 헤더 정렬을 쓰고 그룹화를 무시하므로 정렬·그룹 줄을 숨긴다
+    // (사용자 토글값은 그대로 두어 다른 모드로 돌아오면 복원된다).
+    final detailMode = ref.watch(viewModeProvider) == ViewMode.detail;
     return DesktopShell(
       handlers: handlers,
       workspaceRoot: workspaceRoot,
@@ -871,8 +881,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       scanning: _scanning,
       previewVisible: _previewVisible,
       filterBarVisible: _filterBarVisible,
-      sortBarVisible: _sortBarVisible,
-      groupBarVisible: _groupBarVisible,
+      sortBarVisible: _sortBarVisible && !detailMode,
+      groupBarVisible: _groupBarVisible && !detailMode,
       listEditEnabled: _listEditEnabled,
       body: body,
     );
@@ -881,9 +891,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 목록과, 분할로 켜져 있으면 프리뷰 창을 함께 배치한다. 좁은 폭에서는 분할
   /// 대신 프리뷰를 시트로 띄우므로 여기서는 목록만 그린다.
   Widget _buildContentArea(SelectionState selection) {
-    final list = _buildFileList(selection);
+    // Ctrl(⌘)+휠은 목록 위에서만 크기를 조절한다(프리뷰는 제외). 세 모드가 같은
+    // 자리를 나눠 쓰므로 래퍼도 목록 쪽에만 두른다.
+    final list = CtrlWheelZoom(
+      onZoom: _onListZoom,
+      child: _buildFileList(selection),
+    );
     if (!_splitVisible) return list;
     return PreviewSplitView(list: list, preview: _buildPreviewPane());
+  }
+
+  /// Ctrl(⌘)+휠 한 칸에 현재 보기 모드의 크기 배율을 한 단계 조절한다. 위로 굴리면
+  /// (음수 델타) 확대, 아래로 굴리면 축소. 모드별로 따로 저장된다.
+  void _onListZoom(double dy) {
+    final settings = ref.read(viewSettingsProvider);
+    final mode = settings.viewMode;
+    final step = dy > 0 ? -kViewScaleStep : kViewScaleStep;
+    ref
+        .read(viewSettingsProvider.notifier)
+        .updateViewScale(mode, settings.scaleFor(mode) + step);
   }
 
   /// 선택이 정확히 하나일 때 그 노드를 미리본다. 없거나 여럿이면 노드는 null이고
@@ -909,34 +935,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildFileList(SelectionState selection) {
     final desktop = isDesktopPlatform;
-    final content = _scanning
-        ? const Center(child: CircularProgressIndicator())
-        : FileListView(
-            onTapNode: _onTapNode,
-            onLongPressNode: desktop ? null : _onLongPressNode,
-            // 우클릭은 정밀 포인터가 있을 때만 연다(마우스를 붙인 모바일도 포함).
-            onSecondaryTapNode: ref.watch(pointerPresenceProvider)
-                ? _onSecondaryTapNode
-                : null,
-            onEditAssignment: _editAssignmentFromList,
-            // '목록에서 수정'을 켜면 행의 태그 칩이 프리뷰 창처럼 해제·추가까지 받는다.
-            inlineEdit: desktop && _listEditEnabled,
-            onRemoveAssignment: _removeAssignment,
-            onAddTag: _addTagToNode,
-            // 데스크톱은 폴더 관리 방식을 우클릭 컨텍스트 메뉴로 옮겨 행 끝을 비운다.
-            trailingBuilder: desktop
-                ? null
-                : (node, mode) => _mobileTrailing(selection, node, mode),
-            tileWrapper: desktop ? null : _swipeActions,
-            // FAB에 마지막 행이 가리지 않도록 아래를 비워 둔다.
-            padding: desktop
-                ? EdgeInsets.zero
-                : const EdgeInsets.only(bottom: 88),
-          );
+    if (_scanning) return const Center(child: CircularProgressIndicator());
+    // 세 보기 모드는 같은 프리뷰·선택 자리를 나눠 쓰고 표현만 다르다. 아이콘·자세히는
+    // 아직 자리표시자다(Phase 3·4에서 구현).
+    final Widget content;
+    switch (ref.watch(viewModeProvider)) {
+      case ViewMode.list:
+        content = _buildListMode(selection, desktop);
+      case ViewMode.icon:
+        content = _buildIconMode(desktop);
+      case ViewMode.detail:
+        content = _buildDetailMode(desktop);
+    }
     if (desktop) return content;
     // 당겨서 재스캔(모바일에는 상시 '다시 스캔' 버튼이 없다). 스캔이 시작되면
     // 목록이 스피너로 바뀌므로 RefreshIndicator를 그 바깥에 두어 살려 둔다.
     return RefreshIndicator(onRefresh: _scan, child: content);
+  }
+
+  Widget _buildListMode(SelectionState selection, bool desktop) {
+    return FileListView(
+      onTapNode: _onTapNode,
+      onLongPressNode: desktop ? null : _onLongPressNode,
+      // 우클릭은 정밀 포인터가 있을 때만 연다(마우스를 붙인 모바일도 포함).
+      onSecondaryTapNode: ref.watch(pointerPresenceProvider)
+          ? _onSecondaryTapNode
+          : null,
+      onEditAssignment: _editAssignmentFromList,
+      // '목록에서 수정'을 켜면 행의 태그 칩이 프리뷰 창처럼 해제·추가까지 받는다.
+      inlineEdit: desktop && _listEditEnabled,
+      onRemoveAssignment: _removeAssignment,
+      onAddTag: _addTagToNode,
+      // 데스크톱은 폴더 관리 방식을 우클릭 컨텍스트 메뉴로 옮겨 행 끝을 비운다.
+      trailingBuilder: desktop
+          ? null
+          : (node, mode) => _mobileTrailing(selection, node, mode),
+      tileWrapper: desktop ? null : _swipeActions,
+      // FAB에 마지막 행이 가리지 않도록 아래를 비워 둔다.
+      padding: desktop ? EdgeInsets.zero : const EdgeInsets.only(bottom: 88),
+    );
+  }
+
+  Widget _buildIconMode(bool desktop) {
+    return FileIconView(
+      onTapNode: _onTapNode,
+      // 파일 더블클릭은 그 파일을 골라 프리뷰를 연다(폴더·그룹은 뷰가 파고든다).
+      onActivateFile: _activateFilePreview,
+      onLongPressNode: desktop ? null : _onLongPressNode,
+      onSecondaryTapNode: ref.watch(pointerPresenceProvider)
+          ? _onSecondaryTapNode
+          : null,
+      padding: desktop ? EdgeInsets.zero : const EdgeInsets.only(bottom: 88),
+    );
+  }
+
+  Widget _buildDetailMode(bool desktop) {
+    return FileDetailView(
+      onTapNode: _onTapNode,
+      onActivateFile: _activateFilePreview,
+      onLongPressNode: desktop ? null : _onLongPressNode,
+      onSecondaryTapNode: ref.watch(pointerPresenceProvider)
+          ? _onSecondaryTapNode
+          : null,
+      padding: desktop ? EdgeInsets.zero : const EdgeInsets.only(bottom: 88),
+    );
+  }
+
+  /// 아이콘·자세히 뷰에서 파일을 더블클릭했을 때: 그 파일을 단일 선택하고 프리뷰를 연다.
+  void _activateFilePreview(FileNode node) {
+    final id = node.id;
+    if (id == null) return;
+    ref.read(selectionControllerProvider.notifier).selectSingle(id);
+    _showPreview(node);
   }
 
   /// 모바일 행 끝: 선택 모드면 체크박스, 아니면 폴더의 관리 방식 시트 버튼.

@@ -8,6 +8,7 @@ import '../../domain/entities/file_filter.dart';
 import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/repositories/view_settings_repository.dart';
 import '../../domain/usecases/group_query_text.dart';
@@ -59,6 +60,14 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
   'tagOrder': s.tagDisplayOrder,
   'expanded': s.expandedFolders.toList(),
   'grouping': _groupingToJson(s.grouping),
+  'viewMode': s.viewMode.name,
+  'viewScales': {
+    for (final e in s.viewScales.entries) e.key.name: e.value,
+  },
+  'detailSort': _sortToJson(s.detailSort),
+  'detailColumnWidths': {
+    for (final e in s.detailColumnWidths.entries) '${e.key}': e.value,
+  },
 };
 
 WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
@@ -71,7 +80,44 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       tagDisplayOrder: _tagOrderFromJson(json['tagOrder']),
       expandedFolders: _expandedFromJson(json['expanded']),
       grouping: _groupingFromJson(json['grouping'], json['grouped']),
+      viewMode: _enumByName(ViewMode.values, json['viewMode']) ?? ViewMode.list,
+      viewScales: _viewScalesFromJson(json['viewScales']),
+      detailSort: _sortFromJson(json['detailSort']),
+      detailColumnWidths: _detailWidthsFromJson(json['detailColumnWidths']),
     );
+
+/// 자세히 컬럼 폭. 키(태그 id 문자열)가 정수가 아니거나 값이 비숫자면 건너뛰고,
+/// 값은 허용 범위로 가둔다. 없거나 형식이 어긋나면 빈 맵(전부 기본 폭).
+Map<int, double> _detailWidthsFromJson(Object? json) {
+  if (json is! Map) return const <int, double>{};
+  final result = <int, double>{};
+  for (final entry in json.entries) {
+    final id = int.tryParse('${entry.key}');
+    final value = entry.value;
+    if (id != null && value is num) {
+      result[id] = value.toDouble().clamp(
+        kDetailColumnWidthMin,
+        kDetailColumnWidthMax,
+      );
+    }
+  }
+  return result;
+}
+
+/// 보기 모드별 크기 배율. 알 수 없는 모드명·비숫자 값은 건너뛰고, 값은 허용 범위로
+/// 가둔다. 없거나 형식이 어긋나면 빈 맵(전부 기본 배율).
+Map<ViewMode, double> _viewScalesFromJson(Object? json) {
+  if (json is! Map) return const <ViewMode, double>{};
+  final result = <ViewMode, double>{};
+  for (final entry in json.entries) {
+    final mode = _enumByName(ViewMode.values, entry.key);
+    final value = entry.value;
+    if (mode != null && value is num) {
+      result[mode] = value.toDouble().clamp(kViewScaleMin, kViewScaleMax);
+    }
+  }
+  return result;
+}
 
 /// 그룹 단계를 정의 id 나열로 저장한다(폴더 계층 키는 예약 id로). 텍스트·칩
 /// 계층이 그룹 키를 정의 id로 다루는 것과 같은 방식이라 재해석이 단순하다.

@@ -21,11 +21,16 @@ Future<void> showTagAssignDialog(
   BuildContext context, {
   required List<int> fileNodeIds,
   required String title,
+  int? preselectTagId,
 }) {
   if (isDesktopPlatform) {
     return showDialog<void>(
       context: context,
-      builder: (_) => _TagAssignDialog(fileNodeIds: fileNodeIds, title: title),
+      builder: (_) => _TagAssignDialog(
+        fileNodeIds: fileNodeIds,
+        title: title,
+        preselectTagId: preselectTagId,
+      ),
     );
   }
   return showModalBottomSheet<void>(
@@ -33,8 +38,12 @@ Future<void> showTagAssignDialog(
     isScrollControlled: true,
     showDragHandle: true,
     useSafeArea: true,
-    builder: (_) =>
-        _TagAssignDialog(fileNodeIds: fileNodeIds, title: title, asSheet: true),
+    builder: (_) => _TagAssignDialog(
+      fileNodeIds: fileNodeIds,
+      title: title,
+      preselectTagId: preselectTagId,
+      asSheet: true,
+    ),
   );
 }
 
@@ -42,11 +51,16 @@ class _TagAssignDialog extends ConsumerStatefulWidget {
   const _TagAssignDialog({
     required this.fileNodeIds,
     required this.title,
+    this.preselectTagId,
     this.asSheet = false,
   });
 
   final List<int> fileNodeIds;
   final String title;
+
+  /// '태그 추가' 콤보를 처음부터 이 태그로 골라 둔다(자세히 셀 우클릭 → 추가에서,
+  /// 그 셀이 가리키는 태그를 미리 선택). null이면 아무것도 고르지 않은 상태다.
+  final int? preselectTagId;
 
   /// 다이얼로그 대신 바텀시트 안에 놓였는지(테두리·닫기 버튼 대신 시트 크롬을 쓴다).
   final bool asSheet;
@@ -63,6 +77,12 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   String? _addError;
 
   bool get _isSingle => widget.fileNodeIds.length == 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _addTagId = widget.preselectTagId;
+  }
 
   @override
   void dispose() {

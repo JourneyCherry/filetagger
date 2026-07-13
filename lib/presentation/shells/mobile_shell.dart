@@ -80,12 +80,13 @@ class MobileShell extends StatelessWidget {
       title: Text(root == null ? 'File Tagger' : p.basename(root)),
       bottom: _progress,
       actions: [
-        if (root != null)
+        if (root != null) ...[
           IconButton(
             icon: const Icon(Icons.tune),
             tooltip: '필터 · 정렬',
             onPressed: onOpenFilterSheet,
           ),
+        ],
         _overflowMenu(),
       ],
     );

@@ -5,6 +5,7 @@ import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/file_grouping.dart';
 import 'package:filetagger/domain/entities/file_sort.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
+import 'package:filetagger/domain/entities/view_mode.dart';
 import 'package:filetagger/domain/entities/workspace_view_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -197,6 +198,96 @@ void main() {
     await file.writeAsString('{"grouped":false}');
     final loaded = await JsonViewSettingsStore(root.path).load();
     expect(loaded.grouping.isEmpty, isTrue);
+  });
+
+  test('보기 모드를 저장하고 그대로 불러온다', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(const WorkspaceViewSettings(viewMode: ViewMode.detail));
+    final loaded = await store.load();
+    expect(loaded.viewMode, ViewMode.detail);
+  });
+
+  test('보기 모드가 없거나 알 수 없으면 기본값(목록)을 쓴다', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"viewMode":"bogus"}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.viewMode, ViewMode.list);
+  });
+
+  test('모드별 크기 배율을 저장하고 그대로 불러온다', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(
+      const WorkspaceViewSettings(
+        viewScales: {ViewMode.list: 1.5, ViewMode.icon: 2.0},
+      ),
+    );
+    final loaded = await store.load();
+    expect(loaded.scaleFor(ViewMode.list), 1.5);
+    expect(loaded.scaleFor(ViewMode.icon), 2.0);
+    // 저장값이 없는 모드는 기본 배율.
+    expect(loaded.scaleFor(ViewMode.detail), kDefaultViewScale);
+  });
+
+  test('저장된 크기 배율이 범위를 벗어나면 가둔다', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"viewScales":{"list":99,"icon":0.01}}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.scaleFor(ViewMode.list), kViewScaleMax);
+    expect(loaded.scaleFor(ViewMode.icon), kViewScaleMin);
+  });
+
+  test('크기 배율의 알 수 없는 모드명·비숫자 값은 건너뛴다', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"viewScales":{"bogus":1.5,"detail":"oops"}}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.scaleFor(ViewMode.detail), kDefaultViewScale);
+  });
+
+  test('자세히 정렬을 저장하고 그대로 불러온다(전역 정렬과 별개)', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(
+      const WorkspaceViewSettings(
+        detailSort: FileSortOrder(
+          keys: [
+            SortKey(tagDefinitionId: 3, direction: SortDirection.descending),
+            SortKey(tagDefinitionId: -5),
+          ],
+        ),
+      ),
+    );
+    final loaded = await store.load();
+    expect(loaded.detailSort.keys, hasLength(2));
+    expect(loaded.detailSort.keys[0].tagDefinitionId, 3);
+    expect(loaded.detailSort.keys[0].direction, SortDirection.descending);
+    expect(loaded.detailSort.keys[1].tagDefinitionId, -5);
+    // 전역 정렬은 건드리지 않는다.
+    expect(loaded.sort.isEmpty, isTrue);
+  });
+
+  test('자세히 컬럼 폭을 저장하고 그대로 불러온다(이름 컬럼 예약 키 포함)', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(
+      const WorkspaceViewSettings(
+        detailColumnWidths: {kDetailNameColumnId: 200, 7: 120},
+      ),
+    );
+    final loaded = await store.load();
+    expect(loaded.detailColumnWidthFor(kDetailNameColumnId), 200);
+    expect(loaded.detailColumnWidthFor(7), 120);
+    // 저장값 없는 컬럼은 기본 폭.
+    expect(loaded.detailColumnWidthFor(9), kDefaultDetailColumnWidth);
+  });
+
+  test('저장된 자세히 컬럼 폭이 범위를 벗어나면 가둔다', () async {
+    final file = File('${root.path}/.filetagger/view.json');
+    await file.create(recursive: true);
+    await file.writeAsString('{"detailColumnWidths":{"7":9999,"8":1}}');
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.detailColumnWidthFor(7), kDetailColumnWidthMax);
+    expect(loaded.detailColumnWidthFor(8), kDetailColumnWidthMin);
   });
 
   test('저장 파일이 없으면 기본값(빈 설정)을 준다', () async {

@@ -2,6 +2,7 @@ import 'file_filter.dart';
 import 'file_grouping.dart';
 import 'file_sort.dart';
 import 'folder_manage_mode.dart';
+import 'view_mode.dart';
 
 /// 프리뷰 창이 분할에서 차지하는 비율의 기본값과 허용 범위. 창 폭/높이에 대한
 /// 프리뷰 쪽 몫이다. 어느 한쪽이 사라지지 않도록 최소·최대로 가둔다. 값의 단일
@@ -9,6 +10,23 @@ import 'folder_manage_mode.dart';
 const double kDefaultPreviewRatio = 0.34;
 const double kPreviewRatioMin = 0.15;
 const double kPreviewRatioMax = 0.7;
+
+/// 보기 모드별 크기 배율(Ctrl/⌘+휠 zoom)의 기본값·허용 범위·한 칸 증감폭. 1.0이
+/// 기준 크기다. 값의 단일 출처로 두어 저장소(클램프)와 입력 처리(증감)가 함께 쓴다.
+const double kDefaultViewScale = 1.0;
+const double kViewScaleMin = 0.6;
+const double kViewScaleMax = 2.5;
+const double kViewScaleStep = 0.1;
+
+/// 자세히 테이블 컬럼 폭의 기본값·허용 범위. 값의 단일 출처로 두어 저장소(클램프)와
+/// UI(드래그 클램프)가 함께 참조한다.
+const double kDefaultDetailColumnWidth = 140;
+const double kDetailColumnWidthMin = 60;
+const double kDetailColumnWidthMax = 600;
+
+/// 자세히 테이블의 고정 '이름' 컬럼 폭을 [WorkspaceViewSettings.detailColumnWidths]에
+/// 담을 때 쓰는 예약 키. 실제 태그 id(사용자=양수, 시스템=작은 음수)와 겹치지 않는다.
+const int kDetailNameColumnId = -1000;
 
 /// 루트 폴더의 기본 관리 방식. 루트는 항상 최소한 직속 내용을 보이므로
 /// [FolderManageMode.managed](비재귀) 또는 [FolderManageMode.managedRecursive]만
@@ -36,6 +54,10 @@ class WorkspaceViewSettings {
     this.tagDisplayOrder = const <int>[],
     this.expandedFolders = const <String>{},
     this.grouping = kDefaultGrouping,
+    this.viewMode = ViewMode.list,
+    this.viewScales = const <ViewMode, double>{},
+    this.detailSort = const FileSortOrder(),
+    this.detailColumnWidths = const <int, double>{},
   });
 
   final FileFilter filter;
@@ -66,6 +88,33 @@ class WorkspaceViewSettings {
   /// 폴더 그룹화와 같고, 비면 평면 목록, 태그 키가 있으면 값별 버킷으로 묶인다.
   final FileGrouping grouping;
 
+  /// 파일 목록을 목록/아이콘/자세히 중 어느 형태로 보일지.
+  final ViewMode viewMode;
+
+  /// 보기 모드별 크기 배율(Ctrl/⌘+휠 zoom). 각 모드가 자연스러운 크기 범위가 달라
+  /// 독립 저장한다. 없는 모드는 [kDefaultViewScale]로 본다.
+  final Map<ViewMode, double> viewScales;
+
+  /// [mode]의 크기 배율(저장값이 없으면 기본, 늘 허용 범위로 가둔다).
+  double scaleFor(ViewMode mode) =>
+      (viewScales[mode] ?? kDefaultViewScale).clamp(kViewScaleMin, kViewScaleMax);
+
+  /// 자세히 테이블 전용 정렬(전역 [sort]와 별개). 헤더 클릭 순서가 우선순위이고,
+  /// 재클릭이 방향을 뒤집는다. 전 컬럼을 다루므로 소수 키만 담는 전역 정렬과 목적이
+  /// 다르다.
+  final FileSortOrder detailSort;
+
+  /// 자세히 테이블 컬럼 폭(태그 id → 폭). 고정 '이름' 컬럼은 [kDetailNameColumnId]
+  /// 키를 쓴다. 없는 컬럼은 [kDefaultDetailColumnWidth].
+  final Map<int, double> detailColumnWidths;
+
+  /// [id] 컬럼의 폭(저장값이 없으면 기본, 늘 허용 범위로 가둔다).
+  double detailColumnWidthFor(int id) =>
+      (detailColumnWidths[id] ?? kDefaultDetailColumnWidth).clamp(
+        kDetailColumnWidthMin,
+        kDetailColumnWidthMax,
+      );
+
   bool get isEmpty => filter.isEmpty && sort.isEmpty;
 
   WorkspaceViewSettings copyWith({
@@ -77,6 +126,10 @@ class WorkspaceViewSettings {
     List<int>? tagDisplayOrder,
     Set<String>? expandedFolders,
     FileGrouping? grouping,
+    ViewMode? viewMode,
+    Map<ViewMode, double>? viewScales,
+    FileSortOrder? detailSort,
+    Map<int, double>? detailColumnWidths,
   }) => WorkspaceViewSettings(
     filter: filter ?? this.filter,
     sort: sort ?? this.sort,
@@ -86,5 +139,9 @@ class WorkspaceViewSettings {
     tagDisplayOrder: tagDisplayOrder ?? this.tagDisplayOrder,
     expandedFolders: expandedFolders ?? this.expandedFolders,
     grouping: grouping ?? this.grouping,
+    viewMode: viewMode ?? this.viewMode,
+    viewScales: viewScales ?? this.viewScales,
+    detailSort: detailSort ?? this.detailSort,
+    detailColumnWidths: detailColumnWidths ?? this.detailColumnWidths,
   );
 }

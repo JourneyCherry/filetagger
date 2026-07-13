@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform.dart';
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/view_mode.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/view_mode_selector.dart';
 
 /// 네이티브 메뉴(macOS)에서 체크 항목의 라벨 앞에 붙일 표식.
 const String _checkMark = '✓';
@@ -104,7 +106,12 @@ class AppMenuBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recent = ref.watch(recentFoldersProvider).valueOrNull ?? const [];
-    final menus = _buildMenus(recent, ref.watch(rootManageModeProvider));
+    final menus = _buildMenus(
+      recent,
+      ref.watch(rootManageModeProvider),
+      ref.watch(viewModeProvider),
+      ref.read(viewSettingsProvider.notifier).updateViewMode,
+    );
 
     if (isMacOS) {
       return PlatformMenuBar(
@@ -135,6 +142,8 @@ class AppMenuBar extends ConsumerWidget {
   List<MenuSubmenu> _buildMenus(
     List<String> recentFolders,
     FolderManageMode rootMode,
+    ViewMode viewMode,
+    ValueChanged<ViewMode> onSelectViewMode,
   ) {
     return [
       MenuSubmenu('파일', [
@@ -154,15 +163,33 @@ class AppMenuBar extends ConsumerWidget {
         const MenuDivider(),
         MenuSubmenu('루트 폴더 관리 방식', _rootManageItems(rootMode)),
       ]),
-      const MenuSubmenu('보기', [
-        MenuCommand(AppCommandId.togglePreview),
-        MenuDivider(),
-        MenuCommand(AppCommandId.toggleGrouping),
-        MenuCommand(AppCommandId.toggleFilterBar),
-        MenuCommand(AppCommandId.toggleSortBar),
-        MenuCommand(AppCommandId.toggleListEdit),
+      MenuSubmenu('보기', [
+        MenuSubmenu('보기 모드', _viewModeItems(viewMode, onSelectViewMode)),
+        const MenuDivider(),
+        const MenuCommand(AppCommandId.togglePreview),
+        const MenuDivider(),
+        const MenuCommand(AppCommandId.toggleGrouping),
+        const MenuCommand(AppCommandId.toggleFilterBar),
+        const MenuCommand(AppCommandId.toggleSortBar),
+        const MenuCommand(AppCommandId.toggleListEdit),
       ]),
       const MenuSubmenu('태그', [MenuCommand(AppCommandId.manageTags)]),
+    ];
+  }
+
+  /// 파일 목록 보기 모드 선택지(목록/아이콘/자세히). 현재 모드를 체크로 보인다.
+  /// 세그먼트 버튼과 라벨·순서를 [viewModeChoices]에서 함께 가져온다.
+  List<MenuNode> _viewModeItems(
+    ViewMode current,
+    ValueChanged<ViewMode> onSelect,
+  ) {
+    return [
+      for (final choice in viewModeChoices)
+        MenuChecked(
+          choice.label,
+          checked: choice.mode == current,
+          onSelected: () => onSelect(choice.mode),
+        ),
     ];
   }
 

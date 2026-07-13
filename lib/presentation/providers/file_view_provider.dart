@@ -8,10 +8,14 @@ import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
+import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
+import '../../domain/entities/file_node.dart';
 import '../../domain/repositories/view_settings_repository.dart';
 import '../../domain/usecases/build_grouped_tree.dart';
 import '../../domain/usecases/folder_index_scope.dart';
+import '../../domain/usecases/query_files.dart';
+import '../../domain/usecases/tag_display_order.dart';
 import 'file_node_provider.dart';
 import 'system_tag_provider.dart';
 import 'tag_provider.dart';
@@ -149,6 +153,33 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
   void updateGrouping(FileGrouping grouping) =>
       _set(state.copyWith(grouping: grouping));
 
+  /// 파일 목록의 보기 모드(목록/아이콘/자세히)를 갈아끼우고 저장한다.
+  void updateViewMode(ViewMode mode) => _set(state.copyWith(viewMode: mode));
+
+  /// 보기 모드 [mode]의 크기 배율을 [scale]로 바꾸고 저장한다(허용 범위로 가둔다).
+  /// 배율이 그대로면 저장하지 않아 휠 끝(범위 한계)에서 헛저장을 막는다.
+  void updateViewScale(ViewMode mode, double scale) {
+    final clamped = scale.clamp(kViewScaleMin, kViewScaleMax);
+    if (state.scaleFor(mode) == clamped) return;
+    _set(
+      state.copyWith(viewScales: {...state.viewScales, mode: clamped}),
+    );
+  }
+
+  /// 자세히 테이블 전용 정렬을 갈아끼우고 저장한다(전역 정렬과 별개).
+  void updateDetailSort(FileSortOrder sort) =>
+      _set(state.copyWith(detailSort: sort));
+
+  /// 자세히 컬럼 [id]의 폭을 [width]로 바꾸고 저장한다(허용 범위로 가둔다).
+  void updateDetailColumnWidth(int id, double width) {
+    final clamped = width.clamp(kDetailColumnWidthMin, kDetailColumnWidthMax);
+    _set(
+      state.copyWith(
+        detailColumnWidths: {...state.detailColumnWidths, id: clamped},
+      ),
+    );
+  }
+
   /// 프리뷰 분할 비율을 갱신·저장한다(분할선 드래그가 끝났을 때 호출).
   void updatePreviewRatio(double ratio) =>
       _set(state.copyWith(previewRatio: ratio));
@@ -194,6 +225,61 @@ final expandedFoldersProvider = Provider<Set<String>>(
 final groupingProvider = Provider<FileGrouping>(
   (ref) => ref.watch(viewSettingsProvider).grouping,
 );
+
+/// 현재 파일 목록 보기 모드. 쓰기는 [viewSettingsProvider]를 통한다.
+final viewModeProvider = Provider<ViewMode>(
+  (ref) => ref.watch(viewSettingsProvider).viewMode,
+);
+
+/// 현재 보기 모드의 크기 배율(Ctrl/⌘+휠 zoom). 모드가 바뀌면 그 모드의 배율로
+/// 갈린다. 배율만 바뀌면 목록만 다시 그려지도록 좁은 값으로 노출한다.
+final currentViewScaleProvider = Provider<double>((ref) {
+  final settings = ref.watch(viewSettingsProvider);
+  return settings.scaleFor(settings.viewMode);
+});
+
+/// 자세히 테이블 전용 정렬. 쓰기는 [viewSettingsProvider]를 통한다.
+final detailSortProvider = Provider<FileSortOrder>(
+  (ref) => ref.watch(viewSettingsProvider).detailSort,
+);
+
+/// 자세히 컬럼 폭(태그 id → 폭). 쓰기는 [viewSettingsProvider]를 통한다.
+final detailColumnWidthsProvider = Provider<Map<int, double>>(
+  (ref) => ref.watch(viewSettingsProvider).detailColumnWidths,
+);
+
+/// 자세히 테이블의 태그 컬럼(고정 '이름' 컬럼 제외). 모든 태그(사용자+시스템)를
+/// 대상으로 하되, 이름은 고정 컬럼이 맡으므로 파일 이름 시스템 태그는 뺀다. 좌우
+/// 순서는 목록·프리뷰와 공유하는 [effectiveTagDisplayOrderProvider]를 따른다.
+final detailTagColumnsProvider = Provider<List<TagDefinition>>((ref) {
+  final defs = ref.watch(pickableTagDefinitionsProvider);
+  final order = ref.watch(effectiveTagDisplayOrderProvider);
+  final columns = [
+    for (final d in defs)
+      if (d.id != SystemTag.fileName.id) d,
+  ];
+  return orderTagDefinitions(columns, order);
+});
+
+/// 자세히 테이블의 행: 그룹화를 무시하고 필터만 적용해 파일·폴더를 평면 나열하되
+/// 자세히 전용 정렬로 정렬한다(전역 정렬·그룹과 별개). 정렬 비교기는 목록과 같은
+/// [QueryFiles]를 재사용하고 정렬 키 출처만 [detailSortProvider]로 바꾼다.
+final detailRowsProvider = Provider<AsyncValue<List<FileNode>>>((ref) {
+  final nodes = ref.watch(fileNodesProvider);
+  final assignments = ref.watch(effectiveAssignmentsByFileProvider);
+  final defsById = ref.watch(definitionsByIdProvider);
+  final filter = ref.watch(fileFilterProvider);
+  final sort = ref.watch(detailSortProvider);
+  return nodes.whenData(
+    (files) => const QueryFiles()(
+      files: files,
+      assignmentsByFile: assignments,
+      filter: filter,
+      sort: sort,
+      definitionsById: defsById,
+    ),
+  );
+});
 
 /// 폴더 경로 → effective 관리 모드(상속 반영). 목록 타일 메뉴·힌트가 각 폴더의
 /// 실제 관리 상태를 표시하는 데 쓴다. override(저장값)와 루트 모드로 계산한다.

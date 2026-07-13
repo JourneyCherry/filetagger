@@ -5,20 +5,28 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/view_mode.dart';
+import '../providers/file_view_provider.dart';
 import '../widgets/file_toolbar.dart';
 
 /// 필터·정렬·그룹 도구모음을 시트로 띄운다(모바일에는 상시 도구모음 자리가 없다).
-/// 세 줄이 모두 담겨, 폴더 계층 묶기도 그룹 줄에서 태그처럼 넣고 뺀다.
+/// 자세히 모드는 자체 헤더 정렬을 쓰고 그룹화를 무시하므로 정렬·그룹 줄을 숨긴다.
 Future<void> showFilterSortSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     useSafeArea: true,
-    builder: (_) => const SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(12, 0, 12, 24),
-      child: FileToolbar(),
+    builder: (_) => SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      child: Consumer(
+        builder: (context, ref, _) {
+          final detail = ref.watch(viewModeProvider) == ViewMode.detail;
+          return FileToolbar(showSort: !detail, showGroup: !detail);
+        },
+      ),
     ),
   );
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/settings/app_settings_store.dart';
@@ -45,7 +46,28 @@ class RecentFoldersNotifier extends AsyncNotifier<List<String>> {
 
   Future<void> _persist(List<String> folders) async {
     state = AsyncData(folders);
-    // 저장 실패는 조용히 무시한다(다음 변경 때 다시 시도된다).
-    await _store.save(AppSettings(recentFolders: folders));
+    // 저장 실패는 조용히 무시한다(다음 변경 때 다시 시도된다). 저장 직전 현재 설정을
+    // 다시 읽어 그 위에 얹는다 — 같은 파일을 나눠 쓰는 다른 설정(테마 등)을 덮지 않는다.
+    final current = await _store.load();
+    await _store.save(current.copyWith(recentFolders: folders));
+  }
+}
+
+/// 라이트/다크 테마 선택. 머신 단위 전역 설정으로 [appSettingsStoreProvider]에
+/// 영속화된다. 기본값(시스템)은 OS 밝기를 따른다.
+final themeModeProvider =
+    AsyncNotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+class ThemeModeNotifier extends AsyncNotifier<ThemeMode> {
+  AppSettingsStore get _store => ref.read(appSettingsStoreProvider);
+
+  @override
+  Future<ThemeMode> build() async => (await _store.load()).themeMode;
+
+  /// 테마 모드를 바꾸고 저장한다. 다른 전역 설정을 덮지 않도록 현재 값 위에 얹는다.
+  Future<void> set(ThemeMode mode) async {
+    state = AsyncData(mode);
+    final current = await _store.load();
+    await _store.save(current.copyWith(themeMode: mode));
   }
 }

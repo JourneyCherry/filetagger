@@ -87,9 +87,9 @@ class _TagManageDialog extends ConsumerWidget {
   }
 }
 
-/// 태그 한 종류의 행: 칩 · 값 유형, 그리고 사용자 태그면 편집 버튼, 시스템 태그면
-/// 표시 여부 스위치. 순서 변경 손잡이와 삭제 버튼은 캡슐 안에 담아(필터·정렬 칩과
-/// 같은 모양) 행 끝의 별도 버튼을 없앴다.
+/// 태그 한 종류의 행: 칩 · 값 유형, 그리고 사용자 태그면 조작 버튼 묶음, 시스템
+/// 태그면 표시 여부 눈 토글. 순서 변경 손잡이와 삭제 버튼은 캡슐 안에 담아
+/// (필터·정렬 칩과 같은 모양) 행 끝의 별도 버튼을 없앴다.
 class _TagRow extends ConsumerWidget {
   const _TagRow({super.key, required this.index, required this.definition});
 
@@ -122,8 +122,8 @@ class _TagRow extends ConsumerWidget {
       ),
       subtitle: Text(subtitle),
       trailing: definition.isSystem
-          ? Switch(
-              value: ref.watch(visibleSystemTagIdsProvider).contains(id),
+          ? TagVisibilityToggle(
+              visible: ref.watch(visibleSystemTagIdsProvider).contains(id),
               onChanged: (on) => ref
                   .read(viewSettingsProvider.notifier)
                   .updateSystemTagVisibility(id, on),

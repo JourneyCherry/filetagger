@@ -111,6 +111,8 @@ class AppMenuBar extends ConsumerWidget {
       ref.watch(rootManageModeProvider),
       ref.watch(viewModeProvider),
       ref.read(viewSettingsProvider.notifier).updateViewMode,
+      ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system,
+      ref.read(themeModeProvider.notifier).set,
     );
 
     if (isMacOS) {
@@ -144,6 +146,8 @@ class AppMenuBar extends ConsumerWidget {
     FolderManageMode rootMode,
     ViewMode viewMode,
     ValueChanged<ViewMode> onSelectViewMode,
+    ThemeMode themeMode,
+    ValueChanged<ThemeMode> onSelectThemeMode,
   ) {
     return [
       MenuSubmenu('파일', [
@@ -165,6 +169,7 @@ class AppMenuBar extends ConsumerWidget {
       ]),
       MenuSubmenu('보기', [
         MenuSubmenu('보기 모드', _viewModeItems(viewMode, onSelectViewMode)),
+        MenuSubmenu('테마', _themeItems(themeMode, onSelectThemeMode)),
         const MenuDivider(),
         const MenuCommand(AppCommandId.togglePreview),
         const MenuDivider(),
@@ -189,6 +194,23 @@ class AppMenuBar extends ConsumerWidget {
           choice.label,
           checked: choice.mode == current,
           onSelected: () => onSelect(choice.mode),
+        ),
+    ];
+  }
+
+  /// 라이트/다크 테마 선택지(시스템/밝게/어둡게). 현재 모드를 체크로 보인다.
+  List<MenuNode> _themeItems(ThemeMode current, ValueChanged<ThemeMode> onSelect) {
+    const labels = {
+      ThemeMode.system: '시스템 설정',
+      ThemeMode.light: '밝게',
+      ThemeMode.dark: '어둡게',
+    };
+    return [
+      for (final entry in labels.entries)
+        MenuChecked(
+          entry.value,
+          checked: entry.key == current,
+          onSelected: () => onSelect(entry.key),
         ),
     ];
   }

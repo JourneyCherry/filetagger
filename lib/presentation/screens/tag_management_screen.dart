@@ -107,11 +107,7 @@ class _SystemTagSection extends ConsumerWidget {
           ),
         ),
         for (final tag in SystemTag.values)
-          SwitchListTile(
-            value: visible.contains(tag.id),
-            onChanged: (on) => ref
-                .read(viewSettingsProvider.notifier)
-                .updateSystemTagVisibility(tag.id, on),
+          ListTile(
             title: Align(
               alignment: Alignment.centerLeft,
               child: TagChip(definition: tag.definition),
@@ -120,6 +116,12 @@ class _SystemTagSection extends ConsumerWidget {
               tag.editable
                   ? '수정 가능 · ${tagValueTypeLabel(tag.valueType)}'
                   : tagValueTypeLabel(tag.valueType),
+            ),
+            trailing: TagVisibilityToggle(
+              visible: visible.contains(tag.id),
+              onChanged: (on) => ref
+                  .read(viewSettingsProvider.notifier)
+                  .updateSystemTagVisibility(tag.id, on),
             ),
           ),
       ],

@@ -119,6 +119,18 @@ void main() {
     expect(loaded.visibleSystemTagIds, isEmpty);
   });
 
+  test('감출 사용자 태그 id 집합을 저장하고 그대로 불러온다', () async {
+    final store = JsonViewSettingsStore(root.path);
+    await store.save(const WorkspaceViewSettings(hiddenTagIds: {2, 7}));
+    final loaded = await store.load();
+    expect(loaded.hiddenTagIds, {2, 7});
+  });
+
+  test('감춤 설정이 없으면 빈 집합(전부 표시)이 기본', () async {
+    final loaded = await JsonViewSettingsStore(root.path).load();
+    expect(loaded.hiddenTagIds, isEmpty);
+  });
+
   test('시스템 태그 항목이 형식에 안 맞으면 빈 집합으로 복구한다', () async {
     final file = File('${root.path}/.filetagger/view.json');
     await file.create(recursive: true);

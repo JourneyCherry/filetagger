@@ -25,6 +25,13 @@ final visibleSystemTagIdsProvider = Provider<Set<int>>(
   (ref) => ref.watch(viewSettingsProvider).visibleSystemTagIds,
 );
 
+/// 태그 부여를 목록·프리뷰에 **칩으로 표시할지** 판정하는 술어(보기 설정 파생).
+/// 시스템 태그는 표시로 켠 것만, 사용자 태그는 감춤으로 끄지 않은 것만 통과한다.
+/// 그룹 헤더 이름은 이 필터를 거치지 않아 감춘 태그도 나타난다.
+final tagChipVisibleProvider = Provider<bool Function(int)>(
+  (ref) => ref.watch(viewSettingsProvider).isTagChipVisible,
+);
+
 /// 저장된 표시 순서를 지금 존재하는 태그 전체를 덮는 완전한 순서로 보정한 것.
 /// 목록·프리뷰의 칩 정렬과 순서 편집 다이얼로그가 모두 이 순서를 단일 출처로 쓴다.
 /// 보정으로 시스템 태그의 기본 자리(사용자 태그 뒤)를 지키되, 저장된 순서는 그대로

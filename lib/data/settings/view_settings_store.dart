@@ -57,6 +57,7 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
   'previewRatio': s.previewRatio,
   'rootManageMode': s.rootManageMode.name,
   'systemTags': s.visibleSystemTagIds.toList(),
+  'hiddenTags': s.hiddenTagIds.toList(),
   'tagOrder': s.tagDisplayOrder,
   'expanded': s.expandedFolders.toList(),
   'grouping': _groupingToJson(s.grouping),
@@ -77,6 +78,7 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       previewRatio: _ratioFromJson(json['previewRatio']),
       rootManageMode: _rootModeFromJson(json['rootManageMode']),
       visibleSystemTagIds: _systemTagsFromJson(json['systemTags']),
+      hiddenTagIds: _intSetFromJson(json['hiddenTags']),
       tagDisplayOrder: _tagOrderFromJson(json['tagOrder']),
       expandedFolders: _expandedFromJson(json['expanded']),
       grouping: _groupingFromJson(json['grouping'], json['grouped']),
@@ -150,7 +152,10 @@ Set<String> _expandedFromJson(Object? json) {
 }
 
 /// 표시할 시스템 태그 id 집합. 없거나 형식이 어긋나면 빈 집합(전부 숨김).
-Set<int> _systemTagsFromJson(Object? json) {
+Set<int> _systemTagsFromJson(Object? json) => _intSetFromJson(json);
+
+/// 정수 id 집합(감출 사용자 태그 등). 없거나 형식이 어긋나면 빈 집합.
+Set<int> _intSetFromJson(Object? json) {
   if (json is! List) return const <int>{};
   return {
     for (final item in json)

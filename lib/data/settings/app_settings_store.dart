@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -13,20 +14,37 @@ import '../../core/constants.dart';
 
 /// 머신 단위 전역 설정. 관리 폴더가 아니라 OS 앱데이터 폴더에 저장된다.
 class AppSettings {
-  const AppSettings({this.recentFolders = const []});
+  const AppSettings({
+    this.recentFolders = const [],
+    this.themeMode = ThemeMode.system,
+  });
 
   /// 최근 연 관리 폴더 경로 목록(최신이 앞).
   final List<String> recentFolders;
 
-  AppSettings copyWith({List<String>? recentFolders}) =>
-      AppSettings(recentFolders: recentFolders ?? this.recentFolders);
+  /// 라이트/다크 테마 선택. 기본값(시스템)은 OS 밝기 설정을 그대로 따른다.
+  final ThemeMode themeMode;
 
-  Map<String, dynamic> toJson() => {'recentFolders': recentFolders};
+  AppSettings copyWith({List<String>? recentFolders, ThemeMode? themeMode}) =>
+      AppSettings(
+        recentFolders: recentFolders ?? this.recentFolders,
+        themeMode: themeMode ?? this.themeMode,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'recentFolders': recentFolders,
+    'themeMode': themeMode.name,
+  };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
     recentFolders: (json['recentFolders'] as List?)?.cast<String>() ?? const [],
+    themeMode: _themeModeByName(json['themeMode'] as String?),
   );
 }
+
+/// 저장된 이름을 [ThemeMode]로 되돌린다. 알 수 없는 값·누락은 시스템 기본으로 눕힌다.
+ThemeMode _themeModeByName(String? name) => ThemeMode.values
+    .firstWhere((m) => m.name == name, orElse: () => ThemeMode.system);
 
 /// 전역 설정을 JSON 파일로 읽고 쓰는 저장소.
 class AppSettingsStore {

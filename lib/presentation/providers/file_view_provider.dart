@@ -137,6 +137,18 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     _set(state.copyWith(visibleSystemTagIds: next));
   }
 
+  /// 사용자 태그 [id]를 목록·프리뷰 칩으로 표시할지 토글·저장한다(시스템 태그와 반대로
+  /// 기본은 표시라 감춤 집합에서 더하고 뺀다). 값 계산·필터·정렬·그룹은 늘 동작.
+  void updateUserTagVisibility(int id, bool visible) {
+    final next = {...state.hiddenTagIds};
+    if (visible) {
+      next.remove(id);
+    } else {
+      next.add(id);
+    }
+    _set(state.copyWith(hiddenTagIds: next));
+  }
+
   /// 태그 칩의 표시 순서(정의 id 나열)를 갱신·저장한다. 여기 없는 태그는 뒤에
   /// 붙으므로 부분 목록이어도 된다.
   void updateTagDisplayOrder(List<int> order) =>

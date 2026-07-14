@@ -9,8 +9,14 @@ import '../core/platform.dart';
 /// 잉크 효과(스플래시·하이라이트)를 쓰지 않는다 — 렌더 비용을 시각 장식보다 앞에
 /// 둔다. 호버 색은 끄지 않는다(메뉴·버튼이 조작 가능함을 알리는 데 쓴다). 매 포인터
 /// 이동마다 다시 칠려 비용이 큰 곳(파일 목록 행)만 자기 자리에서 호버를 끈다.
-ThemeData buildAppTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: _seedColor);
+///
+/// 밝기(라이트/다크)만 [brightness]로 갈아 끼운다 — 같은 seed에서 색 배합을 뽑아
+/// 두 테마가 한 짝으로 움직인다. 무엇을 보일지는 [MaterialApp]의 `themeMode`가 정한다.
+ThemeData buildAppTheme([Brightness brightness = Brightness.light]) {
+  final scheme = ColorScheme.fromSeed(
+    seedColor: _seedColor,
+    brightness: brightness,
+  );
   final noInk = isDesktopPlatform;
   return ThemeData(
     colorScheme: scheme,

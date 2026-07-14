@@ -10,10 +10,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/usecases/merge_tags.dart';
+import '../providers/file_view_provider.dart';
 import '../providers/tag_provider.dart';
 import '../tag_visuals.dart';
 
-/// 사용자 태그 한 종류에 붙는 조작 버튼 묶음(합치기 · 편집 · 삭제).
+/// 태그 칩의 목록·프리뷰 표시 여부를 켜고 끄는 눈 모양 토글. 시스템 태그·사용자
+/// 태그가 같은 모양(눈 뜸=표시, 눈 감김=감춤)을 쓰도록 한 곳에 둔다. 감춰도 값은
+/// 필터·정렬·그룹에 그대로 참여하고, 이 토글은 칩 렌더링에만 관여한다.
+class TagVisibilityToggle extends StatelessWidget {
+  const TagVisibilityToggle({
+    super.key,
+    required this.visible,
+    required this.onChanged,
+  });
+
+  final bool visible;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: visible ? '목록에서 감추기' : '목록에 표시하기',
+      icon: Icon(
+        visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+      ),
+      onPressed: () => onChanged(!visible),
+    );
+  }
+}
+
+/// 사용자 태그 한 종류에 붙는 조작 버튼 묶음(합치기 · 편집 · 삭제 · 표시 토글).
 /// 관리 화면의 행과 관리 다이얼로그의 행이 같은 조작·표기를 공유한다.
 ///
 /// [showDelete]를 끄면 삭제 버튼을 감춘다 — 삭제를 태그 캡슐 안의 x로 옮긴 자리에서
@@ -33,6 +59,10 @@ class TagDefinitionActions extends ConsumerWidget {
     // 이 태그로 흡수할 수 있는 다른 태그(값 유형·다중 허용이 같은)가 있을 때만 연다.
     final allDefs = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
     final canMerge = mergeTargetsFor(definition, allDefs).isNotEmpty;
+    final id = definition.id;
+    // 목록·프리뷰 칩 표시 여부. 감춰도 값은 필터·정렬·그룹에 그대로 참여한다.
+    final visible =
+        id == null || !ref.watch(viewSettingsProvider).hiddenTagIds.contains(id);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -53,6 +83,15 @@ class TagDefinitionActions extends ConsumerWidget {
             icon: const Icon(Icons.delete_outline),
             onPressed: () => confirmTagDelete(context, ref, definition),
           ),
+        // 표시 토글은 시스템 태그 행과 같은 자리(가장 오른쪽)에 두어 위치를 통일한다.
+        TagVisibilityToggle(
+          visible: visible,
+          onChanged: id == null
+              ? (_) {}
+              : (on) => ref
+                    .read(viewSettingsProvider.notifier)
+                    .updateUserTagVisibility(id, on),
+        ),
       ],
     );
   }

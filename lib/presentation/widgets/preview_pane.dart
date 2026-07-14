@@ -79,17 +79,15 @@ class PreviewPane extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final assignmentsByFile = ref.watch(effectiveAssignmentsByFileProvider);
-    final visibleSystemTagIds = ref.watch(visibleSystemTagIdsProvider);
+    final isTagVisible = ref.watch(tagChipVisibleProvider);
     final all = target.id == null
         ? const <AssignedTag>[]
         : (assignmentsByFile[target.id] ?? const <AssignedTag>[]);
-    // 사용자 태그는 모두, 시스템 태그는 표시로 켠 것만 보인다. 목록 행과 같은
-    // 표시 순서를 쓴다.
+    // 표시 술어를 통과한 태그만 보인다(사용자 태그는 감추지 않은 것, 시스템 태그는
+    // 표시로 켠 것). 목록 행과 같은 표시 순서를 쓴다.
     final tags = orderAssignedTags([
       for (final a in all)
-        if (!isSystemTagId(a.tagDefinitionId) ||
-            visibleSystemTagIds.contains(a.tagDefinitionId))
-          a,
+        if (isTagVisible(a.tagDefinitionId)) a,
     ], ref.watch(effectiveTagDisplayOrderProvider));
 
     return Column(

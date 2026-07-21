@@ -25,6 +25,8 @@ class TagCapsule extends StatefulWidget {
     this.namePrefix,
     this.value,
     this.onTap,
+    this.onDoubleTap,
+    this.tooltip,
     this.dragIndex,
     this.onDelete,
     this.margin = EdgeInsets.zero,
@@ -46,6 +48,13 @@ class TagCapsule extends StatefulWidget {
 
   /// 지정하면 캡슐을 눌러 편집할 수 있고, 포인터가 올라오면 배경이 바뀐다.
   final VoidCallback? onTap;
+
+  /// 지정하면 캡슐을 더블탭(더블클릭)해 동작을 낸다(링크 캡슐의 대상 이동 등).
+  /// 단일 탭이 설정에 따라 편집·무동작으로 갈려도 이동 제스처는 늘 같도록 둔다.
+  final VoidCallback? onDoubleTap;
+
+  /// 포인터를 올리면 뜨는 툴팁(링크 캡슐의 대상 전체 경로 등). null이면 없음.
+  final String? tooltip;
 
   /// 순서 변경 드래그를 받을 리스트 인덱스. null이면 손잡이 아이콘을 감춘다(자리는 유지).
   final int? dragIndex;
@@ -86,7 +95,8 @@ const double _endGap = 0;
 class _TagCapsuleState extends State<TagCapsule> {
   bool _hovered = false;
 
-  bool get _interactive => widget.onTap != null;
+  bool get _interactive =>
+      widget.onTap != null || widget.onDoubleTap != null;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +183,12 @@ class _TagCapsuleState extends State<TagCapsule> {
       color: bg,
       shape: shape,
       child: _interactive
-          ? InkWell(onTap: widget.onTap, customBorder: shape, child: content)
+          ? InkWell(
+              onTap: widget.onTap,
+              onDoubleTap: widget.onDoubleTap,
+              customBorder: shape,
+              child: content,
+            )
           : content,
     );
     if (_interactive) {
@@ -182,6 +197,9 @@ class _TagCapsuleState extends State<TagCapsule> {
         onExit: (_) => setState(() => _hovered = false),
         child: capsule,
       );
+    }
+    if (widget.tooltip != null) {
+      capsule = Tooltip(message: widget.tooltip!, child: capsule);
     }
     return Padding(padding: widget.margin, child: capsule);
   }

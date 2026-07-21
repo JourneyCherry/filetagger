@@ -9,6 +9,7 @@ import '../providers/tag_provider.dart';
 import '../tag_visuals.dart';
 import '../widgets/tag_chip.dart';
 import '../widgets/tag_editors.dart';
+import '../widgets/thumbnail_tag_dialog.dart';
 
 /// 태그 종류(TagDefinition)를 생성·편집·삭제하는 전용 관리 화면.
 ///
@@ -23,7 +24,18 @@ class TagManagementScreen extends ConsumerWidget {
     final repo = ref.watch(tagRepositoryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('태그 관리')),
+      appBar: AppBar(
+        title: const Text('태그 관리'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.image_outlined),
+            tooltip: '썸네일 태그',
+            onPressed: repo == null
+                ? null
+                : () => showThumbnailTagDialog(context),
+          ),
+        ],
+      ),
       floatingActionButton: repo == null
           ? null
           : FloatingActionButton.extended(

@@ -6,9 +6,11 @@ import '../../core/platform.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../providers/file_node_provider.dart';
 import '../providers/tag_provider.dart';
 import '../tag_visuals.dart';
 import 'dialog_utils.dart';
+import 'link_target_picker.dart';
 import 'tag_chip.dart';
 import 'tag_picker.dart';
 import 'tag_value_prompt.dart';
@@ -74,6 +76,9 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   int? _addTagId;
   final TextEditingController _addValue = TextEditingController();
   DateTime? _addDate;
+
+  /// 링크 태그를 부여할 때 고른 대상 노드 id(문자열). 미선택이면 null.
+  String? _addLinkId;
   String? _addError;
 
   bool get _isSingle => widget.fileNodeIds.length == 1;
@@ -170,9 +175,8 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       runSpacing: 8,
       children: [
         for (final a in assignments)
-          TagChip(
-            definition: a.definition,
-            value: a.value,
+          AssignedTagChip(
+            tag: a,
             onPressed: a.definition.hasValue ? () => _editAssignment(a) : null,
             onDeleted: () => _unassignOne(a),
           ),
@@ -214,7 +218,10 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       contentPadding: EdgeInsets.zero,
       title: Align(
         alignment: Alignment.centerLeft,
-        child: TagChip(definition: def, value: mixedValue ? null : commonValue),
+        // 값이 혼합이면 값 없이 정의만, 공통값이면 그 값(링크는 대상 이름)으로 보인다.
+        child: mixedValue
+            ? TagChip(definition: def)
+            : AssignedTagChip(tag: group.first),
       ),
       subtitle: Text(subtitleParts.join(' · ')),
       trailing: Row(
@@ -250,6 +257,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
             _addTagId = id;
             _addValue.clear();
             _addDate = null;
+            _addLinkId = null;
             _addError = null;
           }),
         ),
@@ -270,6 +278,36 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   }
 
   Widget _buildAddValueField(TagDefinition def) {
+    if (def.valueType == TagValueType.link) {
+      final byId = ref.watch(fileNodesByIdProvider);
+      final target = _addLinkId == null
+          ? null
+          : byId[int.tryParse(_addLinkId!)];
+      final label = target?.name ?? '대상 미선택';
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: target == null
+                  ? TextStyle(color: Theme.of(context).colorScheme.outline)
+                  : null,
+            ),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.link, size: 16),
+            label: const Text('대상 선택'),
+            onPressed: () async {
+              final picked = await pickLinkTarget(context, initial: _addLinkId);
+              if (picked != null) setState(() => _addLinkId = picked);
+            },
+          ),
+        ],
+      );
+    }
+
     if (def.valueType == TagValueType.date) {
       final label = _addDate == null
           ? '오늘 (미선택)'
@@ -345,6 +383,12 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           }
         case TagValueType.text:
           value = _addValue.text.trim(); // 빈 문자열도 유효.
+        case TagValueType.link:
+          if (_addLinkId == null) {
+            setState(() => _addError = '링크 대상을 선택하세요.');
+            return;
+          }
+          value = _addLinkId;
         case TagValueType.label:
           value = null;
       }
@@ -359,6 +403,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
     setState(() {
       _addValue.clear();
       _addDate = null;
+      _addLinkId = null;
       _addError = null;
     });
   }

@@ -104,6 +104,9 @@ class PreviewPane extends ConsumerWidget {
               node: target,
               expand: true,
               fit: BoxFit.contain,
+              // 프리뷰는 그 노드 자체를 보는 자리 — 이미지 파일 등 자기 이미지가 있는
+              // 노드는 커스텀 썸네일 대신 자기 자신을 띄운다.
+              preferSelfImage: true,
             ),
           ),
         ),
@@ -141,9 +144,8 @@ class PreviewPane extends ConsumerWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 for (final a in tags)
-                  TagChip(
-                    definition: a.definition,
-                    value: a.value,
+                  AssignedTagChip(
+                    tag: a,
                     onPressed: isEditableAssignment(a)
                         ? () => onEditAssignment(a)
                         : null,

@@ -19,6 +19,7 @@ class FileThumbnail extends ConsumerWidget {
     this.dimension = 40,
     this.expand = false,
     this.fit = BoxFit.cover,
+    this.preferSelfImage = false,
   });
 
   final FileNode node;
@@ -31,13 +32,25 @@ class FileThumbnail extends ConsumerWidget {
 
   final BoxFit fit;
 
+  /// true면(프리뷰) 자기 이미지가 있는 노드는 커스텀 썸네일 대신 자기 자신을 보인다.
+  /// 목록 썸네일(기본값 false)은 늘 커스텀 썸네일을 우선한다.
+  final bool preferSelfImage;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final root = ref.watch(workspaceRootProvider);
     final folderThumbnails = ref.watch(folderThumbnailIndexProvider);
+    final custom = node.id == null
+        ? const <String>[]
+        : (ref.watch(customThumbnailIndexProvider)[node.id] ?? const []);
     final rels = root == null
         ? const <String>[]
-        : resolveThumbnailRelPaths(node, folderThumbnails);
+        : resolveThumbnailRelPaths(
+            node,
+            folderThumbnails,
+            custom: custom,
+            preferSelfImage: preferSelfImage,
+          );
 
     if (root == null || rels.isEmpty) return _sized(_fallback(context));
 

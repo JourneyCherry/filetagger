@@ -30,6 +30,8 @@ List<FilterOperator> operatorsForType(TagValueType type) {
     case TagValueType.label:
       return const [FilterOperator.exists];
     case TagValueType.text:
+    // link은 대상 이름 기준 텍스트 비교라 text와 같은 연산자 집합을 쓴다.
+    case TagValueType.link:
       return const [
         FilterOperator.exists,
         FilterOperator.equals,

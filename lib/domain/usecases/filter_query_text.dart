@@ -221,6 +221,8 @@ String? _normalizeOperand(TagValueType type, String value) {
       return parsed == null ? null : dateToStoredValue(parsed);
     case TagValueType.text:
     case TagValueType.label:
+    // link 필터의 피연산자는 사용자가 친 대상 이름 그대로다(값은 이름으로 비교).
+    case TagValueType.link:
       return value;
   }
 }

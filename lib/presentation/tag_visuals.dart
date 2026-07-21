@@ -74,6 +74,8 @@ String tagValueTypeLabel(TagValueType type) {
       return '숫자';
     case TagValueType.date:
       return '날짜';
+    case TagValueType.link:
+      return '링크';
   }
 }
 

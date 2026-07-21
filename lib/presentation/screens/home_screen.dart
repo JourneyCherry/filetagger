@@ -31,6 +31,7 @@ import '../providers/database_provider.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/nested_workspace_provider.dart';
+import '../providers/node_reveal_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/workspace_provider.dart';
@@ -852,6 +853,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (prev != null && prev != next) _backgroundScan();
     });
 
+    // 링크 캡슐 더블탭 등의 "노드로 이동" 요청을 받아 그 노드로 옮긴다.
+    ref.listen(nodeRevealProvider, (_, next) {
+      if (next != null) _revealNode(next.nodeId);
+    });
+
     final body = workspaceRoot != null
         ? _buildContentArea(selection)
         : _buildRecentFolders(handlers, ref.watch(recentFoldersProvider));
@@ -1007,6 +1013,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (id == null) return;
     ref.read(selectionControllerProvider.notifier).selectSingle(id);
     _showPreview(node);
+  }
+
+  /// 링크 캡슐이 요청한 노드로 이동한다: 조상 폴더를 모두 펼쳐 목록에 드러내고, 그
+  /// 노드를 단일 선택한 뒤 파일이면 프리뷰를 연다. 현재 필터에 가려 목록에 없는
+  /// 노드면 안내만 한다(선택은 유지되나 목록엔 나타나지 않을 수 있다).
+  void _revealNode(int id) {
+    final node = ref.read(fileNodesByIdProvider)[id];
+    if (node == null) return;
+    // 대상의 모든 조상 폴더 경로를 펼침 집합에 더한다(경로는 '/'로 구분).
+    final parts = node.path.split('/');
+    final notifier = ref.read(viewSettingsProvider.notifier);
+    final expanded = ref.read(expandedFoldersProvider);
+    var acc = '';
+    for (var i = 0; i < parts.length - 1; i++) {
+      acc = acc.isEmpty ? parts[i] : '$acc/${parts[i]}';
+      if (!expanded.contains(acc)) notifier.toggleExpandedFolder(acc);
+    }
+    ref.read(selectionControllerProvider.notifier).selectSingle(id);
+    if (!node.isDirectory && !node.isMissing) _showPreview(node);
   }
 
   /// 모바일 행 끝: 선택 모드면 체크박스, 아니면 폴더의 관리 방식 시트 버튼.

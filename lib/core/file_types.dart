@@ -2,6 +2,7 @@
 /// 않아 그대로 유닛테스트한다.
 library;
 
+import '../domain/entities/assigned_tag.dart';
 import '../domain/entities/file_node.dart';
 
 /// Flutter 이미지 디코더가 표시할 수 있는 확장자 집합(소문자, 점 제외).
@@ -55,15 +56,58 @@ Map<String, List<String>> buildFolderThumbnailIndex(Iterable<FileNode> nodes) {
 }
 
 /// 노드가 목록·프리뷰에서 보여줄 이미지들의 루트 기준 상대 경로. 비면 기본 아이콘.
-/// 이미지 파일은 자기 자신 한 장, 폴더는 하위 대표 이미지들(겹쳐 쌓기용)이다.
-/// (사용자 커스텀 지정은 이후 작업으로 미룬다.)
+///
+/// **사용자가 지정한 커스텀 썸네일([custom])이 있으면 그것을 최우선**으로 쓴다(링크
+/// 태그가 가리키는 대상 이미지). 없으면 기본 동작 — 이미지 파일은 자기 자신 한 장,
+/// 폴더는 하위 대표 이미지들(겹쳐 쌓기용)이다.
+///
+/// [preferSelfImage]는 **프리뷰**용이다: 자기 자신을 이미지로 표현할 수 있는 노드
+/// (이미지 파일)는 커스텀 썸네일보다 **자기 자신을** 보인다 — 프리뷰는 그 노드 자체를
+/// 크게 보는 자리이므로, 목록의 대체 썸네일이 아니라 원본을 띄운다. 자기 이미지가 없는
+/// 노드(폴더·텍스트 등)만 커스텀을 프리뷰에 쓴다. 목록(기본값 false)은 늘 커스텀 우선.
 List<String> resolveThumbnailRelPaths(
   FileNode node,
-  Map<String, List<String>> folderThumbnails,
-) {
+  Map<String, List<String>> folderThumbnails, {
+  List<String> custom = const [],
+  bool preferSelfImage = false,
+}) {
   if (node.isMissing) return const [];
+  // 프리뷰: 자기 이미지가 있으면 커스텀보다 자기 자신을 우선한다.
+  if (preferSelfImage && !node.isDirectory && isImagePath(node.path)) {
+    return [node.path];
+  }
+  if (custom.isNotEmpty) return custom;
   if (!node.isDirectory) {
     return isImagePath(node.path) ? [node.path] : const [];
   }
   return folderThumbnails[node.path] ?? const [];
+}
+
+/// 노드 id → 그 노드의 커스텀 썸네일(루트 기준 이미지 상대 경로들) 인덱스.
+///
+/// 지정된 링크 태그([thumbnailTagId])가 가리키는 **대상이 이미지면** 그 경로를 그
+/// 노드의 썸네일로 쓴다(다중 부여면 여러 장을 겹쳐 쌓는다). 태그가 지정되지
+/// 않았거나, 대상을 찾지 못하거나, 대상이 이미지가 아니면 그 노드는 결과에서
+/// 빠져([resolveThumbnailRelPaths]가 기본 동작으로 폴백). 링크 값은 대상 노드 id
+/// 문자열이다.
+Map<int, List<String>> buildCustomThumbnailIndex({
+  required int? thumbnailTagId,
+  required Map<int, List<AssignedTag>> assignmentsByFile,
+  required Map<int, FileNode> nodesById,
+}) {
+  if (thumbnailTagId == null) return const {};
+  final result = <int, List<String>>{};
+  for (final entry in assignmentsByFile.entries) {
+    final images = <String>[];
+    for (final a in entry.value) {
+      if (a.tagDefinitionId != thumbnailTagId) continue;
+      final raw = a.value;
+      if (raw == null || raw.isEmpty) continue;
+      final target = nodesById[int.tryParse(raw)];
+      if (target == null || target.isMissing) continue;
+      if (isImagePath(target.path)) images.add(target.path);
+    }
+    if (images.isNotEmpty) result[entry.key] = images;
+  }
+  return result;
 }

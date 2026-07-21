@@ -23,6 +23,8 @@ int compareTagValues(TagValueType type, String a, String b) {
       return ad.compareTo(bd);
     case TagValueType.text:
     case TagValueType.label:
+    // link은 비교 시 대표값이 이미 대상 이름으로 해석돼 넘어온다(소비 계층이 주입).
+    case TagValueType.link:
       return _lexical(a, b);
   }
 }

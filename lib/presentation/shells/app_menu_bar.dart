@@ -8,6 +8,7 @@ import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/thumbnail_tag_dialog.dart';
 import '../widgets/view_mode_selector.dart';
 
 /// 네이티브 메뉴(macOS)에서 체크 항목의 라벨 앞에 붙일 표식.
@@ -107,6 +108,7 @@ class AppMenuBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recent = ref.watch(recentFoldersProvider).valueOrNull ?? const [];
     final menus = _buildMenus(
+      context,
       recent,
       ref.watch(rootManageModeProvider),
       ref.watch(viewModeProvider),
@@ -142,6 +144,7 @@ class AppMenuBar extends ConsumerWidget {
   /// 메뉴바의 최상위 메뉴들. 최근 폴더·루트 관리 방식은 상태에 따라 달라져 여기서
   /// 조립한다.
   List<MenuSubmenu> _buildMenus(
+    BuildContext context,
     List<String> recentFolders,
     FolderManageMode rootMode,
     ViewMode viewMode,
@@ -178,7 +181,10 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.toggleSortBar),
         const MenuCommand(AppCommandId.toggleListEdit),
       ]),
-      const MenuSubmenu('태그', [MenuCommand(AppCommandId.manageTags)]),
+      MenuSubmenu('태그', [
+        const MenuCommand(AppCommandId.manageTags),
+        MenuAction('썸네일 태그…', () => showThumbnailTagDialog(context)),
+      ]),
     ];
   }
 

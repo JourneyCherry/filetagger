@@ -37,6 +37,16 @@ final fileNodesProvider = StreamProvider<List<FileNode>>((ref) {
   return repo.watchAll();
 });
 
+/// 노드 id → 노드. 링크 태그가 가리키는 대상 노드를 id로 찾을 때 쓴다(이름 표시·
+/// 썸네일 해석·이동). 저장 전(id 없음) 노드는 담기지 않는다.
+final fileNodesByIdProvider = Provider<Map<int, FileNode>>((ref) {
+  final nodes = ref.watch(fileNodesProvider).valueOrNull ?? const [];
+  return {
+    for (final n in nodes)
+      if (n.id != null) n.id!: n,
+  };
+});
+
 /// 파일시스템 실시간 감시자. 플랫폼 구현은 data 계층에 있다.
 final workspaceWatcherProvider = Provider<WorkspaceWatcher>(
   (ref) => const DirectoryWorkspaceWatcher(),

@@ -105,10 +105,15 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
           (k) => k is FolderHierarchyGroupKey || validIds.contains(groupKeyId(k)),
         )
         .toList();
+    // 썸네일 출처 링크 태그가 지워졌으면 그 참조도 비운다(사라진 태그를 계속
+    // 가리키지 않도록).
+    final thumbId = state.thumbnailTagId;
+    final dropThumb = thumbId != null && !validIds.contains(thumbId);
     if (keptConditions.length == conditions.length &&
         keptKeys.length == keys.length &&
         keptOrder.length == order.length &&
-        keptGroupKeys.length == groupKeys.length) {
+        keptGroupKeys.length == groupKeys.length &&
+        !dropThumb) {
       return; // 사라진 참조 없음 — 그대로 둔다(불필요한 저장 방지).
     }
     _set(
@@ -117,9 +122,15 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
         sort: FileSortOrder(keys: keptKeys),
         tagDisplayOrder: keptOrder,
         grouping: FileGrouping(keys: keptGroupKeys),
+        clearThumbnailTagId: dropThumb,
       ),
     );
   }
+
+  /// 노드 썸네일의 출처로 쓸 링크 태그를 지정·저장한다. null이면 커스텀 썸네일을 끈다.
+  void updateThumbnailTagId(int? tagId) => _set(
+    state.copyWith(thumbnailTagId: tagId, clearThumbnailTagId: tagId == null),
+  );
 
   void updateFilter(FileFilter filter) => _set(state.copyWith(filter: filter));
 
@@ -243,6 +254,11 @@ final viewModeProvider = Provider<ViewMode>(
   (ref) => ref.watch(viewSettingsProvider).viewMode,
 );
 
+/// 썸네일 출처로 지정된 링크 태그 id(없으면 null). 쓰기는 [viewSettingsProvider]를 통한다.
+final thumbnailTagIdProvider = Provider<int?>(
+  (ref) => ref.watch(viewSettingsProvider).thumbnailTagId,
+);
+
 /// 현재 보기 모드의 크기 배율(Ctrl/⌘+휠 zoom). 모드가 바뀌면 그 모드의 배율로
 /// 갈린다. 배율만 바뀌면 목록만 다시 그려지도록 좁은 값으로 노출한다.
 final currentViewScaleProvider = Provider<double>((ref) {
@@ -278,7 +294,8 @@ final detailTagColumnsProvider = Provider<List<TagDefinition>>((ref) {
 /// [QueryFiles]를 재사용하고 정렬 키 출처만 [detailSortProvider]로 바꾼다.
 final detailRowsProvider = Provider<AsyncValue<List<FileNode>>>((ref) {
   final nodes = ref.watch(fileNodesProvider);
-  final assignments = ref.watch(effectiveAssignmentsByFileProvider);
+  // 링크는 대상 이름 기준으로 정렬·필터되므로 이름 해석을 적용한 맵을 쓴다.
+  final assignments = ref.watch(resolvedAssignmentsByFileProvider);
   final defsById = ref.watch(definitionsByIdProvider);
   final filter = ref.watch(fileFilterProvider);
   final sort = ref.watch(detailSortProvider);
@@ -321,7 +338,8 @@ final definitionsByIdProvider = Provider<Map<int, TagDefinition>>((ref) {
 /// 단계면 옛 폴더 트리, 태그 키가 있으면 값별 [GroupHeaderNode] 버킷으로 묶인다.
 final fileTreeProvider = Provider<AsyncValue<List<TreeItem>>>((ref) {
   final nodes = ref.watch(fileNodesProvider);
-  final assignments = ref.watch(effectiveAssignmentsByFileProvider);
+  // 링크는 대상 이름 기준으로 필터·정렬·그룹되므로 이름 해석을 적용한 맵을 쓴다.
+  final assignments = ref.watch(resolvedAssignmentsByFileProvider);
   final definitionsById = ref.watch(definitionsByIdProvider);
   final filter = ref.watch(fileFilterProvider);
   final sort = ref.watch(fileSortProvider);

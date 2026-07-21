@@ -69,6 +69,7 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
   'detailColumnWidths': {
     for (final e in s.detailColumnWidths.entries) '${e.key}': e.value,
   },
+  if (s.thumbnailTagId != null) 'thumbnailTag': s.thumbnailTagId,
 };
 
 WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
@@ -86,6 +87,9 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       viewScales: _viewScalesFromJson(json['viewScales']),
       detailSort: _sortFromJson(json['detailSort']),
       detailColumnWidths: _detailWidthsFromJson(json['detailColumnWidths']),
+      thumbnailTagId: json['thumbnailTag'] is int
+          ? json['thumbnailTag'] as int
+          : null,
     );
 
 /// 자세히 컬럼 폭. 키(태그 id 문자열)가 정수가 아니거나 값이 비숫자면 건너뛰고,

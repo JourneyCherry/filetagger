@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
+import '../../domain/entities/tag_value_type.dart';
 import '../../domain/repositories/nested_workspace_merger.dart';
 import '../db/app_database.dart';
 import '../db/database_connection.dart';
@@ -94,17 +95,31 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
         nodeIdByChildId[n.id] = row.id;
       }
 
+      // 링크 태그의 값은 대상 노드 id다 — 흡수하며 노드 id가 재매핑되므로 링크 값도
+      // 새 부모 id로 옮긴다. 대상이 흡수 목록 밖이면 값을 비워(null) 링크를 무효로 둔다.
+      final linkChildDefIds = {
+        for (final d in defs)
+          if (d.valueType == TagValueType.link) d.id,
+      };
       for (final a in assigns) {
         final fileId = nodeIdByChildId[a.fileNodeId];
         final defId = defIdMap[a.tagDefinitionId];
         if (fileId == null || defId == null) continue;
+        var value = a.value;
+        if (linkChildDefIds.contains(a.tagDefinitionId) && value != null) {
+          final targetChildId = int.tryParse(value);
+          final mapped = targetChildId == null
+              ? null
+              : nodeIdByChildId[targetChildId];
+          value = mapped?.toString();
+        }
         await _parentDb
             .into(_parentDb.tagAssignments)
             .insert(
               TagAssignmentsCompanion.insert(
                 fileNodeId: fileId,
                 tagDefinitionId: defId,
-                value: Value(a.value),
+                value: Value(value),
               ),
             );
       }

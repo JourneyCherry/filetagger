@@ -60,6 +60,7 @@ class WorkspaceViewSettings {
     this.viewScales = const <ViewMode, double>{},
     this.detailSort = const FileSortOrder(),
     this.detailColumnWidths = const <int, double>{},
+    this.thumbnailTagId,
   });
 
   final FileFilter filter;
@@ -122,6 +123,12 @@ class WorkspaceViewSettings {
   /// 키를 쓴다. 없는 컬럼은 [kDefaultDetailColumnWidth].
   final Map<int, double> detailColumnWidths;
 
+  /// 노드 썸네일의 출처로 쓸 **링크 태그의 정의 id**. 이 태그가 가리키는 대상
+  /// 이미지를 그 노드의 썸네일로 쓴다. null이면 커스텀 썸네일 없이 기본 동작
+  /// (이미지=자기 자신, 폴더=하위 대표)만 쓴다. 지정한 태그가 사라지면 로드 후
+  /// 정리로 비워진다.
+  final int? thumbnailTagId;
+
   /// [id] 컬럼의 폭(저장값이 없으면 기본, 늘 허용 범위로 가둔다).
   double detailColumnWidthFor(int id) =>
       (detailColumnWidths[id] ?? kDefaultDetailColumnWidth).clamp(
@@ -145,6 +152,8 @@ class WorkspaceViewSettings {
     Map<ViewMode, double>? viewScales,
     FileSortOrder? detailSort,
     Map<int, double>? detailColumnWidths,
+    int? thumbnailTagId,
+    bool clearThumbnailTagId = false,
   }) => WorkspaceViewSettings(
     filter: filter ?? this.filter,
     sort: sort ?? this.sort,
@@ -159,5 +168,8 @@ class WorkspaceViewSettings {
     viewScales: viewScales ?? this.viewScales,
     detailSort: detailSort ?? this.detailSort,
     detailColumnWidths: detailColumnWidths ?? this.detailColumnWidths,
+    thumbnailTagId: clearThumbnailTagId
+        ? null
+        : (thumbnailTagId ?? this.thumbnailTagId),
   );
 }

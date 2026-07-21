@@ -10,7 +10,9 @@ import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/usecases/cell_value_edit.dart';
+import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
+import '../widgets/link_target_picker.dart';
 import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
 import '../tag_visuals.dart';
@@ -494,6 +496,16 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
       final present = tags.any((t) => t.tagDefinitionId == col.sortId);
       return present ? '✓' : '';
     }
+    // 링크는 저장값(대상 노드 id)이 아니라 대상 이름을 보인다(찾지 못하면 없음 표식).
+    if (col.valueType == TagValueType.link) {
+      final byId = ref.read(fileNodesByIdProvider);
+      final names = <String>[
+        for (final t in tags)
+          if (t.tagDefinitionId == col.sortId && t.value != null)
+            byId[int.tryParse(t.value!)]?.name ?? '(없음)',
+      ];
+      return names.join(', ');
+    }
     final values = <String>[];
     for (final t in tags) {
       if (t.tagDefinitionId != col.sortId) continue;
@@ -554,6 +566,9 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
         return [FilteringTextInputFormatter.allow(RegExp('[0-9\\-$sep]'))];
       case TagValueType.text:
       case TagValueType.label:
+      // link 셀은 인라인 텍스트 편집이 아니라 노드 선택기로 고치므로 이 경로를 타지
+      // 않는다(제한 없음으로 둔다).
+      case TagValueType.link:
         return null;
     }
   }
@@ -567,9 +582,35 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
   ) {
     if (col.valueType == TagValueType.label) {
       _toggleLabel(node, col, byFile);
+    } else if (col.valueType == TagValueType.link) {
+      _editLinkCell(node, col, byFile);
     } else {
       _beginEdit(node, col, byFile);
     }
+  }
+
+  /// 링크 셀 편집: 인라인 텍스트 대신 노드 선택기를 띄워 대상을 다시 고르고, 이 파일의
+  /// 그 링크 태그 부여를 고른 대상 하나로 교체한다.
+  Future<void> _editLinkCell(
+    FileNode node,
+    _Col col,
+    Map<int, List<AssignedTag>> byFile,
+  ) async {
+    final repo = ref.read(tagRepositoryProvider);
+    final id = node.id;
+    if (repo == null || id == null) return;
+    final current = _storedValuesOf(node, col, byFile);
+    final picked = await pickLinkTarget(
+      context,
+      initial: current.isEmpty ? null : current.first,
+    );
+    if (picked == null) return;
+    await repo.unassignFromFiles(fileNodeIds: [id], tagDefinitionId: col.sortId);
+    await repo.assignToFiles(
+      fileNodeIds: [id],
+      tagDefinitionId: col.sortId,
+      value: picked,
+    );
   }
 
   /// 이 파일에 붙은 [col] 태그의 저장값들(값 없는 부여는 뺀다).

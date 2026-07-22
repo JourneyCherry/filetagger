@@ -19,6 +19,8 @@ import '../tag_visuals.dart';
 import '../theme.dart';
 import '../widgets/file_thumbnail.dart';
 import '../widgets/tag_assign_dialog.dart';
+import 'focus_reveal.dart';
+import 'navigation_cursor.dart';
 import 'selection_controller.dart';
 
 /// 배율 1.0일 때 이름 셀 썸네일 한 변. zoom 배율을 곱한다(Ctrl/⌘+휠).
@@ -32,6 +34,9 @@ double _persistedWidth(Map<int, double> widths, int key) =>
       kDetailColumnWidthMin,
       kDetailColumnWidthMax,
     );
+
+/// 자세히 표에서 행 커서 이동이 선택을 어떻게 함께 바꾸는지.
+enum _DetailMove { single, range, cursorOnly }
 
 /// 자세히 테이블의 한 컬럼 서술자(이름 컬럼 또는 태그 컬럼).
 class _Col {
@@ -111,12 +116,24 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
   final TextEditingController _editController = TextEditingController();
   final FocusNode _editFocus = FocusNode();
 
+  /// 키보드 커서(행=파일 id, 열=0 이름·1.. 태그 컬럼). 선택과 별개다.
+  int? _cursorNodeId;
+  int _cursorCol = 0;
+
+  /// 방향키를 받는 이 뷰의 포커스. 모드 진입 시·셀 탭 시 포커스를 가져온다. 셀을
+  /// 편집할 땐 [_editFocus]가 포커스를 쥐어 방향키가 입력창의 캐럿 이동이 된다.
+  final FocusNode _navFocus = FocusNode(debugLabel: 'FileDetailView');
+
   @override
   void initState() {
     super.initState();
     // 포커스를 잃으면(다른 곳을 누름·스크롤로 사라짐) 편집을 확정한다.
     _editFocus.addListener(() {
       if (!_editFocus.hasFocus && _editNode != null) _commitEdit();
+    });
+    // 이 보기로 전환하면 곧바로 방향키가 먹도록 포커스를 잡는다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _navFocus.requestFocus();
     });
   }
 
@@ -125,6 +142,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     _horizontal.dispose();
     _editController.dispose();
     _editFocus.dispose();
+    _navFocus.dispose();
     super.dispose();
   }
 
@@ -140,24 +158,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     final selection = ref.watch(selectionControllerProvider);
     final scale = ref.watch(currentViewScaleProvider);
 
-    final columns = <_Col>[
-      _Col(
-        widthKey: kDetailNameColumnId,
-        sortId: SystemTag.fileName.id,
-        label: '이름',
-        valueType: TagValueType.text,
-        reorderable: false,
-        isName: true,
-      ),
-      for (final d in tagCols)
-        _Col(
-          widthKey: d.id!,
-          sortId: d.id!,
-          label: d.name,
-          valueType: d.valueType,
-          definition: d,
-        ),
-    ];
+    final columns = _columnsFrom(tagCols);
 
     return rows.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -167,8 +168,19 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
           0,
           (sum, c) => sum + _widthOf(c.widthKey),
         );
+        // 커서 행이 목록에서 사라졌으면(필터·재스캔) 커서를 접는다.
+        if (_cursorNodeId != null &&
+            !list.any((n) => n.id == _cursorNodeId)) {
+          _cursorNodeId = null;
+        }
+        _cursorCol = _cursorCol.clamp(0, columns.length - 1);
         final mq = MediaQuery.of(context);
-        return MediaQuery(
+        return CallbackShortcuts(
+          bindings: _shortcuts(),
+          child: Focus(
+            focusNode: _navFocus,
+            autofocus: true,
+            child: MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(scale)),
           child: Scrollbar(
             controller: _horizontal,
@@ -205,9 +217,188 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
               ),
             ),
           ),
+          ),
+          ),
         );
       },
     );
+  }
+
+  /// 고정 '이름' 컬럼 + 태그 컬럼들의 서술자. build와 키보드 핸들러가 같은 컬럼
+  /// 집합을 쓰도록 한곳에 둔다.
+  List<_Col> _columnsFrom(List<TagDefinition> tagCols) => [
+    _Col(
+      widthKey: kDetailNameColumnId,
+      sortId: SystemTag.fileName.id,
+      label: '이름',
+      valueType: TagValueType.text,
+      reorderable: false,
+      isName: true,
+    ),
+    for (final d in tagCols)
+      _Col(
+        widthKey: d.id!,
+        sortId: d.id!,
+        label: d.name,
+        valueType: d.valueType,
+        definition: d,
+      ),
+  ];
+
+  // ── 키보드 내비게이션 ──
+
+  /// 방향키·Enter·Delete를 이 뷰의 동작으로 잇는다(포커스가 이 뷰에 있을 때만 먹는다).
+  /// 셀 편집 중엔 [_editFocus]가 안쪽에서 포커스를 쥐어 방향키·Enter·Delete가 입력창의
+  /// 동작이 되고 이 바인딩엔 닿지 않는다.
+  Map<ShortcutActivator, VoidCallback> _shortcuts() => {
+    const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+        _moveRow(1, _DetailMove.single),
+    const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+        _moveRow(-1, _DetailMove.single),
+    const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): () =>
+        _moveRow(1, _DetailMove.range),
+    const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): () =>
+        _moveRow(-1, _DetailMove.range),
+    const SingleActivator(LogicalKeyboardKey.arrowDown, control: true): () =>
+        _moveRow(1, _DetailMove.cursorOnly),
+    const SingleActivator(LogicalKeyboardKey.arrowUp, control: true): () =>
+        _moveRow(-1, _DetailMove.cursorOnly),
+    const SingleActivator(LogicalKeyboardKey.arrowRight): () => _moveCol(1),
+    const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _moveCol(-1),
+    const SingleActivator(LogicalKeyboardKey.enter): _onEnter,
+    const SingleActivator(LogicalKeyboardKey.enter, control: true):
+        _toggleCursorSelection,
+    const SingleActivator(LogicalKeyboardKey.delete): _clearCell,
+  };
+
+  /// Ctrl+Enter: 커서 행을 다중 선택에 넣거나 뺀다(이미 선택돼 있으면 해제).
+  void _toggleCursorSelection() {
+    _navFocus.requestFocus();
+    final nodeId = _cursorNodeId;
+    if (nodeId == null) return;
+    ref.read(selectionControllerProvider.notifier).toggle(nodeId);
+  }
+
+  /// 행을 위/아래로 옮긴다. [mode]대로 선택을 함께 바꾼다(단일/범위/커서만). 열 커서는
+  /// 유지한다.
+  void _moveRow(int delta, _DetailMove mode) {
+    _navFocus.requestFocus();
+    final list = ref.read(detailRowsProvider).valueOrNull;
+    if (list == null || list.isEmpty) return;
+    final ids = [
+      for (final n in list)
+        if (n.id != null) n.id!,
+    ];
+    final current =
+        _cursorNodeId ?? ref.read(selectionControllerProvider).singleOrNull;
+    final next = stepNodeCursor(ids, current, delta);
+    if (next == null) return;
+    setState(() => _cursorNodeId = next);
+    final ctl = ref.read(selectionControllerProvider.notifier);
+    switch (mode) {
+      case _DetailMove.single:
+        ctl.selectSingle(next);
+      case _DetailMove.range:
+        ctl.selectRange(ids, next);
+      case _DetailMove.cursorOnly:
+        break;
+    }
+  }
+
+  /// 셀(열) 커서를 좌우로 옮긴다. 행 선택은 그대로. 커서 행이 없으면 단일 선택 행에
+  /// 커서를 세운다.
+  void _moveCol(int delta) {
+    _navFocus.requestFocus();
+    final colCount = 1 + ref.read(detailTagColumnsProvider).length;
+    final rowId =
+        _cursorNodeId ?? ref.read(selectionControllerProvider).singleOrNull;
+    if (rowId == null) return;
+    setState(() {
+      _cursorNodeId = rowId;
+      _cursorCol = (_cursorCol + delta).clamp(0, colCount - 1);
+    });
+    _revealCol(_cursorCol);
+  }
+
+  /// Enter: 편집 가능한 태그 셀이면 그 셀의 인라인 편집을 시작한다(label 토글·link
+  /// 선택기·값 입력, 기존 더블탭 편집과 같은 경로). 이름·시스템 셀이면 커서==단일선택일
+  /// 때 파일 활성(프리뷰), 아니면 그 행을 선택으로 확정한다.
+  void _onEnter() {
+    final rowId = _cursorNodeId;
+    if (rowId == null) return;
+    final node = _nodeById(rowId);
+    if (node == null) return;
+    final columns = _columnsFrom(ref.read(detailTagColumnsProvider));
+    final col = columns[_cursorCol.clamp(0, columns.length - 1)];
+    if (col.editable) {
+      final byFile = ref.read(effectiveAssignmentsByFileProvider);
+      // 편집하는 셀의 파일을 선택해 프리뷰가 어긋나지 않게 한다(더블탭 편집과 같은 이유).
+      ref.read(selectionControllerProvider.notifier).selectSingle(rowId);
+      _onCellDoubleTap(node, col, byFile);
+      return;
+    }
+    if (ref.read(selectionControllerProvider).singleOrNull == rowId) {
+      if (!node.isDirectory) widget.onActivateFile(node);
+    } else {
+      ref.read(selectionControllerProvider.notifier).selectSingle(rowId);
+    }
+  }
+
+  /// Delete: 편집 가능한 태그 셀이면 그 행에서 그 태그 부여를 통째로 제거한다(전 값
+  /// 해제). 이름·시스템 셀은 무동작.
+  Future<void> _clearCell() async {
+    final rowId = _cursorNodeId;
+    if (rowId == null) return;
+    final columns = _columnsFrom(ref.read(detailTagColumnsProvider));
+    final col = columns[_cursorCol.clamp(0, columns.length - 1)];
+    if (!col.editable) return;
+    await ref
+        .read(tagRepositoryProvider)
+        ?.unassignFromFiles(fileNodeIds: [rowId], tagDefinitionId: col.sortId);
+  }
+
+  FileNode? _nodeById(int id) {
+    final list = ref.read(detailRowsProvider).valueOrNull ?? const [];
+    for (final n in list) {
+      if (n.id == id) return n;
+    }
+    return null;
+  }
+
+  /// 셀(열) 커서가 가로 스크롤 밖에 있으면 그 열이 보이도록 스크롤한다.
+  void _revealCol(int colIndex) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_horizontal.hasClients) return;
+      final columns = _columnsFrom(ref.read(detailTagColumnsProvider));
+      if (colIndex < 0 || colIndex >= columns.length) return;
+      var before = 0.0;
+      for (var i = 0; i < colIndex; i++) {
+        before += _widthOf(columns[i].widthKey);
+      }
+      final width = _widthOf(columns[colIndex].widthKey);
+      final viewport = _horizontal.position.viewportDimension;
+      final start = _horizontal.offset;
+      final end = start + viewport;
+      double? target;
+      if (before < start) {
+        target = before;
+      } else if (before + width > end) {
+        target = before + width - viewport;
+      }
+      if (target == null) return;
+      final to = target.clamp(0.0, _horizontal.position.maxScrollExtent);
+      // 데스크톱은 stateChangeDuration이 0이라 animateTo가 단언(>0)에 걸린다 — 그땐
+      // 곧바로 점프한다(애니메이션을 끄는 데스크톱 방침과도 맞다).
+      if (stateChangeDuration == Duration.zero) {
+        _horizontal.jumpTo(to);
+      } else {
+        _horizontal.animateTo(
+          to,
+          duration: stateChangeDuration,
+          curve: Curves.linear,
+        );
+      }
+    });
   }
 
   Widget _empty(BuildContext context) {
@@ -360,45 +551,71 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     final node = list[index];
     final scheme = Theme.of(context).colorScheme;
     final selected = node.id != null && selection.contains(node.id!);
+    final rowCursored = node.id != null && node.id == _cursorNodeId;
     // 선택(탭)·길게 누르기는 행 전체가 받고, 더블탭·우클릭은 셀마다 받아 그 셀의
     // 태그를 곧바로 고친다(엑셀식 인라인 편집). 편집 대상이 아닌 셀(이름·시스템
     // 태그)의 더블탭·우클릭은 행 동작(파일 열기·셸 메뉴)으로 넘긴다.
-    return Material(
-      color: selected ? scheme.primaryContainer : Colors.transparent,
-      animationDuration: stateChangeDuration,
-      child: InkWell(
-        onTap: () => widget.onTapNode(list, index),
-        onLongPress: widget.onLongPressNode == null
-            ? null
-            : () => widget.onLongPressNode!(list, index),
-        hoverColor: Colors.transparent,
-        // 인라인 편집이 행 안(TextField)에 키보드 포커스를 두는데, Enter·Esc로 편집을
-        // 마치면 포커스 하이라이트 모드가 켜지며 포커스가 이 행으로 되돌아온다. 그때
-        // 행마다 회색 포커스 덧칠이 남아 선택색(primaryContainer)과 뒤섞인다. 선택은
-        // 오직 Material 배경색으로만 보이면 되므로, 행이 포커스를 쥐지도(회색 덧칠도
-        // 나지) 않게 한다(다른 데스크톱 목록·버튼의 잉크 해제와 같은 취지).
-        canRequestFocus: false,
-        focusColor: Colors.transparent,
-        mouseCursor: SystemMouseCursors.basic,
-        // 세로 ListView 항목은 높이가 무한이라 stretch를 쓰면 셀 높이가 무한이 된다.
-        // 셀은 내용 높이에 맡기고, 행 높이는 가장 큰 셀(썸네일 있는 이름 셀)로 정한다.
-        child: Row(
-          children: [
-            for (final col in columns)
-              SizedBox(
-                width: _widthOf(col.widthKey),
-                child: _cellGestures(
-                  context,
-                  list,
-                  index,
-                  col,
-                  byFile,
-                  _cell(context, node, col, byFile, scale, selected),
+    return EnsureVisibleOnFocus(
+      active: rowCursored,
+      child: Material(
+        color: selected ? scheme.primaryContainer : Colors.transparent,
+        animationDuration: stateChangeDuration,
+        child: InkWell(
+          onTap: () {
+            _navFocus.requestFocus();
+            if (node.id != null) setState(() => _cursorNodeId = node.id);
+            widget.onTapNode(list, index);
+          },
+          onLongPress: widget.onLongPressNode == null
+              ? null
+              : () => widget.onLongPressNode!(list, index),
+          hoverColor: Colors.transparent,
+          // 인라인 편집이 행 안(TextField)에 키보드 포커스를 두는데, Enter·Esc로 편집을
+          // 마치면 포커스 하이라이트 모드가 켜지며 포커스가 이 행으로 되돌아온다. 그때
+          // 행마다 회색 포커스 덧칠이 남아 선택색(primaryContainer)과 뒤섞인다. 선택은
+          // 오직 Material 배경색으로만 보이면 되므로, 행이 포커스를 쥐지도(회색 덧칠도
+          // 나지) 않게 한다(다른 데스크톱 목록·버튼의 잉크 해제와 같은 취지).
+          canRequestFocus: false,
+          focusColor: Colors.transparent,
+          mouseCursor: SystemMouseCursors.basic,
+          // 세로 ListView 항목은 높이가 무한이라 stretch를 쓰면 셀 높이가 무한이 된다.
+          // 셀은 내용 높이에 맡기고, 행 높이는 가장 큰 셀(썸네일 있는 이름 셀)로 정한다.
+          child: Row(
+            children: [
+              for (final (colIndex, col) in columns.indexed)
+                SizedBox(
+                  width: _widthOf(col.widthKey),
+                  child: _cellRing(
+                    rowCursored && colIndex == _cursorCol,
+                    scheme.primary,
+                    _cellGestures(
+                      context,
+                      list,
+                      index,
+                      col,
+                      byFile,
+                      _cell(context, node, col, byFile, scale, selected),
+                    ),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// 셀 커서 링. 커서가 이 셀에 있을 때만 색이 보이고, 아니면 투명 테두리로 자리만
+  /// 지켜 셀 폭·높이가 흔들리지 않는다.
+  Widget _cellRing(bool focused, Color color, Widget child) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: focused ? color : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: child,
     );
   }
 

@@ -86,3 +86,55 @@ class TagDisplayOrderIntent extends Intent {
 class TogglePreviewIntent extends Intent {
   const TogglePreviewIntent();
 }
+
+/// 목록에서 키보드 커서를 한 칸 위/아래로 옮기며 그 항목만 단일 선택한다(방향키).
+class MoveCursorUpIntent extends Intent {
+  const MoveCursorUpIntent();
+}
+
+class MoveCursorDownIntent extends Intent {
+  const MoveCursorDownIntent();
+}
+
+/// 앵커에서 커서까지 범위를 위/아래로 넓히며 선택한다(Shift+방향키).
+class ExtendSelectionUpIntent extends Intent {
+  const ExtendSelectionUpIntent();
+}
+
+class ExtendSelectionDownIntent extends Intent {
+  const ExtendSelectionDownIntent();
+}
+
+/// 선택을 건드리지 않고 커서만 위/아래로 옮긴다(Ctrl+방향키).
+class MoveCursorUpNoSelectIntent extends Intent {
+  const MoveCursorUpNoSelectIntent();
+}
+
+class MoveCursorDownNoSelectIntent extends Intent {
+  const MoveCursorDownNoSelectIntent();
+}
+
+/// 커서 행 안에서 태그 칸을 좌/우로 옮긴다(방향키 좌우).
+class MoveTagLeftIntent extends Intent {
+  const MoveTagLeftIntent();
+}
+
+class MoveTagRightIntent extends Intent {
+  const MoveTagRightIntent();
+}
+
+/// 커서 자리를 확정한다(Enter). 태그 칸이면 값 수정('+'이면 태그 추가), 행 레벨이면
+/// 커서=선택일 때 활성(폴더 펼침/프리뷰), 아니면 그 항목을 선택으로 확정한다.
+class ConfirmCursorIntent extends Intent {
+  const ConfirmCursorIntent();
+}
+
+/// 커서가 가리키는 태그 부여를 제거한다(Delete).
+class DeleteFocusedTagIntent extends Intent {
+  const DeleteFocusedTagIntent();
+}
+
+/// 커서 항목을 다중 선택에 넣거나 뺀다(Ctrl+Enter). 이미 선택돼 있으면 해제한다.
+class ToggleCursorSelectionIntent extends Intent {
+  const ToggleCursorSelectionIntent();
+}

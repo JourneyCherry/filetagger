@@ -30,6 +30,17 @@ enum AppCommandId {
   toggleListEdit,
   toggleGrouping,
   togglePreview,
+  moveCursorUp,
+  moveCursorDown,
+  extendSelectionUp,
+  extendSelectionDown,
+  moveCursorUpNoSelect,
+  moveCursorDownNoSelect,
+  moveTagLeft,
+  moveTagRight,
+  confirmCursor,
+  toggleCursorSelection,
+  deleteFocusedTag,
 }
 
 /// 명령 하나의 표시 정보와 던질 Intent.
@@ -108,8 +119,8 @@ final List<AppCommand> appCommands = [
     id: AppCommandId.activateNode,
     label: '열기 / 펼치기',
     intent: ActivateNodeIntent(),
-    shortcut: SingleActivator(LogicalKeyboardKey.enter),
-    requiresScopeFocus: true,
+    // 단축키(Enter)는 커서를 함께 해석하는 confirmCursor가 쥔다. 이 명령은 메뉴·
+    // 컨텍스트 메뉴에서 선택 항목을 곧바로 활성할 때 쓴다.
   ),
   const AppCommand(
     id: AppCommandId.assignTags,
@@ -170,6 +181,85 @@ final List<AppCommand> appCommands = [
     label: '프리뷰 보기',
     intent: TogglePreviewIntent(),
     icon: Icons.view_sidebar,
+  ),
+  // 아래는 목록의 키보드 내비게이션 전용(메뉴에 노출하지 않는다). 모두 본문 스코프가
+  // 포커스를 쥔 때만 들어 필터·정렬 텍스트 입력의 방향키·Delete·Enter를 가로채지 않는다.
+  const AppCommand(
+    id: AppCommandId.moveCursorUp,
+    label: '커서 위로',
+    intent: MoveCursorUpIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowUp),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.moveCursorDown,
+    label: '커서 아래로',
+    intent: MoveCursorDownIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowDown),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.extendSelectionUp,
+    label: '범위 위로',
+    intent: ExtendSelectionUpIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowUp, shift: true),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.extendSelectionDown,
+    label: '범위 아래로',
+    intent: ExtendSelectionDownIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowDown, shift: true),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.moveCursorUpNoSelect,
+    label: '커서만 위로',
+    intent: MoveCursorUpNoSelectIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowUp, control: true),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.moveCursorDownNoSelect,
+    label: '커서만 아래로',
+    intent: MoveCursorDownNoSelectIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowDown, control: true),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.moveTagLeft,
+    label: '태그 왼쪽',
+    intent: MoveTagLeftIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowLeft),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.moveTagRight,
+    label: '태그 오른쪽',
+    intent: MoveTagRightIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.arrowRight),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.confirmCursor,
+    label: '확정 / 열기',
+    intent: ConfirmCursorIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.enter),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.toggleCursorSelection,
+    label: '커서 선택 토글',
+    intent: ToggleCursorSelectionIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.enter, control: true),
+    requiresScopeFocus: true,
+  ),
+  const AppCommand(
+    id: AppCommandId.deleteFocusedTag,
+    label: '태그 제거',
+    intent: DeleteFocusedTagIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.delete),
+    requiresScopeFocus: true,
   ),
 ];
 

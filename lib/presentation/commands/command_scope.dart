@@ -22,6 +22,17 @@ class CommandHandlers {
     this.toggleListEdit,
     this.toggleGrouping,
     this.togglePreview,
+    this.moveCursorUp,
+    this.moveCursorDown,
+    this.extendSelectionUp,
+    this.extendSelectionDown,
+    this.moveCursorUpNoSelect,
+    this.moveCursorDownNoSelect,
+    this.moveTagLeft,
+    this.moveTagRight,
+    this.confirmCursor,
+    this.toggleCursorSelection,
+    this.deleteFocusedTag,
   });
 
   final VoidCallback? openFolder;
@@ -40,6 +51,17 @@ class CommandHandlers {
   final VoidCallback? toggleListEdit;
   final VoidCallback? toggleGrouping;
   final VoidCallback? togglePreview;
+  final VoidCallback? moveCursorUp;
+  final VoidCallback? moveCursorDown;
+  final VoidCallback? extendSelectionUp;
+  final VoidCallback? extendSelectionDown;
+  final VoidCallback? moveCursorUpNoSelect;
+  final VoidCallback? moveCursorDownNoSelect;
+  final VoidCallback? moveTagLeft;
+  final VoidCallback? moveTagRight;
+  final VoidCallback? confirmCursor;
+  final VoidCallback? toggleCursorSelection;
+  final VoidCallback? deleteFocusedTag;
 
   /// [id]의 실행 함수. 비활성이면 null.
   VoidCallback? handlerOf(AppCommandId id) => switch (id) {
@@ -59,6 +81,17 @@ class CommandHandlers {
     AppCommandId.toggleListEdit => toggleListEdit,
     AppCommandId.toggleGrouping => toggleGrouping,
     AppCommandId.togglePreview => togglePreview,
+    AppCommandId.moveCursorUp => moveCursorUp,
+    AppCommandId.moveCursorDown => moveCursorDown,
+    AppCommandId.extendSelectionUp => extendSelectionUp,
+    AppCommandId.extendSelectionDown => extendSelectionDown,
+    AppCommandId.moveCursorUpNoSelect => moveCursorUpNoSelect,
+    AppCommandId.moveCursorDownNoSelect => moveCursorDownNoSelect,
+    AppCommandId.moveTagLeft => moveTagLeft,
+    AppCommandId.moveTagRight => moveTagRight,
+    AppCommandId.confirmCursor => confirmCursor,
+    AppCommandId.toggleCursorSelection => toggleCursorSelection,
+    AppCommandId.deleteFocusedTag => deleteFocusedTag,
   };
 
   /// 메뉴·버튼이 회색 처리 여부를 판단할 때 쓴다.

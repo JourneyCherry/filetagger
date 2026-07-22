@@ -24,6 +24,7 @@ import '../common/ctrl_wheel_zoom.dart';
 import '../common/file_detail_view.dart';
 import '../common/file_icon_view.dart';
 import '../common/file_list_view.dart';
+import '../common/navigation_cursor.dart';
 import '../common/pointer_presence.dart';
 import '../common/preview_split.dart';
 import '../common/selection_controller.dart';
@@ -33,6 +34,7 @@ import '../providers/file_view_provider.dart';
 import '../providers/nested_workspace_provider.dart';
 import '../providers/node_reveal_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../shells/command_context_menu.dart';
@@ -47,6 +49,10 @@ import '../widgets/tag_manage_dialog.dart';
 import '../widgets/tag_order_dialog.dart';
 import '../widgets/tag_value_prompt.dart';
 import 'tag_management_screen.dart';
+
+/// 커서 세로 이동이 선택을 어떻게 함께 바꾸는지: single=그 항목만, range=앵커에서
+/// 범위, cursorOnly=선택 불변(커서만).
+enum _CursorMove { single, range, cursorOnly }
 
 /// 관리 폴더를 열어 스캔한 파일/폴더 목록을 보여주는 메인 화면.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -160,6 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _clearSelection() {
     ref.read(selectionControllerProvider.notifier).clear();
+    ref.read(navigationCursorProvider.notifier).clear();
     _exitSelectionMode();
   }
 
@@ -307,6 +314,138 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     for (final n in items)
       if (n.id != null) n.id!,
   ];
+
+  // ── 키보드 목록·태그 내비게이션 ──────────────────────────────────────────
+  // 커서(navigationCursorProvider)는 선택과 별개의 "지금 방향키가 가리키는 자리"다.
+  // 목록 보기에서만 의미가 있어(좌우 태그 이동은 칩이 행에 늘어선 목록 전용) 명령
+  // 활성도 목록 보기로 가둔다.
+
+  /// 지금 표시 중인 평면 트리(목록 렌더와 같은 flattenTree). 워크스페이스가 없으면 null.
+  FlatTree? _currentFlat() {
+    final roots = ref.read(fileTreeProvider).valueOrNull;
+    if (roots == null) return null;
+    return flattenTree(
+      roots,
+      expandedFolders: ref.read(expandedFoldersProvider),
+      expandAll: !ref.read(fileFilterProvider).isEmpty,
+    );
+  }
+
+  /// 표시 순서의 선택 가능한 노드 id들(커서 세로 이동·범위 선택의 순서 기준).
+  List<int> _orderedNodeIds() => [
+    for (final n in (_currentFlat()?.nodes ?? const <FileNode>[]))
+      if (n.id != null) n.id!,
+  ];
+
+  /// [nodeId] 행에 보이는 태그(표시 순서·표시 술어를 목록 행과 똑같이 적용).
+  List<AssignedTag> _visibleTagsOf(int nodeId) => visibleOrderedTags(
+    ref.read(effectiveAssignmentsByFileProvider)[nodeId] ?? const [],
+    ref.read(effectiveTagDisplayOrderProvider),
+    ref.read(tagChipVisibleProvider),
+  );
+
+  FileNode? _nodeById(int id) {
+    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
+    final matches = items.where((n) => n.id == id);
+    return matches.isEmpty ? null : matches.first;
+  }
+
+  /// 커서를 세로로 [delta]칸(위 -1/아래 +1) 옮긴다. [mode]에 따라 선택도 함께
+  /// 바꾼다: single=그 항목만 선택, range=앵커에서 범위 선택, cursorOnly=선택 불변.
+  void _moveCursor(int delta, _CursorMove mode) {
+    final ids = _orderedNodeIds();
+    if (ids.isEmpty) return;
+    final cursor = ref.read(navigationCursorProvider);
+    final sel = ref.read(selectionControllerProvider);
+    final current = cursor.nodeId ?? sel.singleOrNull;
+    final next = stepNodeCursor(ids, current, delta);
+    if (next == null) return;
+    final cursorCtl = ref.read(navigationCursorProvider.notifier);
+    final selCtl = ref.read(selectionControllerProvider.notifier);
+    switch (mode) {
+      case _CursorMove.single:
+        selCtl.selectSingle(next);
+        cursorCtl.moveTo(next);
+      case _CursorMove.range:
+        selCtl.selectRange(ids, next);
+        cursorCtl.moveTo(next);
+      case _CursorMove.cursorOnly:
+        cursorCtl.moveTo(next);
+    }
+  }
+
+  /// 커서 행 안에서 태그 칸을 좌우로 [delta]칸 옮긴다. '+' 추가 슬롯은 목록 수정이
+  /// 켜진(추가 버튼이 보이는) 때만 닿는다.
+  void _moveTag(int delta) {
+    final cursor = ref.read(navigationCursorProvider);
+    final nodeId =
+        cursor.nodeId ?? ref.read(selectionControllerProvider).singleOrNull;
+    if (nodeId == null) return;
+    final tags = _visibleTagsOf(nodeId);
+    final hasAdd = isDesktopPlatform && _listEditEnabled;
+    // 커서가 다른 행(또는 없음)이면 이 행에서 새로 시작하므로 현재 칸을 null로 본다.
+    final currentColumn = cursor.nodeId == nodeId ? cursor.tagColumn : null;
+    final next = stepTagColumn(currentColumn, tags.length, hasAdd, delta);
+    final ctl = ref.read(navigationCursorProvider.notifier);
+    if (cursor.nodeId != nodeId) ctl.moveTo(nodeId);
+    ctl.setTagColumn(next);
+  }
+
+  /// Enter. 태그 칸이면 값 수정('+'이면 태그 추가), 행 레벨이면 커서==단일선택일 때
+  /// 활성(폴더 펼침/프리뷰), 아니면 그 항목을 선택으로 확정한다. 목록 보기가 아니거나
+  /// 커서가 없으면 기존 활성 동작으로 떨어진다.
+  void _onConfirmCursor() {
+    final cursor = ref.read(navigationCursorProvider);
+    final nodeId = cursor.nodeId;
+    if (ref.read(viewModeProvider) != ViewMode.list || nodeId == null) {
+      _activateSelected();
+      return;
+    }
+    final col = cursor.tagColumn;
+    if (col == null) {
+      if (ref.read(selectionControllerProvider).singleOrNull == nodeId) {
+        _activateSelected();
+      } else {
+        ref.read(selectionControllerProvider.notifier).selectSingle(nodeId);
+      }
+      return;
+    }
+    final tags = _visibleTagsOf(nodeId);
+    if (col < tags.length) {
+      // 시스템 읽기전용 태그는 _editAssignmentFromList가 스스로 무동작 처리한다.
+      _editAssignmentFromList(tags[col]);
+      return;
+    }
+    final node = _nodeById(nodeId);
+    if (node != null) _addTagToNode(node);
+  }
+
+  /// Ctrl+Enter. 커서 항목을 다중 선택에 넣거나 뺀다(이미 선택돼 있으면 해제). 커서를
+  /// Ctrl+방향으로 선택과 떼어 놓은 채 키보드만으로 다중 선택을 구성할 때 쓴다.
+  void _toggleCursorSelection() {
+    final nodeId = ref.read(navigationCursorProvider).nodeId;
+    if (nodeId == null) return;
+    ref.read(selectionControllerProvider.notifier).toggle(nodeId);
+  }
+
+  /// Delete. 커서가 가리키는 태그를 제거한다(시스템 태그·'+' 슬롯·행 레벨은 무동작).
+  void _deleteFocusedTag() {
+    final cursor = ref.read(navigationCursorProvider);
+    final nodeId = cursor.nodeId;
+    final col = cursor.tagColumn;
+    if (nodeId == null || col == null) return;
+    final tags = _visibleTagsOf(nodeId);
+    if (col >= tags.length) return; // '+' 슬롯
+    final tag = tags[col];
+    if (isSystemTagId(tag.tagDefinitionId)) return; // 시스템 태그는 제거 불가
+    _removeAssignment(tag);
+    // 마지막 태그를 지우면 남은 마지막 태그로, 다 지웠으면 행 레벨로 물러난다.
+    final newCount = tags.length - 1;
+    final int? clamped = newCount == 0
+        ? null
+        : (col >= newCount ? newCount - 1 : col);
+    ref.read(navigationCursorProvider.notifier).setTagColumn(clamped);
+  }
 
   /// 행 우클릭: 선택 밖의 행이면 그 행만 선택한 뒤(탐색기와 같은 관용) 새 선택
   /// 기준으로 명령 활성 상태를 다시 구해 컨텍스트 메뉴를 띄운다. 우클릭한 행이
@@ -786,6 +925,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   CommandHandlers _handlers(SelectionState selection, bool hasWorkspace) {
     // 자세히 모드는 정렬·그룹 줄을 쓰지 않으므로 그 토글 명령을 비활성화한다.
     final detailMode = ref.read(viewModeProvider) == ViewMode.detail;
+    // 키보드 커서 내비게이션은 목록 보기에서만 의미가 있다(좌우 태그 이동은 칩이 행에
+    // 늘어선 목록 전용). 커서·태그 확정/제거는 커서 상태를 함께 본다.
+    final navigable =
+        hasWorkspace && ref.read(viewModeProvider) == ViewMode.list;
+    final cursor = ref.read(navigationCursorProvider);
     return CommandHandlers(
       openFolder: _busy ? null : _openFolder,
       closeFolder: (!hasWorkspace || _busy) ? null : _closeWorkspace,
@@ -818,6 +962,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ? _toggleGroupBar
           : null,
       togglePreview: hasWorkspace ? _togglePreview : null,
+      moveCursorUp: navigable ? () => _moveCursor(-1, _CursorMove.single) : null,
+      moveCursorDown: navigable
+          ? () => _moveCursor(1, _CursorMove.single)
+          : null,
+      extendSelectionUp: navigable
+          ? () => _moveCursor(-1, _CursorMove.range)
+          : null,
+      extendSelectionDown: navigable
+          ? () => _moveCursor(1, _CursorMove.range)
+          : null,
+      moveCursorUpNoSelect: navigable
+          ? () => _moveCursor(-1, _CursorMove.cursorOnly)
+          : null,
+      moveCursorDownNoSelect: navigable
+          ? () => _moveCursor(1, _CursorMove.cursorOnly)
+          : null,
+      moveTagLeft: navigable ? () => _moveTag(-1) : null,
+      moveTagRight: navigable ? () => _moveTag(1) : null,
+      // Enter는 목록 밖(아이콘·자세히)에서도 선택 항목을 활성하도록 커서·선택 어느
+      // 하나라도 있으면 활성화한다(핸들러가 보기 모드를 보고 갈래를 정한다).
+      confirmCursor: (cursor.nodeId != null || selection.singleOrNull != null)
+          ? _onConfirmCursor
+          : null,
+      toggleCursorSelection: (navigable && cursor.nodeId != null)
+          ? _toggleCursorSelection
+          : null,
+      deleteFocusedTag: (navigable && cursor.tagColumn != null)
+          ? _deleteFocusedTag
+          : null,
     );
   }
 
@@ -840,6 +1013,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.watch(databaseProvider);
     // 선택이 바뀌면 목록 하이라이트·프리뷰·명령 활성 상태가 함께 갱신된다.
     final selection = ref.watch(selectionControllerProvider);
+    // 커서가 바뀌면 Enter/Delete 명령 활성 상태(_handlers)가 함께 갱신되도록 구독한다.
+    ref.watch(navigationCursorProvider);
+    // 보기 모드가 바뀌면 커서는 뜻을 잃으므로(목록 전용) 비운다.
+    ref.listen(viewModeProvider, (prev, next) {
+      if (prev != next) ref.read(navigationCursorProvider.notifier).clear();
+    });
     final handlers = _handlers(selection, workspaceRoot != null);
 
     // 디스크 변화(watcher, 디바운스됨)를 구독해 백그라운드 재스캔을 트리거한다.

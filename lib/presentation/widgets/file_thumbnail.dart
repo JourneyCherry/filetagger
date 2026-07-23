@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/file_types.dart';
 import '../../domain/entities/file_node.dart';
+import '../providers/file_view_provider.dart';
 import '../providers/thumbnail_provider.dart';
 import '../providers/workspace_provider.dart';
 
@@ -40,15 +41,17 @@ class FileThumbnail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final root = ref.watch(workspaceRootProvider);
     final folderThumbnails = ref.watch(folderThumbnailIndexProvider);
-    final custom = node.id == null
-        ? const <String>[]
-        : (ref.watch(customThumbnailIndexProvider)[node.id] ?? const []);
+    final sources = ref.watch(thumbnailSourcesProvider);
+    final customByTag = node.id == null
+        ? const <int, List<String>>{}
+        : (ref.watch(customThumbnailIndexProvider)[node.id] ?? const {});
     final rels = root == null
         ? const <String>[]
         : resolveThumbnailRelPaths(
             node,
             folderThumbnails,
-            custom: custom,
+            sources: sources,
+            customByTag: customByTag,
             preferSelfImage: preferSelfImage,
           );
 

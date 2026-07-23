@@ -29,6 +29,12 @@ const double kDetailColumnWidthMax = 600;
 /// 담을 때 쓰는 예약 키. 실제 태그 id(사용자=양수, 시스템=작은 음수)와 겹치지 않는다.
 const int kDetailNameColumnId = -1000;
 
+/// 썸네일 출처 우선순위([WorkspaceViewSettings.thumbnailSources])에서 **기본 썸네일**
+/// (자기 이미지·폴더 대표)을 나타내는 예약 항목. 실제 태그 id와 겹치지 않는 음수다.
+/// 이 항목보다 뒤(낮은 우선순위)에 놓인 태그는 기본이 이미 결과를 낸 노드에선
+/// 가려진다(사실상 표시 안 함).
+const int kDefaultThumbnailSourceId = -2000;
+
 /// 루트 폴더의 기본 관리 방식. 루트는 항상 최소한 직속 내용을 보이므로
 /// [FolderManageMode.managed](비재귀) 또는 [FolderManageMode.managedRecursive]만
 /// 갖는다(불투명은 없음). 기본은 직속 내용만 인덱싱하는 [FolderManageMode.managed].
@@ -60,7 +66,7 @@ class WorkspaceViewSettings {
     this.viewScales = const <ViewMode, double>{},
     this.detailSort = const FileSortOrder(),
     this.detailColumnWidths = const <int, double>{},
-    this.thumbnailTagId,
+    this.thumbnailSources = const <int>[],
   });
 
   final FileFilter filter;
@@ -123,11 +129,12 @@ class WorkspaceViewSettings {
   /// 키를 쓴다. 없는 컬럼은 [kDefaultDetailColumnWidth].
   final Map<int, double> detailColumnWidths;
 
-  /// 노드 썸네일의 출처로 쓸 **링크 태그의 정의 id**. 이 태그가 가리키는 대상
-  /// 이미지를 그 노드의 썸네일로 쓴다. null이면 커스텀 썸네일 없이 기본 동작
-  /// (이미지=자기 자신, 폴더=하위 대표)만 쓴다. 지정한 태그가 사라지면 로드 후
-  /// 정리로 비워진다.
-  final int? thumbnailTagId;
+  /// 노드 썸네일의 **출처 우선순위**(앞이 높음). 링크/이미지 태그의 정의 id와, 기본
+  /// 썸네일을 나타내는 [kDefaultThumbnailSourceId]를 함께 담는다. 한 노드는 이 순서로
+  /// 훑어 **처음으로 썸네일을 낸 출처**를 쓴다 — 어떤 노드가 태그 A만, 다른 노드가
+  /// 태그 B만 가져도 각자 맞는 출처가 뽑힌다. 둘 다 가지면 앞선 출처가 이긴다. 비면
+  /// 커스텀 없이 기본 동작만 쓴다. 사라진 태그 id는 로드 후 정리로 걸러진다.
+  final List<int> thumbnailSources;
 
   /// [id] 컬럼의 폭(저장값이 없으면 기본, 늘 허용 범위로 가둔다).
   double detailColumnWidthFor(int id) =>
@@ -152,8 +159,7 @@ class WorkspaceViewSettings {
     Map<ViewMode, double>? viewScales,
     FileSortOrder? detailSort,
     Map<int, double>? detailColumnWidths,
-    int? thumbnailTagId,
-    bool clearThumbnailTagId = false,
+    List<int>? thumbnailSources,
   }) => WorkspaceViewSettings(
     filter: filter ?? this.filter,
     sort: sort ?? this.sort,
@@ -168,8 +174,6 @@ class WorkspaceViewSettings {
     viewScales: viewScales ?? this.viewScales,
     detailSort: detailSort ?? this.detailSort,
     detailColumnWidths: detailColumnWidths ?? this.detailColumnWidths,
-    thumbnailTagId: clearThumbnailTagId
-        ? null
-        : (thumbnailTagId ?? this.thumbnailTagId),
+    thumbnailSources: thumbnailSources ?? this.thumbnailSources,
   );
 }

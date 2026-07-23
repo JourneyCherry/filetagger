@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../tag_visuals.dart';
 import 'link_target_picker.dart';
+import 'thumbnail_image_picker.dart';
 
 /// 값 입력 결과. 취소 시 null이 반환되며, 저장 시 [value](비었으면 null)를
 /// 감싸 돌려주어 "값 없음으로 저장"과 "취소"를 구분한다.
@@ -18,6 +20,7 @@ class TagValueResult {
 /// text/number는 텍스트 다이얼로그, date는 네이티브 날짜 선택기를 쓴다.
 Future<TagValueResult?> promptTagValue(
   BuildContext context,
+  WidgetRef ref,
   TagDefinition definition, {
   String? initial,
 }) async {
@@ -28,6 +31,10 @@ Future<TagValueResult?> promptTagValue(
       final picked = await pickLinkTarget(context, initial: initial);
       if (picked == null) return null;
       return TagValueResult(picked);
+    case TagValueType.image:
+      final key = await pickAndRegisterThumbnailImage(context, ref);
+      if (key == null) return null;
+      return TagValueResult(key);
     case TagValueType.date:
       final init = DateTime.tryParse(initial ?? '') ?? DateTime.now();
       final picked = await showDatePicker(

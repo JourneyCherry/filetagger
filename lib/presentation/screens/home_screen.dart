@@ -15,6 +15,7 @@ import '../../domain/entities/file_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_merge_resolution.dart';
 import '../../domain/entities/system_tag.dart';
+import '../../domain/entities/tag_value_type.dart';
 import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/usecases/folder_index_scope.dart';
@@ -36,6 +37,7 @@ import '../providers/node_reveal_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
+import '../providers/thumbnail_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../shells/command_context_menu.dart';
 import '../shells/desktop_shell.dart';
@@ -599,8 +601,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       return;
     }
+    // 이미지 태그는 바로 파일 선택기를 열지 않고, 태그 추가/수정 다이얼로그로 열어
+    // 현재 이미지를 확인한 뒤 바꿀 수 있게 한다.
+    if (a.definition.valueType == TagValueType.image) {
+      final node = ref.read(fileNodesByIdProvider)[a.assignment.fileNodeId];
+      await showTagAssignDialog(
+        context,
+        fileNodeIds: [a.assignment.fileNodeId],
+        title: node?.name ?? a.definition.name,
+        preselectTagId: a.tagDefinitionId,
+      );
+      return;
+    }
     final result = await promptTagValue(
       context,
+      ref,
       a.definition,
       initial: a.value,
     );
@@ -1011,6 +1026,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final workspaceRoot = ref.watch(workspaceRootProvider);
     // DB는 폴더가 열릴 때 생성/연결된다. 여기서 watch해 생명주기를 활성화한다.
     ref.watch(databaseProvider);
+    // 커스텀 이미지 캐시 청소기를 살려 둔다(부여가 사라진 캐시 파일 정리).
+    ref.watch(thumbnailGcProvider);
     // 선택이 바뀌면 목록 하이라이트·프리뷰·명령 활성 상태가 함께 갱신된다.
     final selection = ref.watch(selectionControllerProvider);
     // 커서가 바뀌면 Enter/Delete 명령 활성 상태(_handlers)가 함께 갱신되도록 구독한다.

@@ -56,7 +56,8 @@ class BuildGroupedTree {
     // 부여 여부만 보아, 붙어 있으면 "붙음" 버킷(값 '')으로, 없으면 미분류로 간다.
     List<String> valuesOf(FileNode node, int tagId) {
       final type = definitionsById[tagId]?.valueType;
-      if (type == TagValueType.label) {
+      // label과 image는 값 대신 부여 여부만 본다(image 값은 불투명 캐시 키).
+      if (type == TagValueType.label || type == TagValueType.image) {
         final present = tagsOf(node).any((t) => t.tagDefinitionId == tagId);
         return present ? const [''] : const [];
       }

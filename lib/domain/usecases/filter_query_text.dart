@@ -223,6 +223,8 @@ String? _normalizeOperand(TagValueType type, String value) {
     case TagValueType.label:
     // link 필터의 피연산자는 사용자가 친 대상 이름 그대로다(값은 이름으로 비교).
     case TagValueType.link:
+    // image는 exists 연산만 있어 피연산자를 쓰지 않지만, 완결성을 위해 그대로 둔다.
+    case TagValueType.image:
       return value;
   }
 }

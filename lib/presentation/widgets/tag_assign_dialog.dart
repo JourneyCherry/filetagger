@@ -1,19 +1,25 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/platform.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../../domain/usecases/thumbnail_cache.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/tag_provider.dart';
+import '../providers/workspace_provider.dart';
 import '../tag_visuals.dart';
 import 'dialog_utils.dart';
 import 'link_target_picker.dart';
 import 'tag_chip.dart';
 import 'tag_picker.dart';
 import 'tag_value_prompt.dart';
+import 'thumbnail_image_picker.dart';
 
 /// 선택한 파일들에 태그를 부여/편집/해제하는 모달을 띄운다.
 ///
@@ -79,6 +85,9 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
 
   /// 링크 태그를 부여할 때 고른 대상 노드 id(문자열). 미선택이면 null.
   String? _addLinkId;
+
+  /// 이미지 태그를 부여할 때 등록한 캐시 키. 미선택이면 null.
+  String? _addImageKey;
   String? _addError;
 
   bool get _isSingle => widget.fileNodeIds.length == 1;
@@ -87,6 +96,39 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   void initState() {
     super.initState();
     _addTagId = widget.preselectTagId;
+    _prefillImageFromExisting();
+  }
+
+  /// 미리 선택된 태그가 **이미지 유형**이고 단일 파일에 이미 값이 있으면, 그 캐시
+  /// 키를 추가 영역에 채워 현재 이미지가 미리보기로 보이게 한다(확인 후 교체용).
+  void _prefillImageFromExisting() {
+    final preId = widget.preselectTagId;
+    if (preId == null || !_isSingle) return;
+    final defs = ref.read(tagDefinitionsProvider).valueOrNull ?? const [];
+    final def = _defOf(defs, preId);
+    if (def == null || def.valueType != TagValueType.image) return;
+    final byFile = ref.read(assignmentsByFileProvider).valueOrNull ?? const {};
+    for (final a in byFile[widget.fileNodeIds.first] ?? const <AssignedTag>[]) {
+      if (a.tagDefinitionId == preId &&
+          a.value != null &&
+          a.value!.isNotEmpty) {
+        _addImageKey = a.value;
+        break;
+      }
+    }
+  }
+
+  /// 부여된 이미지 캡슐을 누르면 그 값을 추가 영역으로 불러와 미리보기와 함께
+  /// 확인·교체할 수 있게 한다(바로 파일 선택기를 열지 않는다).
+  void _loadImageIntoAdd(AssignedTag a) {
+    setState(() {
+      _addTagId = a.tagDefinitionId;
+      _addImageKey = a.value;
+      _addLinkId = null;
+      _addValue.clear();
+      _addDate = null;
+      _addError = null;
+    });
   }
 
   @override
@@ -177,7 +219,10 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
         for (final a in assignments)
           AssignedTagChip(
             tag: a,
-            onPressed: a.definition.hasValue ? () => _editAssignment(a) : null,
+            // 이미지는 바로 파일 선택기 대신 추가 영역으로 불러와 확인·교체한다.
+            onPressed: a.definition.valueType == TagValueType.image
+                ? () => _loadImageIntoAdd(a)
+                : (a.definition.hasValue ? () => _editAssignment(a) : null),
             onDeleted: () => _unassignOne(a),
           ),
       ],
@@ -258,6 +303,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
             _addValue.clear();
             _addDate = null;
             _addLinkId = null;
+            _addImageKey = null;
             _addError = null;
           }),
         ),
@@ -303,6 +349,58 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
               final picked = await pickLinkTarget(context, initial: _addLinkId);
               if (picked != null) setState(() => _addLinkId = picked);
             },
+          ),
+        ],
+      );
+    }
+
+    if (def.valueType == TagValueType.image) {
+      final root = ref.watch(workspaceRootProvider);
+      final preview = (_addImageKey == null || root == null)
+          ? null
+          : p.joinAll([
+              root,
+              ...thumbnailCacheRelPath(_addImageKey!).split('/'),
+            ]);
+      final scheme = Theme.of(context).colorScheme;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: scheme.outlineVariant),
+              borderRadius: BorderRadius.circular(6),
+              color: scheme.surfaceContainerHighest,
+            ),
+            clipBehavior: Clip.antiAlias,
+            padding: const EdgeInsets.all(4),
+            child: preview == null
+                ? Text(
+                    '이미지 없음',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  )
+                : Image.file(
+                    File(preview),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Text(
+                      '이미지 없음',
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.image_outlined, size: 16),
+              label: Text(_addImageKey == null ? '이미지 선택' : '이미지 변경'),
+              onPressed: () async {
+                final key = await pickAndRegisterThumbnailImage(context, ref);
+                if (key != null) setState(() => _addImageKey = key);
+              },
+            ),
           ),
         ],
       );
@@ -389,6 +487,12 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
             return;
           }
           value = _addLinkId;
+        case TagValueType.image:
+          if (_addImageKey == null) {
+            setState(() => _addError = '이미지를 선택하세요.');
+            return;
+          }
+          value = _addImageKey;
         case TagValueType.label:
           value = null;
       }
@@ -404,6 +508,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       _addValue.clear();
       _addDate = null;
       _addLinkId = null;
+      _addImageKey = null;
       _addError = null;
     });
   }
@@ -411,6 +516,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   Future<void> _editAssignment(AssignedTag a) async {
     final result = await promptTagValue(
       context,
+      ref,
       a.definition,
       initial: a.value,
     );
@@ -426,7 +532,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   }
 
   Future<void> _setValueForAll(TagDefinition def, {String? initial}) async {
-    final result = await promptTagValue(context, def, initial: initial);
+    final result = await promptTagValue(context, ref, def, initial: initial);
     if (result == null) return;
     final id = def.id;
     if (id == null) return;

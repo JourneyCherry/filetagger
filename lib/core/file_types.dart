@@ -4,6 +4,9 @@ library;
 
 import '../domain/entities/assigned_tag.dart';
 import '../domain/entities/file_node.dart';
+import '../domain/entities/tag_value_type.dart';
+import '../domain/entities/workspace_view_settings.dart';
+import '../domain/usecases/thumbnail_cache.dart';
 
 /// Flutter 이미지 디코더가 표시할 수 있는 확장자 집합(소문자, 점 제외).
 const Set<String> imageFileExtensions = {
@@ -57,57 +60,89 @@ Map<String, List<String>> buildFolderThumbnailIndex(Iterable<FileNode> nodes) {
 
 /// 노드가 목록·프리뷰에서 보여줄 이미지들의 루트 기준 상대 경로. 비면 기본 아이콘.
 ///
-/// **사용자가 지정한 커스텀 썸네일([custom])이 있으면 그것을 최우선**으로 쓴다(링크
-/// 태그가 가리키는 대상 이미지). 없으면 기본 동작 — 이미지 파일은 자기 자신 한 장,
-/// 폴더는 하위 대표 이미지들(겹쳐 쌓기용)이다.
+/// **출처 우선순위([sources])** 순으로 훑어 처음으로 이미지를 낸 출처를 쓴다. 각
+/// 항목은 커스텀 태그 id(그 노드의 이미지들은 [customByTag]에서 찾는다) 또는
+/// [kDefaultThumbnailSourceId](기본 동작: 이미지=자기 자신, 폴더=하위 대표)다. 어느
+/// 출처도 이미지를 못 내면 마지막에 기본 동작으로 폴백한다 — 커스텀 없는 노드도 늘
+/// 제 썸네일을 보이게 한다.
 ///
 /// [preferSelfImage]는 **프리뷰**용이다: 자기 자신을 이미지로 표현할 수 있는 노드
-/// (이미지 파일)는 커스텀 썸네일보다 **자기 자신을** 보인다 — 프리뷰는 그 노드 자체를
-/// 크게 보는 자리이므로, 목록의 대체 썸네일이 아니라 원본을 띄운다. 자기 이미지가 없는
-/// 노드(폴더·텍스트 등)만 커스텀을 프리뷰에 쓴다. 목록(기본값 false)은 늘 커스텀 우선.
+/// (이미지 파일)는 우선순위와 무관하게 **자기 자신을** 보인다 — 프리뷰는 그 노드
+/// 자체를 크게 보는 자리이므로, 목록의 대체 썸네일이 아니라 원본을 띄운다. 자기
+/// 이미지가 없는 노드(폴더·텍스트 등)만 커스텀을 프리뷰에 쓴다.
 List<String> resolveThumbnailRelPaths(
   FileNode node,
   Map<String, List<String>> folderThumbnails, {
-  List<String> custom = const [],
+  List<int> sources = const [],
+  Map<int, List<String>> customByTag = const {},
   bool preferSelfImage = false,
 }) {
   if (node.isMissing) return const [];
-  // 프리뷰: 자기 이미지가 있으면 커스텀보다 자기 자신을 우선한다.
+  // 프리뷰: 자기 이미지가 있으면 우선순위와 무관하게 자기 자신을 우선한다.
   if (preferSelfImage && !node.isDirectory && isImagePath(node.path)) {
     return [node.path];
   }
-  if (custom.isNotEmpty) return custom;
+  for (final source in sources) {
+    if (source == kDefaultThumbnailSourceId) {
+      final builtIn = _builtInThumbnails(node, folderThumbnails);
+      if (builtIn.isNotEmpty) return builtIn;
+      continue;
+    }
+    final images = customByTag[source];
+    if (images != null && images.isNotEmpty) return images;
+  }
+  // 어느 출처도 못 냈으면(기본이 목록에 없었거나 아무 것도 안 나온 경우) 기본으로 폴백.
+  return _builtInThumbnails(node, folderThumbnails);
+}
+
+/// 기본 썸네일: 이미지 파일은 자기 자신 한 장, 폴더는 하위 대표들(겹쳐 쌓기), 그 밖은
+/// 없음.
+List<String> _builtInThumbnails(
+  FileNode node,
+  Map<String, List<String>> folderThumbnails,
+) {
   if (!node.isDirectory) {
     return isImagePath(node.path) ? [node.path] : const [];
   }
   return folderThumbnails[node.path] ?? const [];
 }
 
-/// 노드 id → 그 노드의 커스텀 썸네일(루트 기준 이미지 상대 경로들) 인덱스.
+/// 노드 id → (썸네일 출처 태그 id → 그 노드의 커스텀 이미지 상대 경로들) 인덱스.
 ///
-/// 지정된 링크 태그([thumbnailTagId])가 가리키는 **대상이 이미지면** 그 경로를 그
-/// 노드의 썸네일로 쓴다(다중 부여면 여러 장을 겹쳐 쌓는다). 태그가 지정되지
-/// 않았거나, 대상을 찾지 못하거나, 대상이 이미지가 아니면 그 노드는 결과에서
-/// 빠져([resolveThumbnailRelPaths]가 기본 동작으로 폴백). 링크 값은 대상 노드 id
-/// 문자열이다.
-Map<int, List<String>> buildCustomThumbnailIndex({
-  required int? thumbnailTagId,
+/// [sourceTagIds]에 든 링크/이미지 태그만 본다. **링크**면 가리키는 대상이 이미지일
+/// 때 그 경로를, **이미지(커스텀 등록)**면 `.filetagger/` 캐시의 상대 경로를 담는다
+/// (다중 부여면 여러 장을 겹쳐 쌓는다). [resolveThumbnailRelPaths]가 우선순위에 따라
+/// 이 중 하나를 고른다. 링크 값은 대상 노드 id, 이미지 값은 캐시 키다.
+Map<int, Map<int, List<String>>> buildCustomThumbnailIndex({
+  required Set<int> sourceTagIds,
   required Map<int, List<AssignedTag>> assignmentsByFile,
   required Map<int, FileNode> nodesById,
 }) {
-  if (thumbnailTagId == null) return const {};
-  final result = <int, List<String>>{};
+  if (sourceTagIds.isEmpty) return const {};
+  final result = <int, Map<int, List<String>>>{};
   for (final entry in assignmentsByFile.entries) {
-    final images = <String>[];
+    Map<int, List<String>>? byTag;
     for (final a in entry.value) {
-      if (a.tagDefinitionId != thumbnailTagId) continue;
+      if (!sourceTagIds.contains(a.tagDefinitionId)) continue;
       final raw = a.value;
       if (raw == null || raw.isEmpty) continue;
-      final target = nodesById[int.tryParse(raw)];
-      if (target == null || target.isMissing) continue;
-      if (isImagePath(target.path)) images.add(target.path);
+      String? path;
+      if (a.definition.valueType == TagValueType.image) {
+        // 캐시 파일 존재 여부는 여기서 확인하지 않는다 — 없으면 FileThumbnail이
+        // 기본 아이콘으로 폴백한다.
+        path = thumbnailCacheRelPath(raw);
+      } else {
+        // 링크: 저장값(대상 노드 id)이 가리키는 노드가 이미지면 그 경로를 쓴다.
+        final target = nodesById[int.tryParse(raw)];
+        if (target == null || target.isMissing || !isImagePath(target.path)) {
+          continue;
+        }
+        path = target.path;
+      }
+      byTag ??= <int, List<String>>{};
+      (byTag[a.tagDefinitionId] ??= <String>[]).add(path);
     }
-    if (images.isNotEmpty) result[entry.key] = images;
+    if (byTag != null) result[entry.key] = byTag;
   }
   return result;
 }

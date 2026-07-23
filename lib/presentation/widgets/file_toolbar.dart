@@ -303,8 +303,10 @@ class FileToolbar extends ConsumerWidget {
           index: index,
           sortKey: key,
           definition: def,
-          // label은 존재 여부로만 정렬하므로 방향 토글이 의미 없다.
-          onToggle: def?.valueType == TagValueType.label
+          // label·image는 존재 여부로만 정렬하므로 방향 토글이 의미 없다.
+          onToggle:
+              (def?.valueType == TagValueType.label ||
+                  def?.valueType == TagValueType.image)
               ? null
               : () => ref
                     .read(viewSettingsProvider.notifier)
@@ -853,9 +855,11 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
   int? _tagId;
   SortDirection _direction = SortDirection.ascending;
 
+  /// label·image는 존재 여부로만 정렬해 방향 선택이 의미 없다(방향 UI를 감춘다).
   bool get _isLabel {
     final def = _tagId == null ? null : _defOf(_tagId!);
-    return def?.valueType == TagValueType.label;
+    return def?.valueType == TagValueType.label ||
+        def?.valueType == TagValueType.image;
   }
 
   TagDefinition? _defOf(int id) {

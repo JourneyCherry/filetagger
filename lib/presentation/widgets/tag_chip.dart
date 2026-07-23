@@ -105,6 +105,16 @@ class AssignedTagChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final def = tag.definition;
+    // 이미지 태그는 값이 불투명한 캐시 키라 값 없이 이름만 보인다(썸네일은 노드에
+    // 뜬다). 툴팁으로 커스텀 이미지임을 알린다.
+    if (def.valueType == TagValueType.image) {
+      return TagChip(
+        definition: def,
+        tooltip: '커스텀 이미지',
+        onPressed: onPressed,
+        onDeleted: onDeleted,
+      );
+    }
     if (def.valueType != TagValueType.link) {
       return TagChip(
         definition: def,

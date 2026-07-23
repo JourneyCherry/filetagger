@@ -709,7 +709,9 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
   /// 쉼표로 이음)을 보인다.
   String _cellText(FileNode node, _Col col, Map<int, List<AssignedTag>> byFile) {
     final tags = byFile[node.id] ?? const <AssignedTag>[];
-    if (col.valueType == TagValueType.label) {
+    // label과 image는 값 대신 부여 여부만 표식('✓')으로 보인다(image 값은 캐시 키).
+    if (col.valueType == TagValueType.label ||
+        col.valueType == TagValueType.image) {
       final present = tags.any((t) => t.tagDefinitionId == col.sortId);
       return present ? '✓' : '';
     }
@@ -783,9 +785,10 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
         return [FilteringTextInputFormatter.allow(RegExp('[0-9\\-$sep]'))];
       case TagValueType.text:
       case TagValueType.label:
-      // link 셀은 인라인 텍스트 편집이 아니라 노드 선택기로 고치므로 이 경로를 타지
-      // 않는다(제한 없음으로 둔다).
+      // link·image 셀은 인라인 텍스트 편집이 아니라 선택기(노드·파일)로 고치므로 이
+      // 경로를 타지 않는다(제한 없음으로 둔다).
       case TagValueType.link:
+      case TagValueType.image:
         return null;
     }
   }
@@ -801,9 +804,24 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
       _toggleLabel(node, col, byFile);
     } else if (col.valueType == TagValueType.link) {
       _editLinkCell(node, col, byFile);
+    } else if (col.valueType == TagValueType.image) {
+      _editImageCell(node, col);
     } else {
       _beginEdit(node, col, byFile);
     }
+  }
+
+  /// 이미지 셀 편집: 바로 파일 선택기를 열지 않고 태그 추가/수정 다이얼로그로 열어
+  /// 현재 이미지를 확인한 뒤 바꿀 수 있게 한다(그 셀의 이미지 태그를 미리 선택).
+  Future<void> _editImageCell(FileNode node, _Col col) async {
+    final id = node.id;
+    if (id == null) return;
+    await showTagAssignDialog(
+      context,
+      fileNodeIds: [id],
+      title: node.name,
+      preselectTagId: col.sortId,
+    );
   }
 
   /// 링크 셀 편집: 인라인 텍스트 대신 노드 선택기를 띄워 대상을 다시 고르고, 이 파일의

@@ -28,6 +28,8 @@ enum FilterOperator {
 List<FilterOperator> operatorsForType(TagValueType type) {
   switch (type) {
     case TagValueType.label:
+    // image는 값이 불투명한 캐시 키라 label처럼 존재 여부만 건다.
+    case TagValueType.image:
       return const [FilterOperator.exists];
     case TagValueType.text:
     // link은 대상 이름 기준 텍스트 비교라 text와 같은 연산자 집합을 쓴다.

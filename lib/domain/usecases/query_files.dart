@@ -98,7 +98,8 @@ class QueryFiles {
     TagValueType? type,
     bool descending,
   ) {
-    if (type == TagValueType.label) {
+    // label과 image는 값이 없거나(label) 불투명해(image) 부여 여부만 정렬한다.
+    if (type == TagValueType.label || type == TagValueType.image) {
       final present = tags.any((t) => t.tagDefinitionId == tagDefinitionId);
       return present ? '' : null;
     }

@@ -76,6 +76,8 @@ String tagValueTypeLabel(TagValueType type) {
       return '날짜';
     case TagValueType.link:
       return '링크';
+    case TagValueType.image:
+      return '이미지';
   }
 }
 
@@ -130,7 +132,8 @@ String filterOperatorMenuLabel(FilterOperator op) {
 /// 부여된 값의 표시 문자열. label은 값이 없고, date는 날짜만 보기 좋게 자른다.
 /// 표시할 값이 없으면 null을 돌려 칩이 값 부분을 생략하게 한다.
 String? formatTagValue(TagValueType type, String? value) {
-  if (type == TagValueType.label) return null;
+  // label은 값이 없고, image는 값이 불투명한 캐시 키라 칩에 글자로 보이지 않는다.
+  if (type == TagValueType.label || type == TagValueType.image) return null;
   if (value == null || value.isEmpty) return null;
   if (type == TagValueType.date) {
     final parsed = DateTime.tryParse(value);

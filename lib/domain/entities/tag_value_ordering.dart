@@ -25,6 +25,9 @@ int compareTagValues(TagValueType type, String a, String b) {
     case TagValueType.label:
     // link은 비교 시 대표값이 이미 대상 이름으로 해석돼 넘어온다(소비 계층이 주입).
     case TagValueType.link:
+    // image는 존재 여부만 정렬해(대표값이 label처럼 빈 문자열/없음으로 접힘) 값끼리
+    // 견주는 이 경로를 사실상 타지 않지만, 스위치 완결성을 위해 사전순으로 둔다.
+    case TagValueType.image:
       return _lexical(a, b);
   }
 }

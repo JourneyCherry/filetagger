@@ -22,3 +22,10 @@ const String settingsFileName = 'settings.json';
 ///
 /// [filetaggerDirName] 폴더 안에 저장되어 폴더 이동·복사 시 함께 따라온다.
 const String viewSettingsFileName = 'view.json';
+
+/// 커스텀 이미지 태그가 등록한 외부 이미지의 캐시 폴더 이름.
+///
+/// [filetaggerDirName] 폴더 안에 두어 폴더 이동·복사 시 함께 따라온다. 내용 해시를
+/// 파일명으로 써 동일 이미지를 중복 저장하지 않는다. 스캔 대상이 아니며(캐시는 노드가
+/// 아니다) 사용자가 직접 다루지 않는다.
+const String thumbnailCacheDirName = 'thumbnails';

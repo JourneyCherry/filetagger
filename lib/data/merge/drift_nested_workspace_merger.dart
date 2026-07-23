@@ -7,6 +7,7 @@ import '../../domain/entities/tag_value_type.dart';
 import '../../domain/repositories/nested_workspace_merger.dart';
 import '../db/app_database.dart';
 import '../db/database_connection.dart';
+import '../thumbnails/thumbnail_store.dart';
 
 /// [NestedWorkspaceMerger]의 Drift 구현. 하위 워크스페이스의 태거 DB 행을 현재
 /// 워크스페이스 DB로 옮긴다.
@@ -124,6 +125,26 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
             );
       }
     });
+
+    // 2.5) 커스텀 이미지 태그의 캐시 파일을 부모 캐시로 복사한다. 이미지 값은 재매핑
+    //      없는 내용 해시 키라, 원본 캐시 파일만 옮기면(원본 제거 전에) 흡수 후에도
+    //      노드 썸네일이 이어진다. 키가 같으면 부모에 이미 있어 자동으로 중복 제거된다.
+    final imageChildDefIds = {
+      for (final d in defs)
+        if (d.valueType == TagValueType.image) d.id,
+    };
+    final imageKeys = <String>{
+      for (final a in assigns)
+        if (imageChildDefIds.contains(a.tagDefinitionId) &&
+            a.value != null &&
+            a.value!.isNotEmpty)
+          a.value!,
+    };
+    await copyThumbnailCache(
+      fromRoot: childAbs,
+      toRoot: parentRoot,
+      keys: imageKeys,
+    );
 
     // 3) 원본 태거 폴더 제거(옵션).
     if (removeSource) {

@@ -105,15 +105,17 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
           (k) => k is FolderHierarchyGroupKey || validIds.contains(groupKeyId(k)),
         )
         .toList();
-    // 썸네일 출처 링크 태그가 지워졌으면 그 참조도 비운다(사라진 태그를 계속
-    // 가리키지 않도록).
-    final thumbId = state.thumbnailTagId;
-    final dropThumb = thumbId != null && !validIds.contains(thumbId);
+    // 썸네일 출처 우선순위에서 지워진 태그를 걷어낸다(기본 항목은 태그가 아니라 늘
+    // 유효). 사라진 태그를 계속 가리키지 않도록.
+    final sources = state.thumbnailSources;
+    final keptSources = sources
+        .where((s) => s == kDefaultThumbnailSourceId || validIds.contains(s))
+        .toList();
     if (keptConditions.length == conditions.length &&
         keptKeys.length == keys.length &&
         keptOrder.length == order.length &&
         keptGroupKeys.length == groupKeys.length &&
-        !dropThumb) {
+        keptSources.length == sources.length) {
       return; // 사라진 참조 없음 — 그대로 둔다(불필요한 저장 방지).
     }
     _set(
@@ -122,15 +124,15 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
         sort: FileSortOrder(keys: keptKeys),
         tagDisplayOrder: keptOrder,
         grouping: FileGrouping(keys: keptGroupKeys),
-        clearThumbnailTagId: dropThumb,
+        thumbnailSources: keptSources,
       ),
     );
   }
 
-  /// 노드 썸네일의 출처로 쓸 링크 태그를 지정·저장한다. null이면 커스텀 썸네일을 끈다.
-  void updateThumbnailTagId(int? tagId) => _set(
-    state.copyWith(thumbnailTagId: tagId, clearThumbnailTagId: tagId == null),
-  );
+  /// 노드 썸네일의 출처 우선순위를 통째로 갈아끼우고 저장한다(썸네일 태그 다이얼로그가
+  /// 호출). 태그 id와 기본 항목([kDefaultThumbnailSourceId])을 앞이 높은 우선순위로 담는다.
+  void updateThumbnailSources(List<int> sources) =>
+      _set(state.copyWith(thumbnailSources: sources));
 
   void updateFilter(FileFilter filter) => _set(state.copyWith(filter: filter));
 
@@ -254,9 +256,9 @@ final viewModeProvider = Provider<ViewMode>(
   (ref) => ref.watch(viewSettingsProvider).viewMode,
 );
 
-/// 썸네일 출처로 지정된 링크 태그 id(없으면 null). 쓰기는 [viewSettingsProvider]를 통한다.
-final thumbnailTagIdProvider = Provider<int?>(
-  (ref) => ref.watch(viewSettingsProvider).thumbnailTagId,
+/// 썸네일 출처 우선순위(태그 id + 기본 항목, 앞이 높음). 쓰기는 [viewSettingsProvider]를 통한다.
+final thumbnailSourcesProvider = Provider<List<int>>(
+  (ref) => ref.watch(viewSettingsProvider).thumbnailSources,
 );
 
 /// 현재 보기 모드의 크기 배율(Ctrl/⌘+휠 zoom). 모드가 바뀌면 그 모드의 배율로

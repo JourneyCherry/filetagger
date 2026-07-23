@@ -69,6 +69,9 @@ String? _toStored(TagValueType type, String raw) {
     // link 셀은 인라인 텍스트 편집 대상이 아니라(노드 선택기로 고른다) 이 경로를
     // 타지 않지만, 저장값(대상 id)을 통째로 보존하도록 text처럼 그대로 둔다.
     case TagValueType.link:
+    // image 셀도 인라인 텍스트가 아니라 파일 선택기로 고쳐 이 경로를 타지 않지만,
+    // 저장값(캐시 키)을 그대로 보존한다.
+    case TagValueType.image:
       return raw;
     case TagValueType.number:
       return num.tryParse(raw) == null ? null : raw;

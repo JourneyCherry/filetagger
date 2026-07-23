@@ -69,7 +69,7 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
   'detailColumnWidths': {
     for (final e in s.detailColumnWidths.entries) '${e.key}': e.value,
   },
-  if (s.thumbnailTagId != null) 'thumbnailTag': s.thumbnailTagId,
+  if (s.thumbnailSources.isNotEmpty) 'thumbnailSources': s.thumbnailSources,
 };
 
 WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
@@ -87,10 +87,24 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       viewScales: _viewScalesFromJson(json['viewScales']),
       detailSort: _sortFromJson(json['detailSort']),
       detailColumnWidths: _detailWidthsFromJson(json['detailColumnWidths']),
-      thumbnailTagId: json['thumbnailTag'] is int
-          ? json['thumbnailTag'] as int
-          : null,
+      thumbnailSources: _thumbnailSourcesFromJson(json),
     );
+
+/// 썸네일 출처 우선순위를 읽는다. 기본 썸네일은 늘 맨 아래(암묵적)라 목록에 두지
+/// 않으므로 저장된 예약 항목([kDefaultThumbnailSourceId])은 걸러 낸다. 구버전의 단일
+/// `thumbnailTag`는 `[태그]`로 옮긴다(그 뒤 기본으로 폴백하던 동작 그대로).
+List<int> _thumbnailSourcesFromJson(Map<String, dynamic> json) {
+  final raw = json['thumbnailSources'];
+  if (raw is List) {
+    return [
+      for (final v in raw)
+        if (v is int && v != kDefaultThumbnailSourceId) v,
+    ];
+  }
+  final legacy = json['thumbnailTag'];
+  if (legacy is int) return [legacy];
+  return const [];
+}
 
 /// 자세히 컬럼 폭. 키(태그 id 문자열)가 정수가 아니거나 값이 비숫자면 건너뛰고,
 /// 값은 허용 범위로 가둔다. 없거나 형식이 어긋나면 빈 맵(전부 기본 폭).

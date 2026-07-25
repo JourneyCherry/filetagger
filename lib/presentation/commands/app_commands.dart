@@ -24,7 +24,9 @@ enum AppCommandId {
   reconnect,
   revealInFileManager,
   manageTags,
+  manageThumbnailTags,
   tagDisplayOrder,
+  exitApp,
   toggleFilterBar,
   toggleSortBar,
   toggleListEdit,
@@ -41,6 +43,10 @@ enum AppCommandId {
   confirmCursor,
   toggleCursorSelection,
   deleteFocusedTag,
+  editFocusedTag,
+  viewModeList,
+  viewModeIcon,
+  viewModeDetail,
 }
 
 /// 명령 하나의 표시 정보와 던질 Intent.
@@ -80,6 +86,10 @@ class AppCommand {
 SingleActivator _primary(LogicalKeyboardKey key) =>
     SingleActivator(key, control: !isMacOS, meta: isMacOS);
 
+/// 위 보조키에 Shift를 더한 조합(둘째 층 명령용).
+SingleActivator _primaryShift(LogicalKeyboardKey key) =>
+    SingleActivator(key, control: !isMacOS, meta: isMacOS, shift: true);
+
 /// 전체 명령 카탈로그. 단축키는 플랫폼 보조키에 따라 정해지므로 상수가 아니다.
 final List<AppCommand> appCommands = [
   AppCommand(
@@ -89,11 +99,12 @@ final List<AppCommand> appCommands = [
     icon: Icons.folder_open,
     shortcut: _primary(LogicalKeyboardKey.keyO),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.closeFolder,
     label: '폴더 닫기',
-    intent: CloseFolderIntent(),
+    intent: const CloseFolderIntent(),
     icon: Icons.close,
+    shortcut: _primary(LogicalKeyboardKey.keyW),
   ),
   const AppCommand(
     id: AppCommandId.rescan,
@@ -115,72 +126,99 @@ final List<AppCommand> appCommands = [
     intent: ClearSelectionIntent(),
     shortcut: SingleActivator(LogicalKeyboardKey.escape),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.activateNode,
     label: '열기 / 펼치기',
-    intent: ActivateNodeIntent(),
-    // 단축키(Enter)는 커서를 함께 해석하는 confirmCursor가 쥔다. 이 명령은 메뉴·
-    // 컨텍스트 메뉴에서 선택 항목을 곧바로 활성할 때 쓴다.
+    intent: const ActivateNodeIntent(),
+    // Enter는 커서·선택 상태를 함께 해석하는 confirmCursor가 쥐므로, 조건 없이 늘
+    // 선택 항목을 토글(폴더 펼침·접힘, 파일 열기)하는 전용키를 따로 둔다.
+    shortcut: _primary(LogicalKeyboardKey.keyM),
+    requiresScopeFocus: true,
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.assignTags,
     label: '태그 부여',
-    intent: AssignTagsIntent(),
+    intent: const AssignTagsIntent(),
     icon: Icons.sell_outlined,
+    // Delete가 커서 태그를 제거하는 것과 짝을 이룬다(Insert=부여).
+    shortcut: _primary(LogicalKeyboardKey.insert),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.reconnect,
     label: '원본 파일 찾기',
-    intent: ReconnectIntent(),
+    intent: const ReconnectIntent(),
     icon: Icons.link,
+    shortcut: _primaryShift(LogicalKeyboardKey.keyL),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.revealInFileManager,
     label: '탐색기에서 열기',
-    intent: RevealInFileManagerIntent(),
+    intent: const RevealInFileManagerIntent(),
     icon: Icons.open_in_new,
+    shortcut: _primaryShift(LogicalKeyboardKey.keyR),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.manageTags,
     label: '태그 관리',
-    intent: ManageTagsIntent(),
+    intent: const ManageTagsIntent(),
     icon: Icons.sell_outlined,
+    shortcut: _primary(LogicalKeyboardKey.keyT),
+  ),
+  AppCommand(
+    id: AppCommandId.manageThumbnailTags,
+    label: '썸네일 태그…',
+    intent: const ManageThumbnailTagsIntent(),
+    icon: Icons.image_outlined,
+    shortcut: _primaryShift(LogicalKeyboardKey.keyT),
   ),
   const AppCommand(
+    id: AppCommandId.exitApp,
+    label: '프로그램 종료',
+    intent: ExitAppIntent(),
+    icon: Icons.power_settings_new,
+    // 단축키 없음: 시스템 종료(Alt+F4 등)가 그 자리를 이미 쓴다.
+  ),
+  AppCommand(
     id: AppCommandId.tagDisplayOrder,
     label: '태그 표시 순서',
-    intent: TagDisplayOrderIntent(),
+    intent: const TagDisplayOrderIntent(),
     icon: Icons.reorder,
+    shortcut: _primaryShift(LogicalKeyboardKey.keyO),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.toggleFilterBar,
     label: '필터 조건 보기',
-    intent: ToggleFilterBarIntent(),
+    intent: const ToggleFilterBarIntent(),
     icon: Icons.filter_alt_outlined,
+    shortcut: _primary(LogicalKeyboardKey.keyF),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.toggleSortBar,
     label: '정렬 조건 보기',
-    intent: ToggleSortBarIntent(),
+    intent: const ToggleSortBarIntent(),
     icon: Icons.sort,
+    shortcut: _primaryShift(LogicalKeyboardKey.keyS),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.toggleListEdit,
     label: '목록에서 수정 활성화',
-    intent: ToggleListEditIntent(),
+    intent: const ToggleListEditIntent(),
     icon: Icons.edit_note,
+    shortcut: _primaryShift(LogicalKeyboardKey.keyE),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.toggleGrouping,
     label: '그룹 기준 보기',
-    intent: ToggleGroupingIntent(),
+    intent: const ToggleGroupingIntent(),
     icon: Icons.account_tree_outlined,
+    shortcut: _primary(LogicalKeyboardKey.keyG),
   ),
-  const AppCommand(
+  AppCommand(
     id: AppCommandId.togglePreview,
     label: '프리뷰 보기',
-    intent: TogglePreviewIntent(),
+    intent: const TogglePreviewIntent(),
     icon: Icons.view_sidebar,
+    shortcut: _primary(LogicalKeyboardKey.keyP),
   ),
   // 아래는 목록의 키보드 내비게이션 전용(메뉴에 노출하지 않는다). 모두 본문 스코프가
   // 포커스를 쥔 때만 들어 필터·정렬 텍스트 입력의 방향키·Delete·Enter를 가로채지 않는다.
@@ -260,6 +298,34 @@ final List<AppCommand> appCommands = [
     intent: DeleteFocusedTagIntent(),
     shortcut: SingleActivator(LogicalKeyboardKey.delete),
     requiresScopeFocus: true,
+  ),
+  AppCommand(
+    id: AppCommandId.editFocusedTag,
+    label: '태그값 수정',
+    intent: const EditFocusedTagIntent(),
+    // Delete(태그 제거)와 대칭인, 커서가 가리키는 태그값 수정.
+    shortcut: _primary(LogicalKeyboardKey.keyE),
+    requiresScopeFocus: true,
+  ),
+  // 보기 모드 전환. 메뉴엔 라디오로 이미 있어 여기선 단축키만 얹는다(브라우저·탐색기
+  // 관용대로 숫자키). 언제든 바꿀 수 있어야 하므로 본문 포커스에 매이지 않는다.
+  AppCommand(
+    id: AppCommandId.viewModeList,
+    label: '보기 모드: 목록',
+    intent: const SetViewModeListIntent(),
+    shortcut: _primary(LogicalKeyboardKey.digit1),
+  ),
+  AppCommand(
+    id: AppCommandId.viewModeIcon,
+    label: '보기 모드: 아이콘',
+    intent: const SetViewModeIconIntent(),
+    shortcut: _primary(LogicalKeyboardKey.digit2),
+  ),
+  AppCommand(
+    id: AppCommandId.viewModeDetail,
+    label: '보기 모드: 자세히',
+    intent: const SetViewModeDetailIntent(),
+    shortcut: _primary(LogicalKeyboardKey.digit3),
   ),
 ];
 

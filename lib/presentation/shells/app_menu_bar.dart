@@ -8,7 +8,6 @@ import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
-import '../widgets/thumbnail_tag_dialog.dart';
 import '../widgets/view_mode_selector.dart';
 
 /// 네이티브 메뉴(macOS)에서 체크 항목의 라벨 앞에 붙일 표식.
@@ -55,13 +54,22 @@ class MenuAction extends MenuNode {
 
 /// 현재 선택 여부를 체크로 보이는 항목(라디오·토글 성격의 설정).
 class MenuChecked extends MenuNode {
-  const MenuChecked(this.label, {required this.checked, this.onSelected});
+  const MenuChecked(
+    this.label, {
+    required this.checked,
+    this.onSelected,
+    this.shortcut,
+  });
 
   final String label;
   final bool checked;
 
   /// null이면 비활성.
   final VoidCallback? onSelected;
+
+  /// 같은 동작을 부르는 단축키(표기용). 명령 카탈로그에 대응 명령이 있는 라디오
+  /// 항목이 힌트를 보이도록 얹는다.
+  final SingleActivator? shortcut;
 }
 
 /// 하위 메뉴.
@@ -108,7 +116,6 @@ class AppMenuBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recent = ref.watch(recentFoldersProvider).valueOrNull ?? const [];
     final menus = _buildMenus(
-      context,
       recent,
       ref.watch(rootManageModeProvider),
       ref.watch(viewModeProvider),
@@ -144,7 +151,6 @@ class AppMenuBar extends ConsumerWidget {
   /// 메뉴바의 최상위 메뉴들. 최근 폴더·루트 관리 방식은 상태에 따라 달라져 여기서
   /// 조립한다.
   List<MenuSubmenu> _buildMenus(
-    BuildContext context,
     List<String> recentFolders,
     FolderManageMode rootMode,
     ViewMode viewMode,
@@ -159,6 +165,8 @@ class AppMenuBar extends ConsumerWidget {
         const MenuDivider(),
         const MenuCommand(AppCommandId.rescan),
         const MenuCommand(AppCommandId.closeFolder),
+        const MenuDivider(),
+        const MenuCommand(AppCommandId.exitApp),
       ]),
       MenuSubmenu('편집', [
         const MenuCommand(AppCommandId.selectAll),
@@ -183,7 +191,7 @@ class AppMenuBar extends ConsumerWidget {
       ]),
       MenuSubmenu('태그', [
         const MenuCommand(AppCommandId.manageTags),
-        MenuAction('썸네일 태그…', () => showThumbnailTagDialog(context)),
+        const MenuCommand(AppCommandId.manageThumbnailTags),
       ]),
     ];
   }
@@ -200,9 +208,17 @@ class AppMenuBar extends ConsumerWidget {
           choice.label,
           checked: choice.mode == current,
           onSelected: () => onSelect(choice.mode),
+          shortcut: commandOf(_viewModeCommandId(choice.mode)).shortcut,
         ),
     ];
   }
+
+  /// 보기 모드 라디오 항목에 힌트로 얹을, 같은 전환을 부르는 명령의 식별자.
+  AppCommandId _viewModeCommandId(ViewMode mode) => switch (mode) {
+    ViewMode.list => AppCommandId.viewModeList,
+    ViewMode.icon => AppCommandId.viewModeIcon,
+    ViewMode.detail => AppCommandId.viewModeDetail,
+  };
 
   /// 라이트/다크 테마 선택지(시스템/밝게/어둡게). 현재 모드를 체크로 보인다.
   List<MenuNode> _themeItems(ThemeMode current, ValueChanged<ThemeMode> onSelect) {
@@ -270,9 +286,10 @@ class AppMenuBar extends ConsumerWidget {
         );
       case MenuAction(:final label, :final onSelected):
         return MenuItemButton(onPressed: onSelected, child: Text(label));
-      case MenuChecked(:final label, :final checked, :final onSelected):
+      case MenuChecked(:final label, :final checked, :final onSelected, :final shortcut):
         return MenuItemButton(
           onPressed: onSelected,
+          shortcut: shortcut,
           leadingIcon: _checkIcon(checked),
           child: Text(label),
         );
@@ -319,10 +336,11 @@ class AppMenuBar extends ConsumerWidget {
           );
         case MenuAction(:final label, :final onSelected):
           current.add(PlatformMenuItem(label: label, onSelected: onSelected));
-        case MenuChecked(:final label, :final checked, :final onSelected):
+        case MenuChecked(:final label, :final checked, :final onSelected, :final shortcut):
           current.add(
             PlatformMenuItem(
               label: _platformLabel(label, checked),
+              shortcut: shortcut,
               onSelected: onSelected,
             ),
           );

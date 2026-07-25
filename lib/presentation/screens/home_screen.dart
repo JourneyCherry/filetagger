@@ -50,6 +50,7 @@ import '../widgets/tag_assign_dialog.dart';
 import '../widgets/tag_manage_dialog.dart';
 import '../widgets/tag_order_dialog.dart';
 import '../widgets/tag_value_prompt.dart';
+import '../widgets/thumbnail_tag_dialog.dart';
 import 'tag_management_screen.dart';
 
 /// 커서 세로 이동이 선택을 어떻게 함께 바꾸는지: single=그 항목만, range=앵커에서
@@ -447,6 +448,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? null
         : (col >= newCount ? newCount - 1 : col);
     ref.read(navigationCursorProvider.notifier).setTagColumn(clamped);
+  }
+
+  /// Ctrl+E. 커서가 가리키는 태그값을 수정한다('+' 슬롯이면 태그 추가). Delete가
+  /// 커서 태그를 제거하는 것과 대칭인, 행 레벨 확정(Enter)과 분리된 값 편집 진입점.
+  void _editFocusedTag() {
+    final cursor = ref.read(navigationCursorProvider);
+    final nodeId = cursor.nodeId;
+    final col = cursor.tagColumn;
+    if (nodeId == null || col == null) return;
+    final tags = _visibleTagsOf(nodeId);
+    if (col < tags.length) {
+      // 시스템 읽기전용 태그는 _editAssignmentFromList가 스스로 무동작 처리한다.
+      _editAssignmentFromList(tags[col]);
+      return;
+    }
+    final node = _nodeById(nodeId);
+    if (node != null) _addTagToNode(node); // '+' 슬롯
   }
 
   /// 행 우클릭: 선택 밖의 행이면 그 행만 선택한 뒤(탐색기와 같은 관용) 새 선택
@@ -958,6 +976,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ? null
           : _revealSelected,
       manageTags: hasWorkspace ? _openTagManagement : null,
+      // 썸네일 태그 다이얼로그는 데스크톱 크롬(태그 메뉴)에만 있다.
+      manageThumbnailTags: (hasWorkspace && isDesktopPlatform)
+          ? () => showThumbnailTagDialog(context)
+          : null,
       // 데스크톱은 표시 순서를 태그 관리 다이얼로그가 함께 다룬다.
       tagDisplayOrder: (hasWorkspace && !isDesktopPlatform)
           ? () => showTagOrderDialog(context)
@@ -1006,8 +1028,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       deleteFocusedTag: (navigable && cursor.tagColumn != null)
           ? _deleteFocusedTag
           : null,
+      editFocusedTag: (navigable && cursor.tagColumn != null)
+          ? _editFocusedTag
+          : null,
+      viewModeList: hasWorkspace ? () => _setViewMode(ViewMode.list) : null,
+      viewModeIcon: hasWorkspace ? () => _setViewMode(ViewMode.icon) : null,
+      viewModeDetail: hasWorkspace ? () => _setViewMode(ViewMode.detail) : null,
+      exitApp: _exitApp,
     );
   }
+
+  void _setViewMode(ViewMode mode) =>
+      ref.read(viewSettingsProvider.notifier).updateViewMode(mode);
+
+  /// 앱을 종료한다. 데스크톱에서 창을 닫는 표준 경로(프레임워크가 플랫폼 종료로 잇는다).
+  void _exitApp() => SystemNavigator.pop();
 
   /// 태그 관리를 연다. 데스크톱은 화면 전환 없이 다이얼로그로(생성·편집·삭제·표시
   /// 순서를 한 자리에서), 모바일은 전용 화면으로 간다.

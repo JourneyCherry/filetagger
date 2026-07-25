@@ -82,6 +82,16 @@ class TagDisplayOrderIntent extends Intent {
   const TagDisplayOrderIntent();
 }
 
+/// 썸네일 출처로 쓸 링크·이미지 태그를 고르는 다이얼로그를 연다.
+class ManageThumbnailTagsIntent extends Intent {
+  const ManageThumbnailTagsIntent();
+}
+
+/// 앱을 종료한다.
+class ExitAppIntent extends Intent {
+  const ExitAppIntent();
+}
+
 /// 프리뷰 창을 보이거나 숨긴다.
 class TogglePreviewIntent extends Intent {
   const TogglePreviewIntent();
@@ -132,6 +142,24 @@ class ConfirmCursorIntent extends Intent {
 /// 커서가 가리키는 태그 부여를 제거한다(Delete).
 class DeleteFocusedTagIntent extends Intent {
   const DeleteFocusedTagIntent();
+}
+
+/// 커서가 가리키는 태그값을 수정한다(Ctrl+E). '+' 슬롯이면 태그를 추가한다.
+class EditFocusedTagIntent extends Intent {
+  const EditFocusedTagIntent();
+}
+
+/// 파일 목록을 각 보기 모드로 바꾼다(Ctrl+1/2/3).
+class SetViewModeListIntent extends Intent {
+  const SetViewModeListIntent();
+}
+
+class SetViewModeIconIntent extends Intent {
+  const SetViewModeIconIntent();
+}
+
+class SetViewModeDetailIntent extends Intent {
+  const SetViewModeDetailIntent();
 }
 
 /// 커서 항목을 다중 선택에 넣거나 뺀다(Ctrl+Enter). 이미 선택돼 있으면 해제한다.

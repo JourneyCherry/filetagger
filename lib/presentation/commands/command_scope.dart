@@ -16,7 +16,9 @@ class CommandHandlers {
     this.reconnect,
     this.revealInFileManager,
     this.manageTags,
+    this.manageThumbnailTags,
     this.tagDisplayOrder,
+    this.exitApp,
     this.toggleFilterBar,
     this.toggleSortBar,
     this.toggleListEdit,
@@ -33,6 +35,10 @@ class CommandHandlers {
     this.confirmCursor,
     this.toggleCursorSelection,
     this.deleteFocusedTag,
+    this.editFocusedTag,
+    this.viewModeList,
+    this.viewModeIcon,
+    this.viewModeDetail,
   });
 
   final VoidCallback? openFolder;
@@ -45,7 +51,9 @@ class CommandHandlers {
   final VoidCallback? reconnect;
   final VoidCallback? revealInFileManager;
   final VoidCallback? manageTags;
+  final VoidCallback? manageThumbnailTags;
   final VoidCallback? tagDisplayOrder;
+  final VoidCallback? exitApp;
   final VoidCallback? toggleFilterBar;
   final VoidCallback? toggleSortBar;
   final VoidCallback? toggleListEdit;
@@ -62,6 +70,10 @@ class CommandHandlers {
   final VoidCallback? confirmCursor;
   final VoidCallback? toggleCursorSelection;
   final VoidCallback? deleteFocusedTag;
+  final VoidCallback? editFocusedTag;
+  final VoidCallback? viewModeList;
+  final VoidCallback? viewModeIcon;
+  final VoidCallback? viewModeDetail;
 
   /// [id]의 실행 함수. 비활성이면 null.
   VoidCallback? handlerOf(AppCommandId id) => switch (id) {
@@ -75,7 +87,9 @@ class CommandHandlers {
     AppCommandId.reconnect => reconnect,
     AppCommandId.revealInFileManager => revealInFileManager,
     AppCommandId.manageTags => manageTags,
+    AppCommandId.manageThumbnailTags => manageThumbnailTags,
     AppCommandId.tagDisplayOrder => tagDisplayOrder,
+    AppCommandId.exitApp => exitApp,
     AppCommandId.toggleFilterBar => toggleFilterBar,
     AppCommandId.toggleSortBar => toggleSortBar,
     AppCommandId.toggleListEdit => toggleListEdit,
@@ -92,6 +106,10 @@ class CommandHandlers {
     AppCommandId.confirmCursor => confirmCursor,
     AppCommandId.toggleCursorSelection => toggleCursorSelection,
     AppCommandId.deleteFocusedTag => deleteFocusedTag,
+    AppCommandId.editFocusedTag => editFocusedTag,
+    AppCommandId.viewModeList => viewModeList,
+    AppCommandId.viewModeIcon => viewModeIcon,
+    AppCommandId.viewModeDetail => viewModeDetail,
   };
 
   /// 메뉴·버튼이 회색 처리 여부를 판단할 때 쓴다.

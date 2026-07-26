@@ -48,6 +48,8 @@ class MobileShell extends StatelessWidget {
     AppCommandId.togglePreview,
     null,
     AppCommandId.manageTags,
+    null,
+    AppCommandId.help,
   ];
 
   bool get _selecting => selectionCount > 0;

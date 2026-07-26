@@ -720,7 +720,8 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
       context,
       AlertDialog(
         title: Text(widget.initial == null ? '필터 조건 추가' : '필터 조건 편집'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 360,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -875,7 +876,8 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
       context,
       AlertDialog(
         title: const Text('정렬 기준 추가'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 360,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -962,7 +964,8 @@ class _GroupKeyEditorState extends State<_GroupKeyEditor> {
       context,
       AlertDialog(
         title: const Text('그룹 기준 추가'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 360,
           child: TagPicker(
             definitions: widget.candidates,

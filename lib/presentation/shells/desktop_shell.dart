@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
+import '../help_topics.dart';
 import '../widgets/file_toolbar.dart';
 import '../widgets/workspace_breadcrumb.dart';
 import 'app_menu_bar.dart';
@@ -18,6 +19,7 @@ class DesktopShell extends StatelessWidget {
     required this.workspaceRoot,
     required this.onOpenRecent,
     required this.onSetRootRecursive,
+    required this.onOpenHelpTab,
     required this.scanning,
     required this.previewVisible,
     required this.filterBarVisible,
@@ -37,6 +39,9 @@ class DesktopShell extends StatelessWidget {
 
   /// 메뉴바 '편집'의 루트 폴더 관리 방식 항목이 부르는 콜백. null이면 비활성.
   final ValueChanged<bool>? onSetRootRecursive;
+
+  /// 메뉴바 '도움말'의 탭 항목이 부르는 콜백. null이면 탭 항목이 비활성.
+  final ValueChanged<HelpTab>? onOpenHelpTab;
 
   final bool scanning;
   final bool previewVisible;
@@ -64,6 +69,7 @@ class DesktopShell extends StatelessWidget {
             handlers: handlers,
             onOpenRecent: onOpenRecent,
             onSetRootRecursive: onSetRootRecursive,
+            onOpenHelpTab: onOpenHelpTab,
             // '보기'의 토글 명령들은 지금 켜져 있는지를 체크로 보인다.
             commandChecks: {
               AppCommandId.togglePreview: previewVisible,

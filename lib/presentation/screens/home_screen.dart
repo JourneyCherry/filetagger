@@ -44,6 +44,7 @@ import '../shells/desktop_shell.dart';
 import '../shells/mobile_sheets.dart';
 import '../shells/mobile_shell.dart';
 import '../widgets/folder_manage_menu.dart';
+import '../widgets/help_dialog.dart';
 import '../widgets/preview_pane.dart';
 import '../widgets/reconnect_dialog.dart';
 import '../widgets/tag_assign_dialog.dart';
@@ -984,6 +985,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       tagDisplayOrder: (hasWorkspace && !isDesktopPlatform)
           ? () => showTagOrderDialog(context)
           : null,
+      // 도움말은 폴더를 열기 전에도 봐야 하므로 워크스페이스에 매이지 않는다.
+      help: () => showHelpDialog(context),
       // 도구모음·목록 수정 토글은 데스크톱 셸의 크롬에만 있다.
       toggleFilterBar: (hasWorkspace && isDesktopPlatform)
           ? _toggleFilterBar
@@ -1115,6 +1118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       workspaceRoot: workspaceRoot,
       onOpenRecent: _busy ? null : _openWorkspace,
       onSetRootRecursive: workspaceRoot == null ? null : _setRootRecursive,
+      onOpenHelpTab: (tab) => showHelpDialog(context, initial: tab),
       scanning: _scanning,
       previewVisible: _previewVisible,
       filterBarVisible: _filterBarVisible,

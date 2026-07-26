@@ -87,6 +87,11 @@ class ManageThumbnailTagsIntent extends Intent {
   const ManageThumbnailTagsIntent();
 }
 
+/// 도움말(사용법·활용 팁·시스템 태그 설명)을 보인다.
+class HelpIntent extends Intent {
+  const HelpIntent();
+}
+
 /// 앱을 종료한다.
 class ExitAppIntent extends Intent {
   const ExitAppIntent();

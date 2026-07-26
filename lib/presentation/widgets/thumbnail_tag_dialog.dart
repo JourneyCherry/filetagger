@@ -85,7 +85,8 @@ class _ThumbnailTagDialogState extends ConsumerState<_ThumbnailTagDialog> {
       context,
       AlertDialog(
         title: const Text('썸네일 태그'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 400,
           height: 460,
           child: Column(

@@ -6,6 +6,7 @@ import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/view_mode.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
+import '../help_topics.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/view_mode_selector.dart';
@@ -93,6 +94,7 @@ class AppMenuBar extends ConsumerWidget {
     required this.handlers,
     required this.onOpenRecent,
     required this.onSetRootRecursive,
+    required this.onOpenHelpTab,
     required this.commandChecks,
     required this.child,
   });
@@ -109,6 +111,10 @@ class AppMenuBar extends ConsumerWidget {
   /// 루트 폴더를 재귀 관리할지 정하는 콜백. null이면 관리 방식 항목이 비활성
   /// (열린 워크스페이스 없음).
   final ValueChanged<bool>? onSetRootRecursive;
+
+  /// 도움말을 특정 탭으로 여는 콜백. 어느 탭에 있는지 모르고 찾는 사람을 위해 탭을
+  /// 메뉴에 늘어놓되, 여는 것은 늘 같은 한 다이얼로그다.
+  final ValueChanged<HelpTab>? onOpenHelpTab;
 
   final Widget child;
 
@@ -193,6 +199,10 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.manageTags),
         const MenuCommand(AppCommandId.manageThumbnailTags),
       ]),
+      MenuSubmenu('도움말', [
+        const MenuCommand(AppCommandId.help),
+        MenuSubmenu('항목별 보기', _helpTabItems()),
+      ]),
     ];
   }
 
@@ -252,6 +262,18 @@ class AppMenuBar extends ConsumerWidget {
         checked: recursive,
         onSelected: onSet == null ? null : () => onSet(true),
       ),
+    ];
+  }
+
+  /// 도움말의 각 탭으로 바로 가는 항목. 탭 이름·순서는 [HelpTab]이 단일 출처다.
+  ///
+  /// 도움말 메뉴에 펼쳐 두지 않고 하위 메뉴로 접는다 — 탭이 늘어도 메뉴가 길어지지 않고,
+  /// 도움말 메뉴의 첫 층은 성격이 다른 항목(버전 정보 등)의 자리로 남는다.
+  List<MenuNode> _helpTabItems() {
+    final open = onOpenHelpTab;
+    return [
+      for (final tab in HelpTab.values)
+        MenuAction(tab.label, open == null ? null : () => open(tab)),
     ];
   }
 

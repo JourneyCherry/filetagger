@@ -26,6 +26,7 @@ enum AppCommandId {
   manageTags,
   manageThumbnailTags,
   tagDisplayOrder,
+  help,
   exitApp,
   toggleFilterBar,
   toggleSortBar,
@@ -170,6 +171,14 @@ final List<AppCommand> appCommands = [
     intent: const ManageThumbnailTagsIntent(),
     icon: Icons.image_outlined,
     shortcut: _primaryShift(LogicalKeyboardKey.keyT),
+  ),
+  const AppCommand(
+    id: AppCommandId.help,
+    label: '도움말 보기',
+    intent: HelpIntent(),
+    icon: Icons.help_outline,
+    // 도움말의 관용 키. 워크스페이스가 없어도 볼 수 있어야 하므로 늘 활성이다.
+    shortcut: SingleActivator(LogicalKeyboardKey.f1),
   ),
   const AppCommand(
     id: AppCommandId.exitApp,
@@ -332,6 +341,18 @@ final List<AppCommand> appCommands = [
 /// 식별자로 명령을 찾는다. 카탈로그에 없으면 프로그래밍 오류다.
 AppCommand commandOf(AppCommandId id) =>
     appCommands.firstWhere((c) => c.id == id);
+
+/// 단축키를 사람이 읽는 표기로 만든다.
+///
+/// 메뉴바는 프레임워크가 알아서 그리므로, 그 밖의 자리(도움말 등)에서 힌트를 보일 때만
+/// 쓴다. 조합 키 이름은 플랫폼 관용을 따른다.
+String shortcutLabel(SingleActivator shortcut) => [
+  if (shortcut.control) 'Ctrl',
+  if (shortcut.meta) isMacOS ? 'Cmd' : 'Win',
+  if (shortcut.alt) 'Alt',
+  if (shortcut.shift) 'Shift',
+  shortcut.trigger.keyLabel,
+].join('+');
 
 /// 단축키가 있는 명령들의 활성자 → Intent 매핑(`Shortcuts` 위젯용).
 Map<ShortcutActivator, Intent> commandShortcuts() => {

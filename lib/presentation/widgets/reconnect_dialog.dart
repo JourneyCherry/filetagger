@@ -108,7 +108,8 @@ class _ReconnectDialogState extends State<_ReconnectDialog> {
       context,
       AlertDialog(
         title: const Text('원본 파일 찾기'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 460,
           child: Column(
             mainAxisSize: MainAxisSize.min,

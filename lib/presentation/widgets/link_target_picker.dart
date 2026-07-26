@@ -63,7 +63,8 @@ class _LinkTargetPickerState extends ConsumerState<_LinkTargetPicker> {
       context,
       AlertDialog(
         title: const Text('링크 대상 선택'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 420,
           height: 480,
           child: Column(

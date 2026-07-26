@@ -177,7 +177,8 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       context,
       AlertDialog(
         title: Text(widget.title),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 420,
           child: SingleChildScrollView(child: content),
         ),

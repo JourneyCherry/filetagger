@@ -36,7 +36,8 @@ class _TagManageDialog extends ConsumerWidget {
       context,
       AlertDialog(
         title: const Text('태그 관리'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 520,
           height: 460,
           child: Column(

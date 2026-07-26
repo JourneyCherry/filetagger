@@ -29,7 +29,8 @@ class _TagOrderDialog extends ConsumerWidget {
       context,
       AlertDialog(
         title: const Text('태그 표시 순서'),
-        content: SizedBox(
+        content: dialogContentBox(
+          context,
           width: 360,
           height: 420,
           child: Column(

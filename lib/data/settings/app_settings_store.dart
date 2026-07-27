@@ -43,8 +43,10 @@ class AppSettings {
 }
 
 /// 저장된 이름을 [ThemeMode]로 되돌린다. 알 수 없는 값·누락은 시스템 기본으로 눕힌다.
-ThemeMode _themeModeByName(String? name) => ThemeMode.values
-    .firstWhere((m) => m.name == name, orElse: () => ThemeMode.system);
+ThemeMode _themeModeByName(String? name) => ThemeMode.values.firstWhere(
+  (m) => m.name == name,
+  orElse: () => ThemeMode.system,
+);
 
 /// 전역 설정을 JSON 파일로 읽고 쓰는 저장소.
 class AppSettingsStore {

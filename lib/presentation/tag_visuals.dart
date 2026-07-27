@@ -12,6 +12,13 @@ import '../domain/entities/tag_value_type.dart';
 // 저장 형식은 domain이 단일 출처다. 표시 헬퍼와 함께 쓰이므로 여기서 다시 내보낸다.
 export '../domain/entities/tag_value_format.dart' show dateToStoredValue;
 
+/// 도구모음의 조건 줄(프리셋·필터·정렬·그룹)이 비었을 때 그 자리에 두는 문구.
+///
+/// 빈 자리마다 다른 말로 무슨 뜻인지 설명하지 않고 한 낱말로 통일한다 — 네 줄이 나란히
+/// 놓여 있어, 설명이 저마다 다르면 무엇이 없는지보다 문구가 먼저 읽힌다. 칩 줄과 텍스트
+/// 입력의 빈 자리, 프리셋 저장 미리보기가 모두 이 값을 쓴다.
+const String kEmptyQueryLabel = '없음';
+
 /// 태그 정의 색으로 고를 수 있는 프리셋 팔레트(ARGB).
 const List<int> tagColorPalette = <int>[
   0xFFE57373, // red

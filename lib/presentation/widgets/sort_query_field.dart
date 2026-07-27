@@ -160,7 +160,7 @@ class _SortQueryFieldState extends State<SortQueryField> {
       items: widget.sort.keys,
       onChanged: (keys) => widget.onChanged(sortFromKeys(keys)),
       completionsAt: _completionsAt,
-      hintText: '태그 이름으로 정렬 기준 입력',
+      hintText: kEmptyQueryLabel,
     );
   }
 }

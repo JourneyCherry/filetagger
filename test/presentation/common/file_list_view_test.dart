@@ -30,8 +30,9 @@ GroupHeaderNode _group(int tagId, String? value, List<TreeItem> children) =>
       children: children,
     );
 
-List<String> _paths(List<TreeRow> rows) =>
-    [for (final r in rows) (r.item as FileTreeNode).node.path];
+List<String> _paths(List<TreeRow> rows) => [
+  for (final r in rows) (r.item as FileTreeNode).node.path,
+];
 
 void main() {
   test('접힌 폴더의 자식은 행으로 펴지 않는다', () {
@@ -107,19 +108,18 @@ void main() {
       _group(1, 'red', <TreeItem>[_file('x.txt'), _file('y.txt')]),
       _group(1, null, <TreeItem>[_file('z.txt')]),
     ];
-    final flat = flattenTree(
-      tree,
-      expandedFolders: const {},
-      expandAll: true,
-    );
+    final flat = flattenTree(tree, expandedFolders: const {}, expandAll: true);
     // 헤더 → 파일 → 파일 → 헤더 → 파일.
-    expect([for (final r in flat.rows) r.item.runtimeType.toString()], [
-      'GroupHeaderNode',
-      'FileTreeNode',
-      'FileTreeNode',
-      'GroupHeaderNode',
-      'FileTreeNode',
-    ]);
+    expect(
+      [for (final r in flat.rows) r.item.runtimeType.toString()],
+      [
+        'GroupHeaderNode',
+        'FileTreeNode',
+        'FileTreeNode',
+        'GroupHeaderNode',
+        'FileTreeNode',
+      ],
+    );
     // 헤더 행은 nodeIndex가 없고, 파일 행은 노드 목록을 순서대로 가리킨다.
     expect([for (final r in flat.rows) r.nodeIndex], [null, 0, 1, null, 2]);
     expect([for (final n in flat.nodes) n.name], ['x.txt', 'y.txt', 'z.txt']);

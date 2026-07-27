@@ -1,3 +1,5 @@
+import '../../core/collections.dart';
+
 /// 정렬 방향.
 enum SortDirection { ascending, descending }
 
@@ -20,6 +22,16 @@ class SortKey {
         ? SortDirection.descending
         : SortDirection.ascending,
   );
+
+  /// 값 동등성. 저장된 조건 프리셋이 지금 걸린 정렬과 같은지 견주는 데 쓴다.
+  @override
+  bool operator ==(Object other) =>
+      other is SortKey &&
+      other.tagDefinitionId == tagDefinitionId &&
+      other.direction == direction;
+
+  @override
+  int get hashCode => Object.hash(tagDefinitionId, direction);
 }
 
 /// 순서 있는 정렬 단계 목록.
@@ -58,4 +70,12 @@ class FileSortOrder {
     next.insert(newIndex, item);
     return FileSortOrder(keys: next);
   }
+
+  /// 값 동등성(단계 순서=우선순위까지 같아야 같다). 조건 프리셋의 활성 여부 판정에 쓴다.
+  @override
+  bool operator ==(Object other) =>
+      other is FileSortOrder && equalLists(other.keys, keys);
+
+  @override
+  int get hashCode => hashList(keys);
 }

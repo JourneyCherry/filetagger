@@ -1,11 +1,13 @@
 import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/file_grouping.dart';
+import 'package:filetagger/domain/entities/file_sort.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:filetagger/domain/entities/workspace_view_settings.dart';
 import 'package:filetagger/domain/repositories/view_settings_repository.dart';
 import 'package:filetagger/presentation/providers/file_view_provider.dart';
 import 'package:filetagger/presentation/providers/tag_provider.dart';
+import 'package:filetagger/presentation/tag_visuals.dart';
 import 'package:filetagger/presentation/widgets/file_toolbar.dart';
 import 'package:filetagger/presentation/widgets/filter_condition_chip.dart';
 import 'package:flutter/foundation.dart';
@@ -33,7 +35,8 @@ class _FakeStore implements ViewSettingsRepository {
 }
 
 /// 조건 줄이 지금 텍스트 입력을 그리고 있는지(아니면 조건 칩을 그린다).
-bool isEditing(WidgetTester tester) => find.byType(TextField).evaluate().isNotEmpty;
+bool isEditing(WidgetTester tester) =>
+    find.byType(TextField).evaluate().isNotEmpty;
 
 Future<void> pumpToolbar(WidgetTester tester, FileFilter filter) async {
   await tester.pumpWidget(
@@ -48,9 +51,13 @@ Future<void> pumpToolbar(WidgetTester tester, FileFilter filter) async {
         home: Scaffold(
           body: SizedBox(
             width: 600,
-            // 필터 줄만 남겨 칩↔텍스트 동작을 분리해 본다(정렬·그룹 줄의 칩이
-            // 손잡이·x 아이콘 수를 흔들지 않도록).
-            child: FileToolbar(showSort: false, showGroup: false),
+            // 필터 줄만 남겨 칩↔텍스트 동작을 분리해 본다(프리셋·정렬·그룹 줄의 칩이
+            // 손잡이·x 아이콘 수나 줄 위치를 흔들지 않도록).
+            child: FileToolbar(
+              showPresets: false,
+              showSort: false,
+              showGroup: false,
+            ),
           ),
         ),
       ),
@@ -80,13 +87,54 @@ Future<void> pumpGroupToolbar(
         home: Scaffold(
           body: SizedBox(
             width: 600,
-            child: FileToolbar(showFilter: false, showSort: false),
+            child: FileToolbar(
+              showPresets: false,
+              showFilter: false,
+              showSort: false,
+            ),
           ),
         ),
       ),
     ),
   );
   await tester.pumpAndSettle();
+}
+
+/// 필터·정렬·그룹이 모두 차 있는 도구모음을 띄우고, 상태를 읽을 컨테이너를 준다.
+Future<ProviderContainer> pumpFullToolbar(WidgetTester tester) async {
+  final container = ProviderContainer(
+    overrides: [
+      viewSettingsRepositoryProvider.overrideWithValue(
+        _FakeStore(
+          const WorkspaceViewSettings(
+            filter: FileFilter(
+              conditions: [FilterCondition(tagDefinitionId: 1)],
+            ),
+            sort: FileSortOrder(keys: [SortKey(tagDefinitionId: 1)]),
+            grouping: kDefaultGrouping,
+          ),
+        ),
+      ),
+      tagDefinitionsProvider.overrideWith((ref) => Stream.value([_rating])),
+    ],
+  );
+  addTearDown(container.dispose);
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            // 프리셋 줄은 빼, 남은 세 줄의 '모두 지우기' 버튼이 순서대로 놓이게 한다.
+            child: FileToolbar(showPresets: false),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return container;
 }
 
 /// 텍스트 입력은 데스크톱에서만 나므로 그 플랫폼으로 못박고 본다. 되돌리기는 테스트
@@ -123,9 +171,9 @@ void main() {
     );
     expect(isEditing(tester), isFalse);
 
-    // 칩이 차지하지 않은 오른쪽 끝을 누른다.
-    final row = tester.getRect(find.byType(FileToolbar));
-    await tester.tapAt(Offset(row.right - 64, row.top + 8));
+    // 칩이 차지하지 않은 오른쪽 빈 곳(줄 끝 버튼들보다는 왼쪽)을 누른다.
+    final chip = tester.getRect(find.byType(FilterConditionChip));
+    await tester.tapAt(Offset(chip.right + 8, chip.center.dy));
     await tester.pumpAndSettle();
 
     expect(isEditing(tester), isTrue);
@@ -141,8 +189,9 @@ void main() {
       tester,
       const FileFilter(conditions: [FilterCondition(tagDefinitionId: 1)]),
     );
-    final row = tester.getRect(find.byType(FileToolbar));
-    await tester.tapAt(Offset(row.right - 64, row.top + 8));
+    // 칩이 차지하지 않은 오른쪽 빈 곳(줄 끝 버튼들보다는 왼쪽)을 누른다.
+    final chip = tester.getRect(find.byType(FilterConditionChip));
+    await tester.tapAt(Offset(chip.right + 8, chip.center.dy));
     await tester.pumpAndSettle();
     expect(isEditing(tester), isTrue);
 
@@ -157,7 +206,7 @@ void main() {
     await pumpToolbar(tester, const FileFilter());
 
     expect(isEditing(tester), isTrue);
-    expect(find.text('태그 이름으로 조건 입력'), findsOneWidget);
+    expect(find.text(kEmptyQueryLabel), findsOneWidget);
   });
 
   desktopTestWidgets('그룹 줄은 기본(폴더 계층) 키를 칩으로 그린다', (tester) async {
@@ -174,6 +223,31 @@ void main() {
     await pumpGroupToolbar(tester, grouping: const FileGrouping());
 
     expect(isEditing(tester), isTrue);
-    expect(find.text('태그 이름으로 그룹 기준 입력'), findsOneWidget);
+    expect(find.text(kEmptyQueryLabel), findsOneWidget);
+  });
+
+  desktopTestWidgets('모두 지우기는 그 줄만 비운다', (tester) async {
+    final container = await pumpFullToolbar(tester);
+    // 필터·정렬·그룹 세 줄이 각자 지우기 버튼을 갖는다(프리셋 줄은 없음).
+    expect(find.byIcon(Icons.clear_all), findsNWidgets(3));
+
+    await tester.tap(find.byIcon(Icons.clear_all).first);
+    await tester.pumpAndSettle();
+
+    expect(container.read(fileFilterProvider).isEmpty, isTrue);
+    expect(container.read(fileSortProvider).isEmpty, isFalse);
+    expect(container.read(groupingProvider).isEmpty, isFalse);
+  });
+
+  desktopTestWidgets('지울 것이 없는 줄의 지우기 버튼은 비활성이다', (tester) async {
+    await pumpToolbar(tester, const FileFilter());
+
+    final button = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byIcon(Icons.clear_all),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(button.onPressed, isNull);
   });
 }

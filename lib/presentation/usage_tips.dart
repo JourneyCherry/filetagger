@@ -75,7 +75,7 @@ const List<UsageTip> usageTips = [
   UsageTip(
     title: '필터를 텍스트로 치기',
     body:
-        '필터 줄의 키보드 아이콘을 누르면 조건을 글자로 칩니다. 태그 이름과 연산자는 '
+        '필터 줄의 빈 곳을 누르면 조건을 글자로 칩니다. 태그 이름과 연산자는 '
         '자동완성에서 고르고, 스페이스를 누르면 조건이 캡슐로 접힙니다. 접힌 캡슐은 '
         '글자 하나처럼 다뤄져 지우고 옮기는 것이 보통 텍스트와 같습니다.',
     icon: Icons.keyboard_alt_outlined,
@@ -84,11 +84,21 @@ const List<UsageTip> usageTips = [
   UsageTip(
     title: '정렬 우선순위를 잘라 붙여 바꾸기',
     body:
-        '정렬 줄에도 같은 키보드 아이콘이 있습니다. 왼쪽에서 오른쪽 순서가 그대로 정렬 '
+        '정렬 줄도 빈 곳을 누르면 같은 방식으로 칩니다. 왼쪽에서 오른쪽 순서가 그대로 정렬 '
         '우선순위라, 캡슐을 잘라 붙이면 드래그보다 빠르게 순서를 바꿉니다. 이름 앞에 '
         '방향 접두사를 붙이면 내림차순이 됩니다.',
     icon: Icons.swap_horiz,
     command: AppCommandId.toggleSortBar,
+  ),
+  UsageTip(
+    title: '하는 일에 따라 조건을 통째로 갈아타기',
+    body:
+        '읽을 것을 고를 때와 정리할 때는 보고 싶은 것이 다릅니다. 각각의 필터·정렬·그룹을 '
+        '짜 두고 그때그때 프리셋으로 저장해 두면, 다음부터는 캡슐 하나로 그 조합 전체를 '
+        '되돌립니다. 예를 들어 "안 읽음" 태그만 남기고 화수 오름차순으로 세운 조건과, '
+        '태그가 없는 항목을 찾아내는 정리용 조건을 나란히 두는 식입니다.',
+    icon: Icons.bookmarks_outlined,
+    command: AppCommandId.togglePresetBar,
   ),
   UsageTip(
     title: '원하는 이미지를 썸네일로 쓰기',

@@ -62,7 +62,8 @@ class TagDefinitionActions extends ConsumerWidget {
     final id = definition.id;
     // 목록·프리뷰 칩 표시 여부. 감춰도 값은 필터·정렬·그룹에 그대로 참여한다.
     final visible =
-        id == null || !ref.watch(viewSettingsProvider).hiddenTagIds.contains(id);
+        id == null ||
+        !ref.watch(viewSettingsProvider).hiddenTagIds.contains(id);
 
     return Row(
       mainAxisSize: MainAxisSize.min,

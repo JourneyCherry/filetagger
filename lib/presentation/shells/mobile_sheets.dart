@@ -12,8 +12,9 @@ import '../../domain/entities/view_mode.dart';
 import '../providers/file_view_provider.dart';
 import '../widgets/file_toolbar.dart';
 
-/// 필터·정렬·그룹 도구모음을 시트로 띄운다(모바일에는 상시 도구모음 자리가 없다).
-/// 자세히 모드는 자체 헤더 정렬을 쓰고 그룹화를 무시하므로 정렬·그룹 줄을 숨긴다.
+/// 조건 프리셋·필터·정렬·그룹 도구모음을 시트로 띄운다(모바일에는 상시 도구모음
+/// 자리가 없다). 자세히 모드는 자체 헤더 정렬을 쓰고 그룹화를 무시하므로 정렬·그룹
+/// 줄을 숨긴다(프리셋 줄은 필터를 걸어 주므로 남긴다).
 Future<void> showFilterSortSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,

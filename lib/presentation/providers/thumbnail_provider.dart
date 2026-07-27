@@ -26,26 +26,27 @@ final folderThumbnailIndexProvider = Provider<Map<String, List<String>>>((ref) {
 /// 노드 id → (썸네일 출처 태그 id → 그 노드의 커스텀 이미지 상대 경로들) 인덱스.
 /// 우선순위에 든 링크/이미지 태그(대상 노드의 이미지 또는 등록한 외부 이미지)만
 /// 담는다. 목록·프리뷰의 [resolveThumbnailRelPaths]가 우선순위에 따라 하나를 고른다.
-final customThumbnailIndexProvider =
-    Provider<Map<int, Map<int, List<String>>>>((ref) {
-      final sources = ref.watch(thumbnailSourcesProvider);
-      final sourceTagIds = {
-        for (final s in sources)
-          if (s != kDefaultThumbnailSourceId) s,
-      };
-      if (sourceTagIds.isEmpty) return const {};
-      final assignments =
-          ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
-      final nodesById = ref.watch(fileNodesByIdProvider);
-      final index = buildCustomThumbnailIndex(
-        sourceTagIds: sourceTagIds,
-        assignmentsByFile: assignments,
-        nodesById: nodesById,
-      );
-      final root = ref.watch(workspaceRootProvider);
-      if (root == null) return index;
-      return _dropMissingCacheFiles(index, root);
-    });
+final customThumbnailIndexProvider = Provider<Map<int, Map<int, List<String>>>>(
+  (ref) {
+    final sources = ref.watch(thumbnailSourcesProvider);
+    final sourceTagIds = {
+      for (final s in sources)
+        if (s != kDefaultThumbnailSourceId) s,
+    };
+    if (sourceTagIds.isEmpty) return const {};
+    final assignments =
+        ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
+    final nodesById = ref.watch(fileNodesByIdProvider);
+    final index = buildCustomThumbnailIndex(
+      sourceTagIds: sourceTagIds,
+      assignmentsByFile: assignments,
+      nodesById: nodesById,
+    );
+    final root = ref.watch(workspaceRootProvider);
+    if (root == null) return index;
+    return _dropMissingCacheFiles(index, root);
+  },
+);
 
 /// 캐시 파일이 실제로 없는 커스텀 이미지 경로를 뺀다. 없으면 그 출처는 이미지를 못
 /// 낸 것으로 쳐 **다음 우선순위 출처(또는 기본)로 폴백**한다 — 상위 출처의 캐시가
@@ -68,7 +69,8 @@ Map<int, Map<int, List<String>>> _dropMissingCacheFiles(
     for (final tag in entry.value.entries) {
       final kept = [
         for (final path in tag.value)
-          if (!path.startsWith('$filetaggerDirName/') || cacheExists(path)) path,
+          if (!path.startsWith('$filetaggerDirName/') || cacheExists(path))
+            path,
       ];
       if (kept.isEmpty) continue;
       byTag ??= <int, List<String>>{};

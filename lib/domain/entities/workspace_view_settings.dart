@@ -117,8 +117,8 @@ class WorkspaceViewSettings {
   final Map<ViewMode, double> viewScales;
 
   /// [mode]의 크기 배율(저장값이 없으면 기본, 늘 허용 범위로 가둔다).
-  double scaleFor(ViewMode mode) =>
-      (viewScales[mode] ?? kDefaultViewScale).clamp(kViewScaleMin, kViewScaleMax);
+  double scaleFor(ViewMode mode) => (viewScales[mode] ?? kDefaultViewScale)
+      .clamp(kViewScaleMin, kViewScaleMax);
 
   /// 자세히 테이블 전용 정렬(전역 [sort]와 별개). 헤더 클릭 순서가 우선순위이고,
   /// 재클릭이 방향을 뒤집는다. 전 컬럼을 다루므로 소수 키만 담는 전역 정렬과 목적이

@@ -175,7 +175,9 @@ class _CommandGroupSection extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
           ),
-          Expanded(child: Text(command.label, style: theme.textTheme.bodyMedium)),
+          Expanded(
+            child: Text(command.label, style: theme.textTheme.bodyMedium),
+          ),
           if (shortcut != null) ShortcutBadge(label: shortcutLabel(shortcut)),
         ],
       ),

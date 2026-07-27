@@ -77,8 +77,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 프리뷰 창을 목록 옆(또는 위)에 표시할지. 보기 토글로 전환한다.
   bool _previewVisible = true;
 
-  /// 도구모음의 필터·정렬·그룹 조건 줄을 보일지(데스크톱 '보기' 메뉴 토글). 숨겨도
-  /// 조건·기준 자체는 그대로 적용된다 — 자리만 접는다.
+  /// 도구모음의 조건 프리셋·필터·정렬·그룹 줄을 보일지(데스크톱 '보기' 메뉴 토글).
+  /// 숨겨도 조건·기준 자체는 그대로 적용된다 — 자리만 접는다(프리셋도 지워지지 않는다).
+  bool _presetBarVisible = true;
   bool _filterBarVisible = true;
   bool _sortBarVisible = true;
   bool _groupBarVisible = true;
@@ -273,6 +274,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 도구모음의 그룹 기준 줄을 접었다 편다. 기준은 그대로 적용된 채 자리만 감춘다.
   void _toggleGroupBar() =>
       setState(() => _groupBarVisible = !_groupBarVisible);
+
+  /// 도구모음의 조건 프리셋 줄을 접었다 편다. 저장된 프리셋은 그대로 남는다.
+  void _togglePresetBar() =>
+      setState(() => _presetBarVisible = !_presetBarVisible);
 
   /// 목록 행의 태그를 프리뷰처럼 바로 고칠 수 있게 켜고 끈다.
   void _toggleListEdit() =>
@@ -1001,8 +1006,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       toggleGrouping: (hasWorkspace && isDesktopPlatform && !detailMode)
           ? _toggleGroupBar
           : null,
+      // 프리셋 줄은 자세히 모드에서도 뜬다 — 그 모드가 무시하는 정렬·그룹까지 담지만,
+      // 필터는 그대로 걸리고 목록으로 돌아갔을 때의 조건도 함께 맞춰지기 때문이다.
+      togglePresetBar: (hasWorkspace && isDesktopPlatform)
+          ? _togglePresetBar
+          : null,
       togglePreview: hasWorkspace ? _togglePreview : null,
-      moveCursorUp: navigable ? () => _moveCursor(-1, _CursorMove.single) : null,
+      moveCursorUp: navigable
+          ? () => _moveCursor(-1, _CursorMove.single)
+          : null,
       moveCursorDown: navigable
           ? () => _moveCursor(1, _CursorMove.single)
           : null,
@@ -1121,6 +1133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onOpenHelpTab: (tab) => showHelpDialog(context, initial: tab),
       scanning: _scanning,
       previewVisible: _previewVisible,
+      presetBarVisible: _presetBarVisible,
       filterBarVisible: _filterBarVisible,
       sortBarVisible: _sortBarVisible && !detailMode,
       groupBarVisible: _groupBarVisible && !detailMode,

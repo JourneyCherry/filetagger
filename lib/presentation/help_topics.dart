@@ -87,6 +87,18 @@ const List<HelpTopic> helpTopics = [
     icon: Icons.filter_alt_outlined,
   ),
   HelpTopic(
+    title: '조건 프리셋',
+    body:
+        '자주 쓰는 필터·정렬·그룹을 한 벌로 묶어 이름을 붙여 둡니다. 프리셋을 누르면 '
+        '지금 걸린 조건을 모두 지우고 그 한 벌로 갈아끼웁니다 — 일부만 더해지는 것이 '
+        '아닙니다. 지금 걸린 조건과 똑같은 프리셋은 강조되어, 무엇을 보고 있는지 알 수 '
+        '있습니다. 이름 변경·덮어쓰기는 프리셋을 우클릭(모바일은 길게 누르기)하고, '
+        '순서는 끌어서 바꿉니다. 프리셋도 태그처럼 관리 폴더 안에 저장되어 폴더를 옮기면 '
+        '따라갑니다. 자세히 보기의 열 머리글 정렬은 그 보기만의 것이라 프리셋에 담기지 '
+        '않습니다.',
+    icon: Icons.bookmarks_outlined,
+  ),
+  HelpTopic(
     title: '폴더 안에 다른 관리 폴더가 있을 때',
     body:
         '이미 태그를 쓰던 폴더를 다른 관리 폴더 안에서 발견하면 어떻게 할지 묻습니다. '
@@ -142,6 +154,7 @@ const List<HelpCommandGroup> helpCommandGroups = [
     AppCommandId.viewModeIcon,
     AppCommandId.viewModeDetail,
     AppCommandId.togglePreview,
+    AppCommandId.togglePresetBar,
     AppCommandId.toggleFilterBar,
     AppCommandId.toggleSortBar,
     AppCommandId.toggleGrouping,
@@ -163,7 +176,8 @@ const List<HelpCommandGroup> helpCommandGroups = [
       AppCommandId.editFocusedTag,
       AppCommandId.deleteFocusedTag,
     ],
-    note: '목록 보기에서, 목록에 포커스가 있을 때 듣습니다. 아이콘·자세히 보기는 '
+    note:
+        '목록 보기에서, 목록에 포커스가 있을 때 듣습니다. 아이콘·자세히 보기는 '
         '각자의 방향키 이동을 따로 씁니다.',
   ),
   HelpCommandGroup('도움말', [AppCommandId.help]),
@@ -172,19 +186,25 @@ const List<HelpCommandGroup> helpCommandGroups = [
 /// 시스템 태그 하나의 설명. 값이 없을 수 있는 조건이나 값을 고쳤을 때 무슨 일이
 /// 벌어지는지처럼, 태그 이름만 봐서는 알 수 없는 것을 적는다.
 String systemTagDescription(SystemTag tag) => switch (tag) {
-  SystemTag.fileSize => '파일의 바이트 크기입니다. 폴더에는 붙지 않아, 이 태그를 '
-      '"있음"으로 거르면 파일만 남습니다.',
-  SystemTag.modifiedTime => '파일시스템이 기록한 마지막 수정 시각입니다. 시간순으로 '
-      '정렬·비교됩니다.',
-  SystemTag.extension => '점을 뺀 확장자를 소문자로 담습니다. 폴더와 확장자 없는 '
-      '파일에는 붙지 않고, 이름이 점으로 시작하기만 하는 파일도 확장자로 보지 '
-      '않습니다. 값으로 묶으면 종류별 파일 수를 볼 수 있습니다.',
-  SystemTag.imageDimensions => '이미지의 가로·세로 픽셀 크기입니다. 크기를 읽을 수 '
-      '있는 이미지에만 붙으므로, 이 태그를 "있음"으로 걸러 이미지만 모을 수 있습니다.',
-  SystemTag.fileName => '파일·폴더의 이름입니다. 시스템 태그 중 유일하게 값을 고칠 '
-      '수 있고, 고치면 디스크의 실제 이름이 바뀝니다.',
-  SystemTag.folder => '폴더에만 붙는 표식으로 값은 없습니다. 필터에서 "있음"으로 '
-      '폴더만, 제외로 파일만 남길 수 있습니다.',
+  SystemTag.fileSize =>
+    '파일의 바이트 크기입니다. 폴더에는 붙지 않아, 이 태그를 '
+        '"있음"으로 거르면 파일만 남습니다.',
+  SystemTag.modifiedTime =>
+    '파일시스템이 기록한 마지막 수정 시각입니다. 시간순으로 '
+        '정렬·비교됩니다.',
+  SystemTag.extension =>
+    '점을 뺀 확장자를 소문자로 담습니다. 폴더와 확장자 없는 '
+        '파일에는 붙지 않고, 이름이 점으로 시작하기만 하는 파일도 확장자로 보지 '
+        '않습니다. 값으로 묶으면 종류별 파일 수를 볼 수 있습니다.',
+  SystemTag.imageDimensions =>
+    '이미지의 가로·세로 픽셀 크기입니다. 크기를 읽을 수 '
+        '있는 이미지에만 붙으므로, 이 태그를 "있음"으로 걸러 이미지만 모을 수 있습니다.',
+  SystemTag.fileName =>
+    '파일·폴더의 이름입니다. 시스템 태그 중 유일하게 값을 고칠 '
+        '수 있고, 고치면 디스크의 실제 이름이 바뀝니다.',
+  SystemTag.folder =>
+    '폴더에만 붙는 표식으로 값은 없습니다. 필터에서 "있음"으로 '
+        '폴더만, 제외로 파일만 남길 수 있습니다.',
 };
 
 /// 시스템 태그 전체를 설명하는 안내 문단(탭 머리에 둔다).

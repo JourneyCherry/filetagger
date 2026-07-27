@@ -11,7 +11,11 @@ import 'package:filetagger/domain/usecases/build_grouped_tree.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // 태그 정의: 2=평점(number), 3=색상(text), 4=숨김(label).
-const _rating = TagDefinition(id: 2, name: '평점', valueType: TagValueType.number);
+const _rating = TagDefinition(
+  id: 2,
+  name: '평점',
+  valueType: TagValueType.number,
+);
 const _color = TagDefinition(id: 3, name: '색상', valueType: TagValueType.text);
 const _label = TagDefinition(id: 4, name: '숨김', valueType: TagValueType.label);
 final _defsById = <int, TagDefinition>{
@@ -21,14 +25,15 @@ final _defsById = <int, TagDefinition>{
 FileNode _node(int id, String path, {bool dir = false}) =>
     FileNode(id: id, path: path, isDirectory: dir);
 
-AssignedTag _assign(int fileId, TagDefinition def, String? value) => AssignedTag(
-  assignment: TagAssignment(
-    fileNodeId: fileId,
-    tagDefinitionId: def.id!,
-    value: value,
-  ),
-  definition: def,
-);
+AssignedTag _assign(int fileId, TagDefinition def, String? value) =>
+    AssignedTag(
+      assignment: TagAssignment(
+        fileNodeId: fileId,
+        tagDefinitionId: def.id!,
+        value: value,
+      ),
+      definition: def,
+    );
 
 const _build = BuildGroupedTree();
 
@@ -99,9 +104,10 @@ void main() {
       );
       // '빨강'에 x,y(2개), '파랑'에 x(1개) → 합 3 > 파일 2.
       expect(_headerLabels(tree), ['빨강', '파랑']);
-      final total = tree
-          .whereType<GroupHeaderNode>()
-          .fold<int>(0, (s, h) => s + h.fileCount);
+      final total = tree.whereType<GroupHeaderNode>().fold<int>(
+        0,
+        (s, h) => s + h.fileCount,
+      );
       expect(total, 3);
     });
 
@@ -169,9 +175,7 @@ void main() {
       final tree = _run(
         files,
         assignments,
-        const FileGrouping(
-          keys: [TagGroupKey(2), FolderHierarchyGroupKey()],
-        ),
+        const FileGrouping(keys: [TagGroupKey(2), FolderHierarchyGroupKey()]),
       );
       // 값 버킷 3,5 각각 아래 폴더 a가 조상으로 보존되고 해당 파일만 리프로.
       expect(_headerLabels(tree), ['3', '5']);
@@ -198,9 +202,7 @@ void main() {
       final tree = _run(
         files,
         assignments,
-        const FileGrouping(
-          keys: [FolderHierarchyGroupKey(), TagGroupKey(2)],
-        ),
+        const FileGrouping(keys: [FolderHierarchyGroupKey(), TagGroupKey(2)]),
       );
       final a = tree.single as FileTreeNode;
       expect(a.node.path, 'a');

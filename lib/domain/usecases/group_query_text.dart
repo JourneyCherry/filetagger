@@ -236,10 +236,10 @@ GroupQueryCompletions groupQueryCompletions(
     replaceStart: chunkStart,
     replaceEnd: chunkStart + name.end,
     items: [
-      for (final d in matchTagsByName(
-        [...definitions, folderHierarchyDefinition],
-        query,
-      ))
+      for (final d in matchTagsByName([
+        ...definitions,
+        folderHierarchyDefinition,
+      ], query))
         GroupTagCompletion(d),
     ],
   );

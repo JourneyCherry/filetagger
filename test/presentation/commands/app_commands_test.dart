@@ -13,8 +13,11 @@ void main() {
     // commandShortcuts()는 activator를 키로 하는 Map이라 충돌 시 조용히 덮인다.
     // 단축키를 가진 명령 수와 맵 크기가 같아야 충돌이 없다.
     final withShortcut = appCommands.where((c) => c.shortcut != null).toList();
-    expect(commandShortcuts().length, withShortcut.length,
-        reason: '두 명령이 같은 단축키를 공유한다');
+    expect(
+      commandShortcuts().length,
+      withShortcut.length,
+      reason: '두 명령이 같은 단축키를 공유한다',
+    );
   });
 
   test('본문 포커스 전용 명령만 편집 키(Delete)를 단독으로 쓴다', () {
@@ -25,8 +28,11 @@ void main() {
       if (s == null) continue;
       final bare = !s.control && !s.meta && !s.alt;
       if (bare && s.trigger == LogicalKeyboardKey.delete) {
-        expect(c.requiresScopeFocus, isTrue,
-            reason: '${c.id}: 단독 Delete는 본문 포커스 전용이어야 한다');
+        expect(
+          c.requiresScopeFocus,
+          isTrue,
+          reason: '${c.id}: 단독 Delete는 본문 포커스 전용이어야 한다',
+        );
       }
     }
   });

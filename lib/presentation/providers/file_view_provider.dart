@@ -6,12 +6,14 @@ import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/query_preset.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/repositories/view_settings_repository.dart';
+import '../../domain/usecases/apply_query_preset.dart';
 import '../../domain/usecases/build_grouped_tree.dart';
 import '../../domain/usecases/folder_index_scope.dart';
 import '../../domain/usecases/query_files.dart';
@@ -81,13 +83,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
   /// 기록은 FK cascade로 이미 지워지므로, 남는 것은 보기 설정의 참조뿐이다.
   void _reconcile(List<TagDefinition> defs) {
     if (!_loaded) return;
-    final validIds = {
-      // 시스템 태그(계산 태그)는 항상 유효하다 — 그 참조 필터·정렬을 정리로 지우지
-      // 않는다(표시 여부 토글과 무관하게 필터·정렬은 계속 동작).
-      for (final t in SystemTag.values) t.id,
-      for (final d in defs)
-        if (d.id != null) d.id!,
-    };
+    final validIds = _validIdsOf(defs);
     final conditions = state.filter.conditions;
     final keys = state.sort.keys;
     final order = state.tagDisplayOrder;
@@ -102,7 +98,8 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     // 폴더 계층 키는 실제 태그가 아니라 늘 유효하다 — 태그 키만 삭제 여부를 본다.
     final keptGroupKeys = groupKeys
         .where(
-          (k) => k is FolderHierarchyGroupKey || validIds.contains(groupKeyId(k)),
+          (k) =>
+              k is FolderHierarchyGroupKey || validIds.contains(groupKeyId(k)),
         )
         .toList();
     // 썸네일 출처 우선순위에서 지워진 태그를 걷어낸다(기본 항목은 태그가 아니라 늘
@@ -127,6 +124,45 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
         thumbnailSources: keptSources,
       ),
     );
+  }
+
+  /// 참조해도 되는 태그 정의 id 집합. 시스템 태그(계산 태그)는 항상 유효하다 — 그
+  /// 참조 필터·정렬을 정리로 지우지 않는다(표시 여부 토글과 무관하게 필터·정렬은
+  /// 계속 동작).
+  Set<int> _validIdsOf(List<TagDefinition> defs) => {
+    for (final t in SystemTag.values) t.id,
+    for (final d in defs)
+      if (d.id != null) d.id!,
+  };
+
+  /// 프리셋의 조건 한 벌을 통째로 건다 — **지금 걸린 필터·정렬·그룹은 모두 지워지고**
+  /// 프리셋의 것으로 대체된다(부분 병합 없음).
+  ///
+  /// 저장한 뒤 태그가 지워졌다면 그 조각은 걸 수 없어 빠지며, 그 수를 돌려준다(호출부가
+  /// 사용자에게 알린다). 정의 목록이 아직 실리는 중이면 걸러 내지 않고 그대로 건다 —
+  /// 빈 목록을 기준으로 걸렀다간 멀쩡한 조건이 몽땅 사라지기 때문이다(뒤늦게 정의가
+  /// 실리면 [_reconcile]이 그때 정리한다).
+  int applyPreset(QueryPreset preset) {
+    final defs = ref.read(tagDefinitionsProvider);
+    final resolved = defs.isLoading || defs.hasError
+        ? QueryPresetApplication(
+            filter: preset.filter,
+            sort: preset.sort,
+            grouping: preset.grouping,
+            droppedCount: 0,
+          )
+        : resolvePresetApplication(
+            preset,
+            _validIdsOf(defs.valueOrNull ?? const []),
+          );
+    _set(
+      state.copyWith(
+        filter: resolved.filter,
+        sort: resolved.sort,
+        grouping: resolved.grouping,
+      ),
+    );
+    return resolved.droppedCount;
   }
 
   /// 노드 썸네일의 출처 우선순위를 통째로 갈아끼우고 저장한다(썸네일 태그 다이얼로그가
@@ -186,9 +222,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
   void updateViewScale(ViewMode mode, double scale) {
     final clamped = scale.clamp(kViewScaleMin, kViewScaleMax);
     if (state.scaleFor(mode) == clamped) return;
-    _set(
-      state.copyWith(viewScales: {...state.viewScales, mode: clamped}),
-    );
+    _set(state.copyWith(viewScales: {...state.viewScales, mode: clamped}));
   }
 
   /// 자세히 테이블 전용 정렬을 갈아끼우고 저장한다(전역 정렬과 별개).

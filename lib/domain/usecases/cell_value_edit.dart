@@ -83,8 +83,7 @@ String? _toStored(TagValueType type, String raw) {
   }
 }
 
-String _quote(String value) =>
-    '"${value.replaceAll('"', '""')}"';
+String _quote(String value) => '"${value.replaceAll('"', '""')}"';
 
 /// 쌍따옴표로 감싼 값들을 콤마로 가른다. 따옴표 밖의 콤마에서만 자르고, 따옴표
 /// 안의 `""`는 한 개의 따옴표로 되돌린다. 따옴표 없이 쓴 조각도 그대로 받는다.

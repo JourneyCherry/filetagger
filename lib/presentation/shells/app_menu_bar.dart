@@ -190,6 +190,7 @@ class AppMenuBar extends ConsumerWidget {
         const MenuDivider(),
         const MenuCommand(AppCommandId.togglePreview),
         const MenuDivider(),
+        const MenuCommand(AppCommandId.togglePresetBar),
         const MenuCommand(AppCommandId.toggleGrouping),
         const MenuCommand(AppCommandId.toggleFilterBar),
         const MenuCommand(AppCommandId.toggleSortBar),
@@ -231,7 +232,10 @@ class AppMenuBar extends ConsumerWidget {
   };
 
   /// 라이트/다크 테마 선택지(시스템/밝게/어둡게). 현재 모드를 체크로 보인다.
-  List<MenuNode> _themeItems(ThemeMode current, ValueChanged<ThemeMode> onSelect) {
+  List<MenuNode> _themeItems(
+    ThemeMode current,
+    ValueChanged<ThemeMode> onSelect,
+  ) {
     const labels = {
       ThemeMode.system: '시스템 설정',
       ThemeMode.light: '밝게',
@@ -308,7 +312,12 @@ class AppMenuBar extends ConsumerWidget {
         );
       case MenuAction(:final label, :final onSelected):
         return MenuItemButton(onPressed: onSelected, child: Text(label));
-      case MenuChecked(:final label, :final checked, :final onSelected, :final shortcut):
+      case MenuChecked(
+        :final label,
+        :final checked,
+        :final onSelected,
+        :final shortcut,
+      ):
         return MenuItemButton(
           onPressed: onSelected,
           shortcut: shortcut,
@@ -358,7 +367,12 @@ class AppMenuBar extends ConsumerWidget {
           );
         case MenuAction(:final label, :final onSelected):
           current.add(PlatformMenuItem(label: label, onSelected: onSelected));
-        case MenuChecked(:final label, :final checked, :final onSelected, :final shortcut):
+        case MenuChecked(
+          :final label,
+          :final checked,
+          :final onSelected,
+          :final shortcut,
+        ):
           current.add(
             PlatformMenuItem(
               label: _platformLabel(label, checked),

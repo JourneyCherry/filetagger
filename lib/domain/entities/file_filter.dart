@@ -1,3 +1,4 @@
+import '../../core/collections.dart';
 import 'assigned_tag.dart';
 import 'tag_value_ordering.dart';
 import 'tag_value_type.dart';
@@ -132,6 +133,19 @@ class FilterCondition {
       exclude: exclude ?? this.exclude,
     );
   }
+
+  /// 값 동등성. 저장된 조건 프리셋이 **지금 걸린 조건과 같은지** 견주는 데 쓴다
+  /// (같으면 그 프리셋을 활성으로 표시한다).
+  @override
+  bool operator ==(Object other) =>
+      other is FilterCondition &&
+      other.tagDefinitionId == tagDefinitionId &&
+      other.operator == operator &&
+      other.operand == operand &&
+      other.exclude == exclude;
+
+  @override
+  int get hashCode => Object.hash(tagDefinitionId, operator, operand, exclude);
 }
 
 /// 순서 있는 조건 목록으로 파일을 걸러내는 필터.
@@ -182,4 +196,12 @@ class FileFilter {
     next.insert(newIndex, item);
     return FileFilter(conditions: next);
   }
+
+  /// 값 동등성(조건의 순서까지 같아야 같다). 조건 프리셋의 활성 여부 판정에 쓴다.
+  @override
+  bool operator ==(Object other) =>
+      other is FileFilter && equalLists(other.conditions, conditions);
+
+  @override
+  int get hashCode => hashList(conditions);
 }

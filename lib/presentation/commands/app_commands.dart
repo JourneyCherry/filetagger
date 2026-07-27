@@ -32,6 +32,7 @@ enum AppCommandId {
   toggleSortBar,
   toggleListEdit,
   toggleGrouping,
+  togglePresetBar,
   togglePreview,
   moveCursorUp,
   moveCursorDown,
@@ -221,6 +222,14 @@ final List<AppCommand> appCommands = [
     intent: const ToggleGroupingIntent(),
     icon: Icons.account_tree_outlined,
     shortcut: _primary(LogicalKeyboardKey.keyG),
+  ),
+  AppCommand(
+    id: AppCommandId.togglePresetBar,
+    label: '프리셋 보기',
+    intent: const TogglePresetBarIntent(),
+    icon: Icons.bookmarks_outlined,
+    // 프리뷰(Ctrl+P)의 둘째 층. 조건 줄 토글들과 같은 결로 보조키 하나를 나눠 쓴다.
+    shortcut: _primaryShift(LogicalKeyboardKey.keyP),
   ),
   AppCommand(
     id: AppCommandId.togglePreview,

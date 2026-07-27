@@ -55,8 +55,9 @@ class RecentFoldersNotifier extends AsyncNotifier<List<String>> {
 
 /// 라이트/다크 테마 선택. 머신 단위 전역 설정으로 [appSettingsStoreProvider]에
 /// 영속화된다. 기본값(시스템)은 OS 밝기를 따른다.
-final themeModeProvider =
-    AsyncNotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+final themeModeProvider = AsyncNotifierProvider<ThemeModeNotifier, ThemeMode>(
+  ThemeModeNotifier.new,
+);
 
 class ThemeModeNotifier extends AsyncNotifier<ThemeMode> {
   AppSettingsStore get _store => ref.read(appSettingsStoreProvider);

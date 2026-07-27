@@ -10,6 +10,7 @@ import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../common/capsule_text_field.dart';
 import '../providers/file_view_provider.dart';
+import '../providers/query_preset_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../tag_visuals.dart';
 import 'dialog_utils.dart';
@@ -17,6 +18,7 @@ import 'filter_condition_chip.dart';
 import 'filter_query_field.dart';
 import 'group_key_chip.dart';
 import 'group_query_field.dart';
+import 'query_preset_row.dart';
 import 'sort_key_chip.dart';
 import 'sort_query_field.dart';
 import 'tag_picker.dart';
@@ -24,6 +26,10 @@ import 'tag_picker.dart';
 /// 조건 줄 하나의 높이. 조건 칩과 텍스트 입력이 같은 자리를 나눠 쓰므로, 어느 쪽을
 /// 그리든 줄 높이가 흔들리지 않도록 한 값에서 가져다 쓴다.
 const double _rowHeight = 40;
+
+/// 줄 이름(필터·정렬·그룹·프리셋)이 놓이는 칸의 너비. 가장 긴 이름이 한 줄에 들어가야
+/// 한다 — 좁으면 이름이 중간에서 접혀 줄 높이를 밀어낸다.
+const double _labelWidth = 56;
 
 /// 파일 목록 위에 놓이는 필터·정렬 도구 모음.
 ///
@@ -38,10 +44,15 @@ const double _rowHeight = 40;
 class FileToolbar extends ConsumerWidget {
   const FileToolbar({
     super.key,
+    this.showPresets = true,
     this.showFilter = true,
     this.showSort = true,
     this.showGroup = true,
   });
+
+  /// 저장된 조건 프리셋 줄을 그릴지. 데스크톱 '보기' 메뉴가 토글한다(프리셋 자체는
+  /// 남는다). 아래 세 줄을 통째로 바꾸는 상위 제어라 맨 위에 둔다.
+  final bool showPresets;
 
   /// 필터 조건 줄을 그릴지. 데스크톱 '보기' 메뉴가 토글한다(조건 자체는 남는다).
   final bool showFilter;
@@ -78,7 +89,19 @@ class FileToolbar extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showFilter)
+        if (showPresets)
+          _buildRow(
+            context: context,
+            label: '프리셋',
+            content: _buildPresetContent(context, ref),
+            onAdd: () => showQueryPresetSaveDialog(context, ref),
+            addTooltip: '현재 조건을 프리셋으로 저장',
+            // 프리셋은 지금 걸린 조건이 아니라 저장해 둔 자산이라, 줄 단위로 한꺼번에
+            // 지우는 버튼을 두지 않는다(삭제는 캡슐마다 컨텍스트 메뉴로).
+            showClear: false,
+          ),
+        if (showFilter) ...[
+          if (showPresets) const SizedBox(height: 8),
           _buildRow(
             context: context,
             label: '필터',
@@ -93,9 +116,16 @@ class FileToolbar extends ConsumerWidget {
                 ? null
                 : () => showFilterConditionDialog(context, ref, definitions),
             addTooltip: '필터 조건 추가',
+            onClear: filter.isEmpty
+                ? null
+                : () => ref
+                      .read(viewSettingsProvider.notifier)
+                      .updateFilter(const FileFilter()),
+            clearTooltip: '필터 조건 모두 지우기',
           ),
+        ],
         if (showSort) ...[
-          if (showFilter) const SizedBox(height: 8),
+          if (showPresets || showFilter) const SizedBox(height: 8),
           _buildRow(
             context: context,
             label: '정렬',
@@ -110,10 +140,16 @@ class FileToolbar extends ConsumerWidget {
                 ? null
                 : () => _openSortDialog(context, ref, sortCandidates),
             addTooltip: '정렬 기준 추가',
+            onClear: sort.isEmpty
+                ? null
+                : () => ref
+                      .read(viewSettingsProvider.notifier)
+                      .updateSort(const FileSortOrder()),
+            clearTooltip: '정렬 기준 모두 지우기',
           ),
         ],
         if (showGroup) ...[
-          if (showFilter || showSort) const SizedBox(height: 8),
+          if (showPresets || showFilter || showSort) const SizedBox(height: 8),
           _buildRow(
             context: context,
             label: '그룹',
@@ -128,26 +164,53 @@ class FileToolbar extends ConsumerWidget {
                 ? null
                 : () => _openGroupDialog(context, ref, groupCandidates),
             addTooltip: '그룹 기준 추가',
+            onClear: grouping.isEmpty
+                ? null
+                : () => ref
+                      .read(viewSettingsProvider.notifier)
+                      .updateGrouping(const FileGrouping()),
+            clearTooltip: '그룹 기준 모두 지우기',
           ),
         ],
       ],
     );
   }
 
+  /// 조건 줄 하나: 이름 · 내용(칩 또는 텍스트) · 모두 지우기 · 추가.
+  ///
+  /// [onClear]가 null이면 지울 것이 없어 버튼이 비활성이고, [showClear]가 false면
+  /// 그 줄엔 지우기가 아예 없다(프리셋 줄) — 그때도 자리는 비워 둬, 줄마다 '+'가
+  /// 같은 세로선에 놓인다.
   Widget _buildRow({
     required BuildContext context,
     required String label,
     required Widget content,
     required VoidCallback? onAdd,
     required String addTooltip,
+    VoidCallback? onClear,
+    String? clearTooltip,
+    bool showClear = true,
   }) {
     return Row(
       children: [
         SizedBox(
-          width: 40,
-          child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+          width: _labelWidth,
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge,
+            maxLines: 1,
+            softWrap: false,
+          ),
         ),
         Expanded(child: content),
+        if (showClear)
+          IconButton(
+            icon: const Icon(Icons.clear_all),
+            tooltip: clearTooltip,
+            onPressed: onClear,
+          )
+        else
+          const SizedBox(width: kMinInteractiveDimension),
         IconButton(
           icon: const Icon(Icons.add),
           tooltip: addTooltip,
@@ -165,14 +228,37 @@ class FileToolbar extends ConsumerWidget {
     required Widget list,
   }) {
     if (!isEmpty) return SizedBox(height: _rowHeight, child: list);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(
-        emptyHint,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+    final theme = Theme.of(context);
+    // 같은 줄의 다른 자리(텍스트 입력의 안내 문구)와 글자 크기·색·시작점이 어긋나지
+    // 않게, 입력 필드의 힌트와 같은 스타일·들여쓰기로 둔다.
+    return SizedBox(
+      height: _rowHeight,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(left: kCapsuleFieldInset),
+          child: Text(
+            emptyHint,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  // ── 프리셋 ──
+
+  /// 저장된 프리셋 캡슐 줄. 아래 세 줄과 달리 텍스트 편집 경로가 없다 — 프리셋은
+  /// 조건을 **고르는** 자리이지 짜는 자리가 아니라, 조각 문법을 나눠 가질 것이 없다.
+  Widget _buildPresetContent(BuildContext context, WidgetRef ref) {
+    final presets = ref.watch(queryPresetsProvider);
+    return _buildListContent(
+      context,
+      isEmpty: presets.isEmpty,
+      emptyHint: kEmptyQueryLabel,
+      list: QueryPresetRow(presets: presets),
     );
   }
 
@@ -204,7 +290,7 @@ class FileToolbar extends ConsumerWidget {
     return _buildListContent(
       context,
       isEmpty: filter.isEmpty,
-      emptyHint: '조건 없음 · 모든 항목 표시',
+      emptyHint: kEmptyQueryLabel,
       list: _buildFilterList(context, ref, filter, defsById),
     );
   }
@@ -275,7 +361,7 @@ class FileToolbar extends ConsumerWidget {
     return _buildListContent(
       context,
       isEmpty: sort.isEmpty,
-      emptyHint: '기본(이름순)',
+      emptyHint: kEmptyQueryLabel,
       list: _buildSortList(context, ref, sort, defsById),
     );
   }
@@ -360,7 +446,7 @@ class FileToolbar extends ConsumerWidget {
     return _buildListContent(
       context,
       isEmpty: grouping.isEmpty,
-      emptyHint: '묶지 않음 · 평면 목록',
+      emptyHint: kEmptyQueryLabel,
       list: _buildGroupList(context, ref, grouping, defsById),
     );
   }

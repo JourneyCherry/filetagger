@@ -6,7 +6,11 @@ import 'package:filetagger/domain/usecases/resolve_link_values.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 AssignedTag tag(int defId, TagValueType type, String? value) => AssignedTag(
-  assignment: TagAssignment(fileNodeId: 1, tagDefinitionId: defId, value: value),
+  assignment: TagAssignment(
+    fileNodeId: 1,
+    tagDefinitionId: defId,
+    value: value,
+  ),
   definition: TagDefinition(id: defId, name: 'T$defId', valueType: type),
 );
 

@@ -11,10 +11,7 @@ import 'file_thumbnail.dart';
 ///
 /// 링크는 저장은 id로, 표시는 대상 이름으로 한다. 후보는 **파일 이름으로 검색**하며,
 /// 같은 이름을 구분할 수 있도록 경로를 함께 보인다.
-Future<String?> pickLinkTarget(
-  BuildContext context, {
-  String? initial,
-}) {
+Future<String?> pickLinkTarget(BuildContext context, {String? initial}) {
   return showDialog<String>(
     context: context,
     builder: (_) => _LinkTargetPicker(initial: initial),

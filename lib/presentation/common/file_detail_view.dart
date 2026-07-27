@@ -146,7 +146,8 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     super.dispose();
   }
 
-  double _widthOf(int key) => _resizing[key] ?? _persistedWidth(_persisted, key);
+  double _widthOf(int key) =>
+      _resizing[key] ?? _persistedWidth(_persisted, key);
 
   @override
   Widget build(BuildContext context) {
@@ -169,8 +170,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
           (sum, c) => sum + _widthOf(c.widthKey),
         );
         // 커서 행이 목록에서 사라졌으면(필터·재스캔) 커서를 접는다.
-        if (_cursorNodeId != null &&
-            !list.any((n) => n.id == _cursorNodeId)) {
+        if (_cursorNodeId != null && !list.any((n) => n.id == _cursorNodeId)) {
           _cursorNodeId = null;
         }
         _cursorCol = _cursorCol.clamp(0, columns.length - 1);
@@ -181,43 +181,43 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
             focusNode: _navFocus,
             autofocus: true,
             child: MediaQuery(
-          data: mq.copyWith(textScaler: TextScaler.linear(scale)),
-          child: Scrollbar(
-            controller: _horizontal,
-            thumbVisibility: true,
-            child: SingleChildScrollView(
-              controller: _horizontal,
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: total,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _headerRow(context, columns, sort),
-                    const Divider(height: 1),
-                    Expanded(
-                      child: list.isEmpty
-                          ? _empty(context)
-                          : ListView.builder(
-                              padding: widget.padding,
-                              itemCount: list.length,
-                              itemBuilder: (context, index) => _dataRow(
-                                context,
-                                list,
-                                index,
-                                columns,
-                                byFile,
-                                selection,
-                                scale,
-                              ),
-                            ),
+              data: mq.copyWith(textScaler: TextScaler.linear(scale)),
+              child: Scrollbar(
+                controller: _horizontal,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _horizontal,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: total,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _headerRow(context, columns, sort),
+                        const Divider(height: 1),
+                        Expanded(
+                          child: list.isEmpty
+                              ? _empty(context)
+                              : ListView.builder(
+                                  padding: widget.padding,
+                                  itemCount: list.length,
+                                  itemBuilder: (context, index) => _dataRow(
+                                    context,
+                                    list,
+                                    index,
+                                    columns,
+                                    byFile,
+                                    selection,
+                                    scale,
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-          ),
           ),
         );
       },
@@ -413,7 +413,11 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
 
   // ── 헤더 ──
 
-  Widget _headerRow(BuildContext context, List<_Col> columns, FileSortOrder sort) {
+  Widget _headerRow(
+    BuildContext context,
+    List<_Col> columns,
+    FileSortOrder sort,
+  ) {
     return Row(
       children: [for (final col in columns) _headerCell(context, col, sort)],
     );
@@ -688,8 +692,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
         ),
       );
     }
-    final editing =
-        _editNode?.id == node.id && _editCol?.sortId == col.sortId;
+    final editing = _editNode?.id == node.id && _editCol?.sortId == col.sortId;
     if (editing) return _editField(context, col, style);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -707,7 +710,11 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
 
   /// 한 셀의 표시 문자열. label 태그는 부여 여부 표식('✓'), 값 태그는 값(다중이면
   /// 쉼표로 이음)을 보인다.
-  String _cellText(FileNode node, _Col col, Map<int, List<AssignedTag>> byFile) {
+  String _cellText(
+    FileNode node,
+    _Col col,
+    Map<int, List<AssignedTag>> byFile,
+  ) {
     final tags = byFile[node.id] ?? const <AssignedTag>[];
     // label과 image는 값 대신 부여 여부만 표식('✓')으로 보인다(image 값은 캐시 키).
     if (col.valueType == TagValueType.label ||
@@ -744,9 +751,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
         col.valueType == TagValueType.number ||
         col.valueType == TagValueType.date;
     return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit,
-      },
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit},
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: TextField(
@@ -840,7 +845,10 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
       initial: current.isEmpty ? null : current.first,
     );
     if (picked == null) return;
-    await repo.unassignFromFiles(fileNodeIds: [id], tagDefinitionId: col.sortId);
+    await repo.unassignFromFiles(
+      fileNodeIds: [id],
+      tagDefinitionId: col.sortId,
+    );
     await repo.assignToFiles(
       fileNodeIds: [id],
       tagDefinitionId: col.sortId,
@@ -858,11 +866,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
       if (t.tagDefinitionId == col.sortId && t.value != null) t.value!,
   ];
 
-  void _beginEdit(
-    FileNode node,
-    _Col col,
-    Map<int, List<AssignedTag>> byFile,
-  ) {
+  void _beginEdit(FileNode node, _Col col, Map<int, List<AssignedTag>> byFile) {
     // 다른 셀을 편집 중이었다면 먼저 확정한다(같은 포커스라 포커스 잃음이 안 온다).
     if (_editNode != null) _commitEdit();
     final allowMultiple = col.definition?.allowMultiple ?? false;
@@ -930,8 +934,9 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     final repo = ref.read(tagRepositoryProvider);
     final id = node.id;
     if (repo == null || id == null) return;
-    final present = (byFile[id] ?? const <AssignedTag>[])
-        .any((t) => t.tagDefinitionId == col.sortId);
+    final present = (byFile[id] ?? const <AssignedTag>[]).any(
+      (t) => t.tagDefinitionId == col.sortId,
+    );
     if (present) {
       await repo.unassignFromFiles(
         fileNodeIds: [id],
@@ -957,10 +962,10 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     if (!ref.read(selectionControllerProvider).contains(id)) {
       ref.read(selectionControllerProvider.notifier).selectSingle(id);
     }
-    final present = (byFile[id] ?? const <AssignedTag>[])
-        .any((t) => t.tagDefinitionId == col.sortId);
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final present = (byFile[id] ?? const <AssignedTag>[]).any(
+      (t) => t.tagDefinitionId == col.sortId,
+    );
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final selected = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
@@ -969,8 +974,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
       ),
       items: [
         const PopupMenuItem(value: 'add', child: Text('추가…')),
-        if (present)
-          const PopupMenuItem(value: 'remove', child: Text('제거')),
+        if (present) const PopupMenuItem(value: 'remove', child: Text('제거')),
       ],
     );
     if (!mounted) return;

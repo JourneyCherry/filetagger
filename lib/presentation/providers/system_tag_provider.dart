@@ -72,7 +72,9 @@ final effectiveAssignmentsByFileProvider =
 
 /// 링크 태그값(대상 노드 id 문자열)을 대상 이름으로 해석하는 함수. 대상을 찾지
 /// 못하면 null. 표시·필터·정렬·그룹이 링크를 이름 기준으로 다루도록 주입한다.
-final linkTargetNameResolverProvider = Provider<String? Function(String)>((ref) {
+final linkTargetNameResolverProvider = Provider<String? Function(String)>((
+  ref,
+) {
   final byId = ref.watch(fileNodesByIdProvider);
   return (raw) => byId[int.tryParse(raw)]?.name;
 });
@@ -80,9 +82,10 @@ final linkTargetNameResolverProvider = Provider<String? Function(String)>((ref) 
 /// [effectiveAssignmentsByFileProvider]에서 링크 태그값만 대상 이름으로 바꾼 맵.
 /// 도메인 질의 계층(필터·정렬·그룹)이 링크를 이름 기준으로 다루도록 이 맵을 쓴다
 /// (표시·이동은 id가 필요해 원본 맵을 쓴다).
-final resolvedAssignmentsByFileProvider =
-    Provider<Map<int, List<AssignedTag>>>((ref) {
-      final raw = ref.watch(effectiveAssignmentsByFileProvider);
-      final nameOf = ref.watch(linkTargetNameResolverProvider);
-      return resolveLinkAssignments(raw, nameOf);
-    });
+final resolvedAssignmentsByFileProvider = Provider<Map<int, List<AssignedTag>>>(
+  (ref) {
+    final raw = ref.watch(effectiveAssignmentsByFileProvider);
+    final nameOf = ref.watch(linkTargetNameResolverProvider);
+    return resolveLinkAssignments(raw, nameOf);
+  },
+);

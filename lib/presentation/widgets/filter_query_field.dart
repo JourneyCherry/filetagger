@@ -164,7 +164,7 @@ class _FilterQueryFieldState extends State<FilterQueryField> {
       onChanged: (conditions) =>
           widget.onChanged(FileFilter(conditions: conditions)),
       completionsAt: (text, cursor, _) => _completionsAt(text, cursor),
-      hintText: '태그 이름으로 조건 입력',
+      hintText: kEmptyQueryLabel,
     );
   }
 }

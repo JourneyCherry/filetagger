@@ -95,8 +95,7 @@ const double _endGap = 0;
 class _TagCapsuleState extends State<TagCapsule> {
   bool _hovered = false;
 
-  bool get _interactive =>
-      widget.onTap != null || widget.onDoubleTap != null;
+  bool get _interactive => widget.onTap != null || widget.onDoubleTap != null;
 
   @override
   Widget build(BuildContext context) {

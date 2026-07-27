@@ -62,6 +62,11 @@ class ToggleSortBarIntent extends Intent {
   const ToggleSortBarIntent();
 }
 
+/// 도구모음의 조건 프리셋 줄을 보이거나 숨긴다.
+class TogglePresetBarIntent extends Intent {
+  const TogglePresetBarIntent();
+}
+
 /// 목록 행에서 태그를 바로 고칠 수 있게 하거나 되돌린다.
 class ToggleListEditIntent extends Intent {
   const ToggleListEditIntent();

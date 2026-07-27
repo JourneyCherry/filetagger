@@ -4,14 +4,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants.dart';
-import '../../domain/entities/file_filter.dart';
 import '../../domain/entities/file_grouping.dart';
-import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/repositories/view_settings_repository.dart';
-import '../../domain/usecases/group_query_text.dart';
+import 'query_json.dart';
 
 /// 보기 설정(필터·정렬)을 워크스페이스의 `.filetagger/` 안 JSON 파일로 읽고 쓴다.
 ///
@@ -47,25 +45,24 @@ class JsonViewSettingsStore implements ViewSettingsRepository {
 
 // ── 직렬화 ──
 //
-// 저장 형식은 이 파일에만 둔다(도메인 엔티티는 순수하게 유지). 태그 식별자는
-// 워크스페이스 DB의 정의 id다 — 정의가 지워졌다면 로드 후 UI가 "(삭제된 태그)"로
-// 표시하고 사용자가 조건을 지울 수 있다.
+// 이 파일만의 항목(보기 상태·표시 설정)은 여기서, 조건(필터·정렬·그룹)은 프리셋
+// 저장소와 공유하는 [query_json.dart]에서 다룬다. 도메인 엔티티는 순수하게 유지한다.
+// 태그 식별자는 워크스페이스 DB의 정의 id다 — 정의가 지워졌다면 로드 후 UI가
+// "(삭제된 태그)"로 표시하고 사용자가 조건을 지울 수 있다.
 
 Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
-  'filter': _filterToJson(s.filter),
-  'sort': _sortToJson(s.sort),
+  'filter': filterToJson(s.filter),
+  'sort': sortToJson(s.sort),
   'previewRatio': s.previewRatio,
   'rootManageMode': s.rootManageMode.name,
   'systemTags': s.visibleSystemTagIds.toList(),
   'hiddenTags': s.hiddenTagIds.toList(),
   'tagOrder': s.tagDisplayOrder,
   'expanded': s.expandedFolders.toList(),
-  'grouping': _groupingToJson(s.grouping),
+  'grouping': groupingToJson(s.grouping),
   'viewMode': s.viewMode.name,
-  'viewScales': {
-    for (final e in s.viewScales.entries) e.key.name: e.value,
-  },
-  'detailSort': _sortToJson(s.detailSort),
+  'viewScales': {for (final e in s.viewScales.entries) e.key.name: e.value},
+  'detailSort': sortToJson(s.detailSort),
   'detailColumnWidths': {
     for (final e in s.detailColumnWidths.entries) '${e.key}': e.value,
   },
@@ -74,8 +71,8 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
 
 WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
     WorkspaceViewSettings(
-      filter: _filterFromJson(json['filter']),
-      sort: _sortFromJson(json['sort']),
+      filter: filterFromJson(json['filter']),
+      sort: sortFromJson(json['sort']),
       previewRatio: _ratioFromJson(json['previewRatio']),
       rootManageMode: _rootModeFromJson(json['rootManageMode']),
       visibleSystemTagIds: _systemTagsFromJson(json['systemTags']),
@@ -83,9 +80,9 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       tagDisplayOrder: _tagOrderFromJson(json['tagOrder']),
       expandedFolders: _expandedFromJson(json['expanded']),
       grouping: _groupingFromJson(json['grouping'], json['grouped']),
-      viewMode: _enumByName(ViewMode.values, json['viewMode']) ?? ViewMode.list,
+      viewMode: enumByName(ViewMode.values, json['viewMode']) ?? ViewMode.list,
       viewScales: _viewScalesFromJson(json['viewScales']),
-      detailSort: _sortFromJson(json['detailSort']),
+      detailSort: sortFromJson(json['detailSort']),
       detailColumnWidths: _detailWidthsFromJson(json['detailColumnWidths']),
       thumbnailSources: _thumbnailSourcesFromJson(json),
     );
@@ -130,7 +127,7 @@ Map<ViewMode, double> _viewScalesFromJson(Object? json) {
   if (json is! Map) return const <ViewMode, double>{};
   final result = <ViewMode, double>{};
   for (final entry in json.entries) {
-    final mode = _enumByName(ViewMode.values, entry.key);
+    final mode = enumByName(ViewMode.values, entry.key);
     final value = entry.value;
     if (mode != null && value is num) {
       result[mode] = value.toDouble().clamp(kViewScaleMin, kViewScaleMax);
@@ -139,21 +136,11 @@ Map<ViewMode, double> _viewScalesFromJson(Object? json) {
   return result;
 }
 
-/// 그룹 단계를 정의 id 나열로 저장한다(폴더 계층 키는 예약 id로). 텍스트·칩
-/// 계층이 그룹 키를 정의 id로 다루는 것과 같은 방식이라 재해석이 단순하다.
-List<int> _groupingToJson(FileGrouping grouping) => [
-  for (final k in grouping.keys) groupKeyId(k),
-];
-
 /// 저장된 그룹. `grouping` 키가 있으면 그걸 읽고, 없으면 구버전 `grouped`(bool)를
 /// 마이그레이션한다(참=폴더 계층, 거짓=평면). 둘 다 없으면 기본(폴더 계층).
 FileGrouping _groupingFromJson(Object? json, Object? legacyGrouped) {
-  if (json is List) {
-    return groupFromKeys([
-      for (final item in json)
-        if (item is int) groupKeyFromId(item),
-    ]);
-  }
+  final parsed = groupingFromJson(json);
+  if (parsed != null) return parsed;
   if (legacyGrouped is bool) {
     return legacyGrouped ? kDefaultGrouping : const FileGrouping();
   }
@@ -195,7 +182,7 @@ List<int> _tagOrderFromJson(Object? json) {
 /// 저장된 루트 관리 방식. 알 수 없거나 없으면 기본값. 루트는 불투명이 될 수
 /// 없으므로 opaque가 저장돼 있어도 기본값(managed)으로 되돌린다.
 FolderManageMode _rootModeFromJson(Object? json) {
-  final mode = _enumByName(FolderManageMode.values, json);
+  final mode = enumByName(FolderManageMode.values, json);
   if (mode == null || mode == FolderManageMode.opaque) {
     return kDefaultRootManageMode;
   }
@@ -208,68 +195,4 @@ double _ratioFromJson(Object? json) {
     return json.toDouble().clamp(kPreviewRatioMin, kPreviewRatioMax);
   }
   return kDefaultPreviewRatio;
-}
-
-Map<String, dynamic> _filterToJson(FileFilter filter) => {
-  'conditions': [
-    for (final c in filter.conditions)
-      {
-        'tag': c.tagDefinitionId,
-        'op': c.operator.name,
-        if (c.operand != null) 'operand': c.operand,
-        'exclude': c.exclude,
-      },
-  ],
-};
-
-FileFilter _filterFromJson(Object? json) {
-  if (json is! Map) return const FileFilter();
-  final raw = json['conditions'];
-  if (raw is! List) return const FileFilter();
-  final conditions = <FilterCondition>[];
-  for (final item in raw) {
-    if (item is! Map) continue;
-    final tag = item['tag'];
-    final op = _enumByName(FilterOperator.values, item['op']);
-    if (tag is! int || op == null) continue;
-    conditions.add(
-      FilterCondition(
-        tagDefinitionId: tag,
-        operator: op,
-        operand: item['operand'] as String?,
-        exclude: item['exclude'] == true,
-      ),
-    );
-  }
-  return FileFilter(conditions: conditions);
-}
-
-Map<String, dynamic> _sortToJson(FileSortOrder sort) => {
-  'keys': [
-    for (final k in sort.keys)
-      {'tag': k.tagDefinitionId, 'direction': k.direction.name},
-  ],
-};
-
-FileSortOrder _sortFromJson(Object? json) {
-  if (json is! Map) return const FileSortOrder();
-  final raw = json['keys'];
-  if (raw is! List) return const FileSortOrder();
-  final keys = <SortKey>[];
-  for (final item in raw) {
-    if (item is! Map) continue;
-    final tag = item['tag'];
-    final direction = _enumByName(SortDirection.values, item['direction']);
-    if (tag is! int || direction == null) continue;
-    keys.add(SortKey(tagDefinitionId: tag, direction: direction));
-  }
-  return FileSortOrder(keys: keys);
-}
-
-/// 이름으로 열거형 값을 찾되, 알 수 없는 이름이면 null(해당 항목은 건너뜀).
-T? _enumByName<T extends Enum>(List<T> values, Object? name) {
-  for (final v in values) {
-    if (v.name == name) return v;
-  }
-  return null;
 }

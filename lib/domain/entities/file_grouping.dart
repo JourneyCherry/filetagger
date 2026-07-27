@@ -1,3 +1,4 @@
+import '../../core/collections.dart';
 import 'tag_definition.dart';
 import 'tag_value_type.dart';
 
@@ -98,4 +99,12 @@ class FileGrouping {
     next.insert(newIndex, item);
     return FileGrouping(keys: next);
   }
+
+  /// 값 동등성(중첩 순서까지 같아야 같다). 조건 프리셋의 활성 여부 판정에 쓴다.
+  @override
+  bool operator ==(Object other) =>
+      other is FileGrouping && equalLists(other.keys, keys);
+
+  @override
+  int get hashCode => hashList(keys);
 }

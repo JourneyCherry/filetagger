@@ -4,10 +4,8 @@ import 'package:filetagger/presentation/common/file_icon_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 파일 노드(비디렉토리) 하나짜리 트리 리프.
-FileTreeNode _file(String path) => FileTreeNode(
-  FileNode(path: path, isDirectory: false),
-  const [],
-);
+FileTreeNode _file(String path) =>
+    FileTreeNode(FileNode(path: path, isDirectory: false), const []);
 
 /// 자식을 갖는 폴더 노드.
 FileTreeNode _dir(String path, List<TreeItem> children) =>
@@ -30,28 +28,26 @@ void main() {
     });
 
     test('경로를 따라 내려가 자식 계층과 지나온 항목을 준다', () {
-      final r = descendTreeByKeys(
-        roots,
-        [iconItemKey(roots[0]), 'p:a/b'],
-        iconItemKey,
-      );
+      final r = descendTreeByKeys(roots, [
+        iconItemKey(roots[0]),
+        'p:a/b',
+      ], iconItemKey);
       expect(r.items, hasLength(1));
       expect((r.items.single as FileTreeNode).node.path, 'a/b/y.txt');
       expect(r.trail.map((t) => (t as FileTreeNode).node.path), ['a', 'a/b']);
     });
 
     test('어긋난 키에서 멈춰 유효한 데까지만 내려간다', () {
-      final r = descendTreeByKeys(
-        roots,
-        [iconItemKey(roots[0]), 'p:a/does-not-exist'],
-        iconItemKey,
-      );
+      final r = descendTreeByKeys(roots, [
+        iconItemKey(roots[0]),
+        'p:a/does-not-exist',
+      ], iconItemKey);
       // 'a'까지만 유효 — 그 자식 계층을 돌려주고 낡은 키는 버린다.
       expect(r.trail.map((t) => (t as FileTreeNode).node.path), ['a']);
-      expect(
-        r.items.map((t) => (t as FileTreeNode).node.path),
-        ['a/x.txt', 'a/b'],
-      );
+      expect(r.items.map((t) => (t as FileTreeNode).node.path), [
+        'a/x.txt',
+        'a/b',
+      ]);
     });
 
     test('첫 키부터 어긋나면 루트에 머문다', () {

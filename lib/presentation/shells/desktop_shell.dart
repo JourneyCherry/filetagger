@@ -22,6 +22,7 @@ class DesktopShell extends StatelessWidget {
     required this.onOpenHelpTab,
     required this.scanning,
     required this.previewVisible,
+    required this.presetBarVisible,
     required this.filterBarVisible,
     required this.sortBarVisible,
     required this.groupBarVisible,
@@ -46,7 +47,8 @@ class DesktopShell extends StatelessWidget {
   final bool scanning;
   final bool previewVisible;
 
-  /// 도구모음의 필터·정렬·그룹 조건 줄을 각각 그릴지('보기' 메뉴가 토글).
+  /// 도구모음의 조건 프리셋·필터·정렬·그룹 줄을 각각 그릴지('보기' 메뉴가 토글).
+  final bool presetBarVisible;
   final bool filterBarVisible;
   final bool sortBarVisible;
   final bool groupBarVisible;
@@ -76,6 +78,7 @@ class DesktopShell extends StatelessWidget {
               AppCommandId.toggleFilterBar: filterBarVisible,
               AppCommandId.toggleSortBar: sortBarVisible,
               AppCommandId.toggleGrouping: groupBarVisible,
+              AppCommandId.togglePresetBar: presetBarVisible,
               AppCommandId.toggleListEdit: listEditEnabled,
             },
             child: Column(
@@ -83,11 +86,15 @@ class DesktopShell extends StatelessWidget {
                 if (root != null) ...[
                   WorkspaceBreadcrumb(path: root),
                   const Divider(),
-                  // 세 줄을 다 숨기면 도구모음 자리 자체를 비워 목록을 넓게 쓴다.
-                  if (filterBarVisible || sortBarVisible || groupBarVisible)
+                  // 네 줄을 다 숨기면 도구모음 자리 자체를 비워 목록을 넓게 쓴다.
+                  if (presetBarVisible ||
+                      filterBarVisible ||
+                      sortBarVisible ||
+                      groupBarVisible)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                       child: FileToolbar(
+                        showPresets: presetBarVisible,
                         showFilter: filterBarVisible,
                         showSort: sortBarVisible,
                         showGroup: groupBarVisible,

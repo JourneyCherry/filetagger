@@ -24,6 +24,7 @@ class CommandHandlers {
     this.toggleSortBar,
     this.toggleListEdit,
     this.toggleGrouping,
+    this.togglePresetBar,
     this.togglePreview,
     this.moveCursorUp,
     this.moveCursorDown,
@@ -60,6 +61,7 @@ class CommandHandlers {
   final VoidCallback? toggleSortBar;
   final VoidCallback? toggleListEdit;
   final VoidCallback? toggleGrouping;
+  final VoidCallback? togglePresetBar;
   final VoidCallback? togglePreview;
   final VoidCallback? moveCursorUp;
   final VoidCallback? moveCursorDown;
@@ -97,6 +99,7 @@ class CommandHandlers {
     AppCommandId.toggleSortBar => toggleSortBar,
     AppCommandId.toggleListEdit => toggleListEdit,
     AppCommandId.toggleGrouping => toggleGrouping,
+    AppCommandId.togglePresetBar => togglePresetBar,
     AppCommandId.togglePreview => togglePreview,
     AppCommandId.moveCursorUp => moveCursorUp,
     AppCommandId.moveCursorDown => moveCursorDown,

@@ -160,7 +160,7 @@ class _GroupQueryFieldState extends State<GroupQueryField> {
       items: widget.grouping.keys,
       onChanged: (keys) => widget.onChanged(groupFromKeys(keys)),
       completionsAt: _completionsAt,
-      hintText: '태그 이름으로 그룹 기준 입력',
+      hintText: kEmptyQueryLabel,
     );
   }
 }

@@ -69,19 +69,16 @@ void main() {
     });
 
     test('여러 조각은 텍스트 순서대로 중첩 순서가 된다', () {
-      final keys = _parse('"폴더 계층" 평점 메모')
-          .whereType<GroupQueryKey>()
-          .map((s) => s.key)
-          .toList();
+      final keys = _parse(
+        '"폴더 계층" 평점 메모',
+      ).whereType<GroupQueryKey>().map((s) => s.key).toList();
       expect(keys[0], isA<FolderHierarchyGroupKey>());
       expect((keys[1] as TagGroupKey).tagDefinitionId, _number.id);
       expect((keys[2] as TagGroupKey).tagDefinitionId, _text.id);
     });
 
     test('폴더 키 뒤의 값 키는 유효하다(폴더 내 재그룹)', () {
-      final keys = _parse('"폴더 계층" 평점')
-          .whereType<GroupQueryKey>()
-          .toList();
+      final keys = _parse('"폴더 계층" 평점').whereType<GroupQueryKey>().toList();
       expect(keys, hasLength(2));
     });
 

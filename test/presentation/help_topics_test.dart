@@ -9,9 +9,7 @@ void main() {
     test('모든 명령이 정확히 한 묶음에만 실린다', () {
       // 도움말은 카탈로그에서 라벨·단축키를 읽지만 묶음 배치는 손으로 적으므로,
       // 명령을 추가하고 도움말에 넣는 것을 잊으면 여기서 잡힌다.
-      final listed = [
-        for (final group in helpCommandGroups) ...group.commands,
-      ];
+      final listed = [for (final group in helpCommandGroups) ...group.commands];
       expect(listed.toSet().length, listed.length, reason: '두 묶음에 실린 명령이 있다');
       expect(
         listed.toSet(),

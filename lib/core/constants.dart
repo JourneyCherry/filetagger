@@ -23,6 +23,13 @@ const String settingsFileName = 'settings.json';
 /// [filetaggerDirName] 폴더 안에 저장되어 폴더 이동·복사 시 함께 따라온다.
 const String viewSettingsFileName = 'view.json';
 
+/// 워크스페이스별 조건 프리셋(이름 붙인 필터·정렬·그룹 한 벌) 파일 이름.
+///
+/// [filetaggerDirName] 폴더 안에 저장되어 폴더 이동·복사 시 함께 따라온다. 보기
+/// 설정([viewSettingsFileName])과 파일을 가르는 이유는, 그쪽이 zoom·펼침처럼 잦은
+/// 조작마다 통째로 다시 쓰이는 자리라 사용자가 손으로 만든 자산을 얹지 않기 위함이다.
+const String queryPresetsFileName = 'presets.json';
+
 /// 커스텀 이미지 태그가 등록한 외부 이미지의 캐시 폴더 이름.
 ///
 /// [filetaggerDirName] 폴더 안에 두어 폴더 이동·복사 시 함께 따라온다. 내용 해시를

@@ -27,6 +27,7 @@ enum AppCommandId {
   manageThumbnailTags,
   tagDisplayOrder,
   help,
+  about,
   exitApp,
   toggleFilterBar,
   toggleSortBar,
@@ -180,6 +181,14 @@ final List<AppCommand> appCommands = [
     icon: Icons.help_outline,
     // 도움말의 관용 키. 워크스페이스가 없어도 볼 수 있어야 하므로 늘 활성이다.
     shortcut: SingleActivator(LogicalKeyboardKey.f1),
+  ),
+  const AppCommand(
+    id: AppCommandId.about,
+    label: '정보',
+    intent: AboutIntent(),
+    icon: Icons.info_outline,
+    // 단축키 없음: 가끔 한 번 여는 자리라 키를 차지할 이유가 없다. 도움말과 달리
+    // 워크스페이스와도 무관하게 늘 활성이다.
   ),
   const AppCommand(
     id: AppCommandId.exitApp,

@@ -43,6 +43,7 @@ import '../shells/command_context_menu.dart';
 import '../shells/desktop_shell.dart';
 import '../shells/mobile_sheets.dart';
 import '../shells/mobile_shell.dart';
+import '../widgets/app_about_dialog.dart';
 import '../widgets/folder_manage_menu.dart';
 import '../widgets/help_dialog.dart';
 import '../widgets/preview_pane.dart';
@@ -990,8 +991,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       tagDisplayOrder: (hasWorkspace && !isDesktopPlatform)
           ? () => showTagOrderDialog(context)
           : null,
-      // 도움말은 폴더를 열기 전에도 봐야 하므로 워크스페이스에 매이지 않는다.
+      // 도움말·정보는 폴더를 열기 전에도 봐야 하므로 워크스페이스에 매이지 않는다.
       help: () => showHelpDialog(context),
+      about: () => showAppAboutDialog(context),
       // 도구모음·목록 수정 토글은 데스크톱 셸의 크롬에만 있다.
       toggleFilterBar: (hasWorkspace && isDesktopPlatform)
           ? _toggleFilterBar

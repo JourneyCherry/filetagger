@@ -203,6 +203,8 @@ class AppMenuBar extends ConsumerWidget {
       MenuSubmenu('도움말', [
         const MenuCommand(AppCommandId.help),
         MenuSubmenu('항목별 보기', _helpTabItems()),
+        const MenuDivider(),
+        const MenuCommand(AppCommandId.about),
       ]),
     ];
   }

@@ -69,10 +69,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  # 앱 자신의 라이선스 원문. 정보 다이얼로그의 라이선스 목록이 읽는다(의존 패키지의
+  # 라이선스는 빌드가 자동으로 모으지만 앱 자신의 것은 실리지 않는다).
+  assets:
+    - LICENSE
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

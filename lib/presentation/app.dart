@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'theme.dart';
@@ -14,7 +15,7 @@ class FileTaggerApp extends ConsumerWidget {
     final themeMode =
         ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system;
     return MaterialApp(
-      title: 'File Tagger',
+      title: appDisplayName,
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
       themeMode: themeMode,

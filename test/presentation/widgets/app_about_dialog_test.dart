@@ -1,0 +1,43 @@
+import 'package:filetagger/core/constants.dart';
+import 'package:filetagger/presentation/commands/app_commands.dart';
+import 'package:filetagger/presentation/widgets/app_about_dialog.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+/// 정보 다이얼로그를 띄운 상태의 앱. 다이얼로그는 Navigator 아래에서만 열리므로
+/// 버튼을 거친다.
+Future<void> pumpAbout(WidgetTester tester) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showAppAboutDialog(context),
+            child: const Text('열기'),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('열기'));
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  testWidgets('정보는 명령 라벨을 제목으로, 앱 이름을 본문에 보인다', (tester) async {
+    await pumpAbout(tester);
+
+    expect(find.text(commandOf(AppCommandId.about).label), findsOneWidget);
+    expect(find.text(appDisplayName), findsOneWidget);
+  });
+
+  testWidgets('라이선스 화면으로 넘어간다', (tester) async {
+    // 라이선스 원문은 프레임워크 내장 화면이 맡는다. 여기선 그 입구가 살아 있는지만
+    // 본다(목록 내용은 빌드가 모으는 것이라 테스트 환경에 없다).
+    await pumpAbout(tester);
+    await tester.tap(find.text('오픈소스 라이선스'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LicensePage), findsOneWidget);
+  });
+}

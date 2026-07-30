@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/constants.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../common/pointer_presence.dart';
@@ -50,6 +51,7 @@ class MobileShell extends StatelessWidget {
     AppCommandId.manageTags,
     null,
     AppCommandId.help,
+    AppCommandId.about,
   ];
 
   bool get _selecting => selectionCount > 0;
@@ -79,7 +81,7 @@ class MobileShell extends StatelessWidget {
   AppBar _normalAppBar() {
     final root = workspaceRoot;
     return AppBar(
-      title: Text(root == null ? 'File Tagger' : p.basename(root)),
+      title: Text(root == null ? appDisplayName : p.basename(root)),
       bottom: _progress,
       actions: [
         if (root != null) ...[

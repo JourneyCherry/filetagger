@@ -97,6 +97,11 @@ class HelpIntent extends Intent {
   const HelpIntent();
 }
 
+/// 앱 정보(오픈소스 라이선스 등)를 보인다.
+class AboutIntent extends Intent {
+  const AboutIntent();
+}
+
 /// 앱을 종료한다.
 class ExitAppIntent extends Intent {
   const ExitAppIntent();

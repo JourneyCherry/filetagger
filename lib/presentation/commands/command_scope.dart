@@ -19,6 +19,7 @@ class CommandHandlers {
     this.manageThumbnailTags,
     this.tagDisplayOrder,
     this.help,
+    this.about,
     this.exitApp,
     this.toggleFilterBar,
     this.toggleSortBar,
@@ -56,6 +57,7 @@ class CommandHandlers {
   final VoidCallback? manageThumbnailTags;
   final VoidCallback? tagDisplayOrder;
   final VoidCallback? help;
+  final VoidCallback? about;
   final VoidCallback? exitApp;
   final VoidCallback? toggleFilterBar;
   final VoidCallback? toggleSortBar;
@@ -94,6 +96,7 @@ class CommandHandlers {
     AppCommandId.manageThumbnailTags => manageThumbnailTags,
     AppCommandId.tagDisplayOrder => tagDisplayOrder,
     AppCommandId.help => help,
+    AppCommandId.about => about,
     AppCommandId.exitApp => exitApp,
     AppCommandId.toggleFilterBar => toggleFilterBar,
     AppCommandId.toggleSortBar => toggleSortBar,

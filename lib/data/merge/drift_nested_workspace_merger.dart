@@ -7,6 +7,7 @@ import '../../domain/entities/tag_value_type.dart';
 import '../../domain/repositories/nested_workspace_merger.dart';
 import '../db/app_database.dart';
 import '../db/database_connection.dart';
+import '../queue/command_queue_store.dart';
 import '../thumbnails/thumbnail_store.dart';
 
 /// [NestedWorkspaceMerger]의 Drift 구현. 하위 워크스페이스의 태거 DB 행을 현재
@@ -144,6 +145,14 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
       fromRoot: childAbs,
       toRoot: parentRoot,
       keys: imageKeys,
+    );
+
+    // 2.6) 하위 태거의 대기 큐도 상위로 옮긴다(캐시와 같은 이유 — 원본을 지우면
+    //      함께 사라진다). 대상 경로는 루트 상대 표기라 하위 경로를 접두로 붙인다.
+    await migrateCommandQueue(
+      fromRoot: childAbs,
+      toRoot: parentRoot,
+      childRelPath: childRelPath,
     );
 
     // 3) 원본 태거 폴더 제거(옵션).

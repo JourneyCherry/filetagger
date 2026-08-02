@@ -20,6 +20,7 @@ void main() {
 /// 앱 자신의 라이선스를 라이선스 목록에 얹는다. 의존 패키지의 것은 빌드가 모아
 /// 주지만 앱 자신의 것은 실리지 않는다. 목록을 열 때 비로소 읽히는 지연 생성자다.
 Stream<LicenseEntry> _appLicense() async* {
-  yield LicenseEntryWithLineBreaks([appDisplayName], await rootBundle
-      .loadString(appLicenseAssetPath));
+  yield LicenseEntryWithLineBreaks([
+    appDisplayName,
+  ], await rootBundle.loadString(appLicenseAssetPath));
 }

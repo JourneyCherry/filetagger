@@ -12,10 +12,8 @@ import 'dialog_utils.dart';
 /// 앱과 의존 패키지의 라이선스를 목록으로 모아 주는 일을 다시 만들 이유가 없다.
 ///
 /// 워크스페이스 상태를 읽지 않는다(폴더를 열기 전에도 볼 수 있어야 한다).
-Future<void> showAppAboutDialog(BuildContext context) => showDialog<void>(
-  context: context,
-  builder: (_) => const _AboutDialog(),
-);
+Future<void> showAppAboutDialog(BuildContext context) =>
+    showDialog<void>(context: context, builder: (_) => const _AboutDialog());
 
 class _AboutDialog extends StatelessWidget {
   const _AboutDialog();

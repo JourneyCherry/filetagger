@@ -21,6 +21,12 @@ abstract interface class TagRepository {
     required bool allowMultiple,
   });
 
+  /// 이름으로 태그 정의를 찾는다(없으면 null). 이름은 정의 간 중복되지 않는다.
+  ///
+  /// 외부 앱은 DB의 정의 id를 알 수 없어 태그를 이름으로 지목하므로, 큐 적용이
+  /// 이 조회로 id를 얻는다.
+  Future<TagDefinition?> definitionByName(String name);
+
   /// 기존 태그 정의를 갱신한다(id 필수).
   Future<void> updateDefinition(TagDefinition definition);
 
@@ -43,6 +49,12 @@ abstract interface class TagRepository {
 
   /// 전체 부여 기록을 정의와 조인해 스트림한다(목록 칩·다이얼로그 구독용).
   Stream<List<AssignedTag>> watchAssignments();
+
+  /// 파일 하나에 붙은 부여 기록을 정의와 함께 **한 번** 읽어 온다.
+  ///
+  /// 스트림을 구독하지 않는 일회성 처리(큐 적용)가 "이미 같은 값이 붙어 있는가",
+  /// "이 값의 부여를 골라 지운다"를 판단하는 데 쓴다.
+  Future<List<AssignedTag>> assignmentsOfFile(int fileNodeId);
 
   /// 여러 파일에 한 태그를 일괄 부여한다. 정의가 다중 부여를 허용하지 않으면
   /// 파일별로 upsert(기존 값 갱신), 허용하면 새 기록을 추가한다.

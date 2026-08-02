@@ -5,6 +5,7 @@ import '../../domain/entities/file_tree_node.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../common/selection_controller.dart';
+import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/workspace_provider.dart';
@@ -90,6 +91,7 @@ class DesktopStatusBar extends ConsumerWidget {
         ),
       ],
       const Spacer(),
+      ..._externalCommandStatus(ref, scheme),
       if (!filter.isEmpty) ...[
         Text('필터 ${filter.conditions.length}'),
         const _Separator(),
@@ -119,6 +121,32 @@ class DesktopStatusBar extends ConsumerWidget {
       ),
     ];
   }
+}
+
+/// 외부 앱 연동(드롭인 큐)이 마지막으로 바꾼 건수. 성공을 다이얼로그로 알리지
+/// 않는 대칭을 지키되, **사용자가 하지 않은 태그 변경**과 **조용한 실패**는 보이게
+/// 하는 최소한이다. 아무 일도 없었으면 자리를 차지하지 않는다.
+List<Widget> _externalCommandStatus(WidgetRef ref, ColorScheme scheme) {
+  final outcome = ref.watch(lastCommandOutcomeProvider);
+  if (outcome == null) return const [];
+  return [
+    Tooltip(
+      message: outcome.failed > 0
+          ? '외부 앱이 요청한 태그 변경입니다. 실패한 항목은 큐 파일에 사유가 남아 있습니다.'
+          : '외부 앱이 요청한 태그 변경입니다.',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (outcome.applied > 0) Text('외부 적용 ${outcome.applied}'),
+          if (outcome.applied > 0 && outcome.failed > 0)
+            const SizedBox(width: 6),
+          if (outcome.failed > 0)
+            Text('실패 ${outcome.failed}', style: TextStyle(color: scheme.error)),
+        ],
+      ),
+    ),
+    const _Separator(),
+  ];
 }
 
 /// 상태 항목 사이의 가운뎃점 구분자.

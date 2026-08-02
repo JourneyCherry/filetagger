@@ -29,6 +29,7 @@ import '../common/navigation_cursor.dart';
 import '../common/pointer_presence.dart';
 import '../common/preview_split.dart';
 import '../common/selection_controller.dart';
+import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
@@ -74,6 +75,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// watcher가 트리거한 백그라운드 재스캔이 진행 중인지. 전면 스피너를 띄우지
   /// 않으며(_scanning과 별개), 재스캔 중복 실행을 막는 데 쓴다.
   bool _backgroundScanning = false;
+
+  /// 외부 앱 큐 패스가 진행 중인지. 스캔 뒤와 큐 감시자 신호 양쪽에서 불려
+  /// 겹칠 수 있어 하나만 돌게 막는다.
+  bool _applyingQueue = false;
 
   /// 프리뷰 창을 목록 옆(또는 위)에 표시할지. 보기 토글로 전환한다.
   bool _previewVisible = true;
@@ -135,8 +140,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final rootMode = ref.read(rootManageModeProvider);
     setState(() => _scanning = true);
+    var scanned = false;
     try {
       final result = await usecase(root, rootManageMode: rootMode);
+      scanned = true;
       if (!mounted) return;
       await _reconcileNestedDecisions(result.nestedFiletaggerDirs);
     } catch (e) {
@@ -148,6 +155,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
+    if (scanned) await _applyQueue();
   }
 
   /// watcher가 감지한 디스크 변화에 맞춰 조용히 재스캔한다. 전면 스피너를 띄우지
@@ -161,12 +169,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final rootMode = ref.read(rootManageModeProvider);
     _backgroundScanning = true;
+    var scanned = false;
     try {
       await usecase(root, rootManageMode: rootMode);
+      scanned = true;
     } catch (_) {
       // 백그라운드 재스캔 실패는 조용히 무시한다(다음 변화 때 재시도).
     } finally {
       _backgroundScanning = false;
+    }
+    if (scanned) await _applyQueue();
+  }
+
+  /// 외부 앱이 떨궈 둔 명령 큐를 한 번 훑어 적용한다.
+  ///
+  /// **스캔이 끝난 뒤에만** 돈다 — 파일 추가와 태그 부여가 한 번에 성립하려면
+  /// 인덱스가 먼저 최신이어야 하고, 스캔이 실패한 판에 돌리면 멀쩡한 요청이 "대상
+  /// 없음"으로 판정된다. 큐 감시자의 신호로도 불리므로 겹쳐 돌지 않게 막는다.
+  Future<void> _applyQueue() async {
+    if (_scanning || _backgroundScanning || _applyingQueue) return;
+    final usecase = ref.read(applyExternalCommandsProvider);
+    if (usecase == null) return;
+
+    _applyingQueue = true;
+    try {
+      final outcome = await usecase(
+        rootManageMode: ref.read(rootManageModeProvider),
+      );
+      ref.read(lastCommandOutcomeProvider.notifier).record(outcome);
+    } catch (_) {
+      // 큐 적용 실패는 조용히 무시한다(항목별 실패는 큐 파일에 기록된다).
+    } finally {
+      _applyingQueue = false;
     }
   }
 
@@ -1093,6 +1127,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // 디스크 변화(watcher, 디바운스됨)를 구독해 백그라운드 재스캔을 트리거한다.
     ref.listen(workspaceChangesProvider, (_, next) {
       next.whenData((_) => _backgroundScan());
+    });
+
+    // 외부 앱이 큐에 명령을 떨구면 재스캔이 아니라 큐 처리로 보낸다. 앱이 켜져
+    // 있는 동안 들어온 요청도 이 경로로 덮인다.
+    ref.listen(commandQueueChangesProvider, (_, next) {
+      next.whenData((_) => _applyQueue());
     });
 
     // 루트 관리 방식이 바뀌면(사용자 토글, 또는 폴더 열 때 뷰 설정 비동기 로드

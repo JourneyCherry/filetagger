@@ -43,6 +43,16 @@ class DriftTagRepository implements TagRepository {
   }
 
   @override
+  Future<TagDefinition?> definitionByName(String name) async {
+    final row =
+        await (_db.select(_db.tagDefinitions)
+              ..where((t) => t.name.equals(name))
+              ..limit(1))
+            .getSingleOrNull();
+    return row == null ? null : _toDefinition(row);
+  }
+
+  @override
   Future<void> updateDefinition(TagDefinition definition) async {
     final id = definition.id;
     if (id == null) return;
@@ -124,6 +134,26 @@ class DriftTagRepository implements TagRepository {
         );
       }).toList();
     });
+  }
+
+  @override
+  Future<List<AssignedTag>> assignmentsOfFile(int fileNodeId) async {
+    final rows =
+        await (_db.select(
+          _db.tagAssignments,
+        )..where((t) => t.fileNodeId.equals(fileNodeId))).join([
+          innerJoin(
+            _db.tagDefinitions,
+            _db.tagDefinitions.id.equalsExp(_db.tagAssignments.tagDefinitionId),
+          ),
+        ]).get();
+    return [
+      for (final row in rows)
+        AssignedTag(
+          assignment: _toAssignment(row.readTable(_db.tagAssignments)),
+          definition: _toDefinition(row.readTable(_db.tagDefinitions)),
+        ),
+    ];
   }
 
   @override

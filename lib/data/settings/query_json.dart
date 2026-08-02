@@ -90,7 +90,7 @@ FileGrouping? groupingFromJson(Object? json) {
 /// 이름으로 열거형 값을 찾되, 알 수 없는 이름이면 null(해당 항목은 건너뜀).
 ///
 /// 열거형은 이름으로 저장해 값 순서 변경에 영향받지 않는다(태그 유형 저장과 동일
-/// 원칙). 설정 계열 저장소가 함께 쓴다.
+/// 원칙). data 계층의 파일 코덱들이 함께 쓴다.
 T? enumByName<T extends Enum>(List<T> values, Object? name) {
   for (final v in values) {
     if (v.name == name) return v;

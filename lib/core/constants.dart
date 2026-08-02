@@ -39,6 +39,13 @@ const String viewSettingsFileName = 'view.json';
 /// 조작마다 통째로 다시 쓰이는 자리라 사용자가 손으로 만든 자산을 얹지 않기 위함이다.
 const String queryPresetsFileName = 'presets.json';
 
+/// 외부 앱이 명령 파일을 떨궈 두는 드롭인 큐 폴더 이름.
+///
+/// [filetaggerDirName] 폴더 안에 둔다 — 폴더 이동·복사 시 대기 중인 명령이 함께
+/// 따라오고, 스캔 제외도 그대로 물려받는다. **항목당 파일 하나**이며 외부 앱은
+/// 임시 이름으로 쓴 뒤 rename해 반쯤 쓰인 파일이 읽히지 않게 한다.
+const String commandQueueDirName = 'queue';
+
 /// 커스텀 이미지 태그가 등록한 외부 이미지의 캐시 폴더 이름.
 ///
 /// [filetaggerDirName] 폴더 안에 두어 폴더 이동·복사 시 함께 따라온다. 내용 해시를

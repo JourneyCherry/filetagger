@@ -42,6 +42,11 @@ class ReconnectIntent extends Intent {
   const ReconnectIntent();
 }
 
+/// 선택한 항목의 태그를 요청함 형식의 파일로 내보낸다.
+class ExportSelectionIntent extends Intent {
+  const ExportSelectionIntent();
+}
+
 /// 선택한 항목의 위치를 OS 파일 관리자에서 연다.
 class RevealInFileManagerIntent extends Intent {
   const RevealInFileManagerIntent();
@@ -90,6 +95,21 @@ class TagDisplayOrderIntent extends Intent {
 /// 썸네일 출처로 쓸 링크·이미지 태그를 고르는 다이얼로그를 연다.
 class ManageThumbnailTagsIntent extends Intent {
   const ManageThumbnailTagsIntent();
+}
+
+/// 키워드를 새로 만든다.
+class CreateKeywordIntent extends Intent {
+  const CreateKeywordIntent();
+}
+
+/// 선택한 키워드의 이름을 고친다(키워드는 이름이 전부다).
+class EditKeywordIntent extends Intent {
+  const EditKeywordIntent();
+}
+
+/// 선택한 키워드를 지운다(확인을 한 번 거친다).
+class DeleteKeywordIntent extends Intent {
+  const DeleteKeywordIntent();
 }
 
 /// 도움말(사용법·활용 팁·시스템 태그 설명)을 보인다.

@@ -5,7 +5,7 @@ import '../../core/constants.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../common/pointer_presence.dart';
-import 'command_context_menu.dart';
+import 'menu_model.dart';
 
 /// 모바일 셸의 골격: AppBar(+선택 모드 컨텍스트 AppBar) · 본문 · FAB.
 ///
@@ -39,19 +39,19 @@ class MobileShell extends StatelessWidget {
   /// 목록·프리뷰(워크스페이스 있음) 또는 최근 폴더 목록(빈 상태).
   final Widget body;
 
-  /// 오버플로 메뉴에 늘어놓을 명령들(null=구분선).
-  static const List<AppCommandId?> _overflowCommands = [
-    AppCommandId.openFolder,
-    AppCommandId.rescan,
-    AppCommandId.closeFolder,
-    null,
-    AppCommandId.tagDisplayOrder,
-    AppCommandId.togglePreview,
-    null,
-    AppCommandId.manageTags,
-    null,
-    AppCommandId.help,
-    AppCommandId.about,
+  /// 오버플로 메뉴에 늘어놓을 항목들.
+  static const List<MenuNode> _overflowCommands = [
+    MenuCommand(AppCommandId.openFolder),
+    MenuCommand(AppCommandId.rescan),
+    MenuCommand(AppCommandId.closeFolder),
+    MenuDivider(),
+    MenuCommand(AppCommandId.tagDisplayOrder),
+    MenuCommand(AppCommandId.togglePreview),
+    MenuDivider(),
+    MenuCommand(AppCommandId.manageTags),
+    MenuDivider(),
+    MenuCommand(AppCommandId.help),
+    MenuCommand(AppCommandId.about),
   ];
 
   bool get _selecting => selectionCount > 0;
@@ -126,10 +126,17 @@ class MobileShell extends StatelessWidget {
   }
 
   Widget _overflowMenu() {
-    return PopupMenuButton<AppCommandId>(
-      tooltip: '더 보기',
-      onSelected: (id) => handlers.handlerOf(id)?.call(),
-      itemBuilder: (_) => commandMenuItems(_overflowCommands, handlers),
+    return MenuAnchor(
+      menuChildren: [
+        for (final node in _overflowCommands)
+          materialMenuNode(node, handlers: handlers, showIcons: true),
+      ],
+      builder: (_, controller, _) => IconButton(
+        icon: const Icon(Icons.more_vert),
+        tooltip: '더 보기',
+        onPressed: () =>
+            controller.isOpen ? controller.close() : controller.open(),
+      ),
     );
   }
 

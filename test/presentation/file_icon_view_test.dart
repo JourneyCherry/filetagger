@@ -1,15 +1,16 @@
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/file_tree_node.dart';
 import 'package:filetagger/presentation/common/file_icon_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 파일 노드(비디렉토리) 하나짜리 트리 리프.
 FileTreeNode _file(String path) =>
-    FileTreeNode(FileNode(path: path, isDirectory: false), const []);
+    FileTreeNode(FileNode(path: path, kind: NodeKind.file), const []);
 
 /// 자식을 갖는 폴더 노드.
 FileTreeNode _dir(String path, List<TreeItem> children) =>
-    FileTreeNode(FileNode(path: path, isDirectory: true), children);
+    FileTreeNode(FileNode(path: path, kind: NodeKind.directory), children);
 
 void main() {
   group('descendTreeByKeys', () {

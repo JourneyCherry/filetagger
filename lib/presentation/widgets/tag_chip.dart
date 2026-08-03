@@ -26,6 +26,7 @@ class TagChip extends StatelessWidget {
     this.tooltip,
     this.onDeleted,
     this.dragIndex,
+    this.unresolved = false,
   });
 
   final TagDefinition definition;
@@ -50,6 +51,10 @@ class TagChip extends StatelessWidget {
   /// 지정하면 캡슐 왼쪽에 순서 변경 드래그 손잡이가 켜진다(ReorderableListView 안에서).
   final int? dragIndex;
 
+  /// 링크 값이 대상을 가리키지 못하는 상태(미해결 링크)임을 이름 앞 아이콘으로 알린다.
+  /// 색·모양은 그대로 두고 표식만 얹어, 다른 캡슐과 나란히 놓여도 줄이 흐트러지지 않는다.
+  final bool unresolved;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -73,6 +78,9 @@ class TagChip extends StatelessWidget {
       background: background,
       foreground: foreground,
       name: definition.name,
+      namePrefix: unresolved
+          ? Icon(Icons.link_off, size: kCapsuleIconSize, color: foreground)
+          : null,
       value: shown == null ? null : Text(shown),
       onTap: onPressed,
       onDoubleTap: onDoubleTap,
@@ -86,6 +94,10 @@ class TagChip extends StatelessWidget {
 /// 부여된 태그를 목록·프리뷰·부여 다이얼로그에 그리는 칩. 링크 태그면 저장값(대상
 /// 노드 id)을 **대상 이름**으로 풀어 보이고, 더블탭(더블클릭)으로 그 노드로 이동한다
 /// (툴팁에 대상 전체 경로). 나머지 유형은 [TagChip]과 동작이 같다.
+///
+/// 대상을 가리키지 못하는 링크(**미해결 링크**)는 표식을 달고, 같은 더블탭이 이동
+/// 대신 **재연결**(값 편집 = 대상 다시 고르기)로 간다 — 갈 곳이 없어 비는 제스처를
+/// 사용자가 할 일에 그대로 쓴다. 제거는 다른 칩과 같은 x다.
 class AssignedTagChip extends ConsumerWidget {
   const AssignedTagChip({
     super.key,
@@ -125,21 +137,32 @@ class AssignedTagChip extends ConsumerWidget {
     }
 
     final raw = tag.value;
-    final targetId = raw == null ? null : int.tryParse(raw);
-    final target = targetId == null
+    final hasValue = raw != null && raw.isNotEmpty;
+    // 가져오기가 미해결로 남긴 값은 노드 id가 아니라 원문이라 id 해석을 태우지 않는다.
+    final target = (tag.valueUnresolved || !hasValue)
         ? null
-        : ref.watch(fileNodesByIdProvider)[targetId];
-    // 대상을 찾지 못하면(삭제·워크스페이스 밖) 없음 표식으로 두고 이동을 막는다.
-    final display = target?.name ?? '(없음)';
+        : ref.watch(fileNodesByIdProvider)[int.tryParse(raw)];
+    final unresolved = hasValue && target == null;
     return TagChip(
       definition: def,
-      displayValue: display,
-      tooltip: target?.path,
+      // 미해결이라도 원문(경로·키워드 이름)이 있으면 그것을 보인다 — 사람이 읽을 수
+      // 있어 무엇을 가리키려던 링크인지 알 수 있다. 떠 버린 id는 뜻이 없어 감춘다.
+      displayValue: tag.valueUnresolved ? raw : (target?.name ?? '(없음)'),
+      unresolved: unresolved,
+      tooltip: unresolved ? _unresolvedHint : target?.path,
       onPressed: onPressed,
-      onDoubleTap: target == null
-          ? null
-          : () => ref.read(nodeRevealProvider.notifier).request(target.id!),
+      // 갈 곳이 있으면 이동, 없으면 재연결. 재연결은 값 편집과 같은 경로다(대상을
+      // 다시 고르면 저장소가 미해결 표식을 함께 내린다).
+      onDoubleTap: unresolved
+          ? onPressed
+          : (target == null
+                ? null
+                : () => ref
+                      .read(nodeRevealProvider.notifier)
+                      .request(target.id!)),
       onDeleted: onDeleted,
     );
   }
 }
+
+const String _unresolvedHint = '가리키는 대상을 찾지 못했습니다. 더블클릭해 다시 연결하거나 x로 지웁니다.';

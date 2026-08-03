@@ -111,11 +111,39 @@ const List<UsageTip> usageTips = [
     command: AppCommandId.manageThumbnailTags,
   ),
   UsageTip(
+    title: '태그값에 담기 어려운 정보를 키워드로 세우기',
+    body:
+        '작가처럼 그 자체가 여러 정보(국적·계정 등)를 갖는 대상은 태그값 문자열로 적으면 '
+        '더 붙일 자리가 없습니다. 키워드를 하나 만들어 그 정보들을 키워드의 태그로 붙이고, '
+        '그림 파일에는 링크 태그로 그 키워드를 가리키세요. 키워드 캡슐을 더블클릭하면 곧장 '
+        '그 대상으로 이동하고, 키워드에 붙인 태그로 되레 그림을 찾아낼 수도 있습니다.',
+    icon: Icons.sell_outlined,
+    command: AppCommandId.createKeyword,
+  ),
+  UsageTip(
     title: '링크 태그로 다음 항목 넘기기',
     body:
         '링크 태그는 썸네일 외에도 쓸 수 있습니다. 링크 캡슐을 더블클릭(모바일은 '
         '더블탭)하면 가리키는 항목으로 곧장 이동하므로, 만화의 다음 권처럼 이어 보는 '
         '순서를 태그로 이어 둘 수 있습니다.',
     icon: Icons.link,
+  ),
+  UsageTip(
+    title: '태그를 다른 폴더로 옮기기',
+    body:
+        '가져오기 기능은 따로 없습니다. 항목을 골라 내보내면 요청함 형식의 파일이 나오고, '
+        '그 파일을 받는 폴더의 .filetagger/queue/에 넣기만 하면 그대로 적용됩니다. 태그가 '
+        '없으면 값 유형·색까지 그대로 만들어집니다.',
+    icon: Icons.ios_share,
+    command: AppCommandId.exportSelection,
+  ),
+  UsageTip(
+    title: '끊어진 링크 모아서 손보기',
+    body:
+        '가리키던 항목이 지워졌거나, 다른 폴더에서 가져온 링크의 대상이 아직 없으면 링크 '
+        '캡슐에 표식이 붙습니다. 필터에서 "미해결 링크" 태그를 "있음"으로 걸면 그런 항목만 '
+        '모이고, 캡슐을 더블클릭해 다시 연결하거나 x로 지우면 됩니다.',
+    icon: Icons.link_off,
+    command: AppCommandId.toggleFilterBar,
   ),
 ];

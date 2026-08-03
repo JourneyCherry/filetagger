@@ -1,6 +1,7 @@
 import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/external_tag_command.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
 import 'package:filetagger/domain/entities/tag_assignment.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
@@ -10,6 +11,7 @@ import 'package:filetagger/domain/repositories/command_queue_repository.dart';
 import 'package:filetagger/domain/repositories/file_node_repository.dart';
 import 'package:filetagger/domain/repositories/tag_repository.dart';
 import 'package:filetagger/domain/usecases/apply_external_commands.dart';
+import 'package:filetagger/domain/usecases/keyword_name.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -31,7 +33,7 @@ void main() {
     nodes.index['a.png'] = const FileNode(
       id: 1,
       path: 'a.png',
-      isDirectory: false,
+      kind: NodeKind.file,
     );
     env.onDisk.add('a.png');
   }
@@ -247,7 +249,7 @@ void main() {
       nodes.index['box'] = const FileNode(
         id: 9,
         path: 'box',
-        isDirectory: true,
+        kind: NodeKind.directory,
       );
       env.onDisk.add('box/a.png');
       enqueue(const ExternalTagCommand(targetPath: 'box/a.png', tagName: '읽음'));
@@ -261,7 +263,7 @@ void main() {
       nodes.index['a.png'] = FileNode(
         id: 1,
         path: 'a.png',
-        isDirectory: false,
+        kind: NodeKind.file,
         missingSince: DateTime(2026),
       );
       enqueue(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
@@ -324,7 +326,7 @@ void main() {
       nodes.index['b.png'] = const FileNode(
         id: 7,
         path: 'b.png',
-        isDirectory: false,
+        kind: NodeKind.file,
       );
       tags.define('다음 화', TagValueType.link);
       enqueue(
@@ -347,6 +349,45 @@ void main() {
 
       expect(tags.valuesOf(1, '다음 화'), ['7']);
       expect(queue.marked['q2']?.reason, CommandFailureReason.invalidValue);
+    });
+
+    test('missingLink: keep이면 없는 대상의 경로를 미해결로 남긴다', () async {
+      tags.define('다음 화', TagValueType.link);
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a.png',
+          tagName: '다음 화',
+          value: './없는/zzz.png',
+          missingLink: MissingLinkPolicy.keep,
+        ),
+      );
+
+      await applier()();
+
+      expect(queue.marked, isEmpty);
+      // 원문은 인덱스 키와 같은 꼴로 정리해 둔다 — 나중에 그 경로가 생기면 사람이
+      // 눈으로 짝을 맞출 수 있다.
+      expect(tags.valuesOf(1, '다음 화'), ['없는/zzz.png']);
+      expect(tags.unresolvedOf(1, '다음 화'), [isTrue]);
+    });
+
+    test('미해결로 남긴 뒤 다시 같은 명령이 와도 덧쓰지 않는다', () async {
+      tags.define('다음 화', TagValueType.link);
+      const command = ExternalTagCommand(
+        targetPath: 'a.png',
+        tagName: '다음 화',
+        value: 'zzz.png',
+        missingLink: MissingLinkPolicy.keep,
+      );
+      enqueue(command);
+      await applier()();
+      final writes = tags.writes;
+
+      enqueue(command, id: 'q2');
+      await applier()();
+
+      expect(tags.writes, writes);
+      expect(tags.valuesOf(1, '다음 화'), ['zzz.png']);
     });
 
     test('이미지는 외부 경로를 캐시 키로 바꾸고, 등록에 실패하면 실패다', () async {
@@ -394,12 +435,270 @@ void main() {
     });
   });
 
+  group('키워드 대상', () {
+    setUp(() {
+      withSingleFile();
+      tags.define('국적', TagValueType.text);
+    });
+
+    test('이름으로 키워드를 찾아 태그를 붙인다', () async {
+      nodes.keywords['작가 A'] = const FileNode(
+        id: 50,
+        path: '작가 A',
+        kind: NodeKind.keyword,
+      );
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: '작가 A',
+          targetKind: ExternalNodeKind.keyword,
+          tagName: '국적',
+          value: '일본',
+        ),
+      );
+
+      await applier()();
+
+      expect(tags.valuesOf(50, '국적'), ['일본']);
+      expect(queue.removed, ['q1']);
+    });
+
+    test('같은 이름의 파일이 있어도 키워드를 지목한다(키 공간이 다르다)', () async {
+      // 디스크에 '작가 A'라는 파일이 있고, 이름이 같은 키워드도 있다.
+      nodes.index['작가 A'] = const FileNode(
+        id: 3,
+        path: '작가 A',
+        kind: NodeKind.file,
+      );
+      env.onDisk.add('작가 A');
+      nodes.keywords['작가 A'] = const FileNode(
+        id: 50,
+        path: '작가 A',
+        kind: NodeKind.keyword,
+      );
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: '작가 A',
+          targetKind: ExternalNodeKind.keyword,
+          tagName: '국적',
+          value: '일본',
+        ),
+      );
+
+      await applier()();
+
+      expect(tags.valuesOf(50, '국적'), ['일본']);
+      expect(tags.valuesOf(3, '국적'), isEmpty);
+    });
+
+    test('없는 키워드는 기본적으로 즉시 실패다(보류가 아니다)', () async {
+      // 키워드는 앱이 만들어야만 존재하므로 스캔과 경합할 일이 없다 — 기다릴 이유가
+      // 없어 보류로 두지 않는다(보류는 표식이 없어 나이로도 지워지지 않는다).
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: '없는 작가',
+          targetKind: ExternalNodeKind.keyword,
+          tagName: '국적',
+          value: '일본',
+        ),
+      );
+
+      final outcome = await applier()();
+
+      expect(outcome.held, 0);
+      expect(queue.marked['q1']?.reason, CommandFailureReason.targetMissing);
+      expect(nodes.createdKeywords, isEmpty);
+    });
+
+    test('missingKeyword: create면 본문 없이 만들어 진행한다', () async {
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: '작가 B',
+          targetKind: ExternalNodeKind.keyword,
+          missingKeyword: MissingKeywordPolicy.create,
+          tagName: '국적',
+          value: '한국',
+        ),
+      );
+
+      await applier()();
+
+      expect(nodes.createdKeywords, ['작가 B']);
+      expect(tags.valuesOf(100, '국적'), ['한국']);
+      expect(queue.removed, ['q1']);
+    });
+
+    test('경로 구분자가 든 이름은 정규화하지 않고 형식 오류로 거절한다', () async {
+      // 키워드 이름은 경로가 아니다 — 'a/작가'를 접어 받으면 뜻이 달라진다.
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a/작가',
+          targetKind: ExternalNodeKind.keyword,
+          missingKeyword: MissingKeywordPolicy.create,
+          tagName: '국적',
+          value: '일본',
+        ),
+      );
+
+      await applier()();
+
+      expect(queue.marked['q1']?.reason, CommandFailureReason.malformed);
+      expect(nodes.createdKeywords, isEmpty);
+    });
+
+    test('키워드의 이름 시스템 태그도 외부에서 바꿀 수 없다', () async {
+      nodes.keywords['작가 A'] = const FileNode(
+        id: 50,
+        path: '작가 A',
+        kind: NodeKind.keyword,
+      );
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: '작가 A',
+          targetKind: ExternalNodeKind.keyword,
+          tagName: '파일 이름',
+          value: '다른 이름',
+        ),
+      );
+
+      await applier()();
+
+      expect(queue.marked['q1']?.reason, CommandFailureReason.systemTag);
+    });
+  });
+
+  group('키워드를 가리키는 링크 값', () {
+    setUp(() {
+      withSingleFile();
+      tags.define('작가', TagValueType.link);
+    });
+
+    test('파일에 키워드를 링크로 걸 수 있다(대상과 값의 종류가 다르다)', () async {
+      nodes.keywords['작가 A'] = const FileNode(
+        id: 50,
+        path: '작가 A',
+        kind: NodeKind.keyword,
+      );
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a.png',
+          tagName: '작가',
+          value: '작가 A',
+          valueKind: ExternalNodeKind.keyword,
+        ),
+      );
+
+      await applier()();
+
+      expect(tags.valuesOf(1, '작가'), ['50']);
+    });
+
+    test('링크 값의 키워드도 missingKeyword: create면 만들어 건다', () async {
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a.png',
+          tagName: '작가',
+          value: '작가 B',
+          valueKind: ExternalNodeKind.keyword,
+          missingKeyword: MissingKeywordPolicy.create,
+        ),
+      );
+
+      await applier()();
+
+      expect(nodes.createdKeywords, ['작가 B']);
+      expect(tags.valuesOf(1, '작가'), ['100']);
+    });
+
+    test('없는 키워드를 가리키면(기본 정책) 값 오류다', () async {
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a.png',
+          tagName: '작가',
+          value: '없는 작가',
+          valueKind: ExternalNodeKind.keyword,
+        ),
+      );
+
+      await applier()();
+
+      expect(queue.marked['q1']?.reason, CommandFailureReason.invalidValue);
+      expect(nodes.createdKeywords, isEmpty);
+    });
+
+    test('missingLink: keep이면 키워드 이름을 원문 그대로 미해결로 남긴다', () async {
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a.png',
+          tagName: '작가',
+          value: '없는 작가',
+          valueKind: ExternalNodeKind.keyword,
+          missingLink: MissingLinkPolicy.keep,
+        ),
+      );
+
+      await applier()();
+
+      expect(queue.marked, isEmpty);
+      expect(tags.valuesOf(1, '작가'), ['없는 작가']);
+      expect(tags.unresolvedOf(1, '작가'), [isTrue]);
+      // 생성은 missingKeyword가 정한다 — keep은 만들지 않고 남기기만 한다.
+      expect(nodes.createdKeywords, isEmpty);
+    });
+
+    test('missingKeyword: create가 있으면 생성이 먼저다(미해결로 남지 않는다)', () async {
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a.png',
+          tagName: '작가',
+          value: '작가 C',
+          valueKind: ExternalNodeKind.keyword,
+          missingKeyword: MissingKeywordPolicy.create,
+          missingLink: MissingLinkPolicy.keep,
+        ),
+      );
+
+      await applier()();
+
+      expect(nodes.createdKeywords, ['작가 C']);
+      expect(tags.unresolvedOf(1, '작가'), [isFalse]);
+    });
+
+    test('valueKind를 주지 않으면 예전처럼 경로로 읽는다', () async {
+      nodes.index['b.png'] = const FileNode(
+        id: 7,
+        path: 'b.png',
+        kind: NodeKind.file,
+      );
+      nodes.keywords['b.png'] = const FileNode(
+        id: 60,
+        path: 'b.png',
+        kind: NodeKind.keyword,
+      );
+      enqueue(
+        const ExternalTagCommand(
+          targetPath: 'a.png',
+          tagName: '작가',
+          value: 'b.png',
+        ),
+      );
+
+      await applier()();
+
+      // 판별이 없으면 경로 — 이름이 같은 키워드가 있어도 파일을 가리킨다.
+      expect(tags.valuesOf(1, '작가'), ['7']);
+    });
+  });
+
   test('루트가 재귀 관리면 하위 폴더 안도 대상이 된다', () async {
-    nodes.index['box'] = const FileNode(id: 9, path: 'box', isDirectory: true);
+    nodes.index['box'] = const FileNode(
+      id: 9,
+      path: 'box',
+      kind: NodeKind.directory,
+    );
     nodes.index['box/a.png'] = const FileNode(
       id: 10,
       path: 'box/a.png',
-      isDirectory: false,
+      kind: NodeKind.file,
     );
     env.onDisk.add('box/a.png');
     tags.define('읽음', TagValueType.label);
@@ -421,6 +720,9 @@ class _FakeQueue implements CommandQueueRepository {
   final List<String> removed = [];
   final Map<String, CommandFailure> marked = {};
 
+  /// [commit]이 불린 횟수. 패스가 결과를 반영하고 끝나는지 확인한다.
+  int commits = 0;
+
   @override
   Future<List<QueuedCommand>> takePending() async {
     final taken = [...pending];
@@ -429,19 +731,46 @@ class _FakeQueue implements CommandQueueRepository {
   }
 
   @override
-  Future<void> remove(String id) async => removed.add(id);
+  Future<void> markApplied(String id) async => removed.add(id);
 
   @override
   Future<void> markFailed(String id, CommandFailure failure) async {
     marked[id] = failure;
   }
+
+  @override
+  Future<void> commit() async => commits++;
 }
 
 class _FakeNodes implements FileNodeRepository {
   final Map<String, FileNode> index = {};
+  final Map<String, FileNode> keywords = {};
+
+  /// 만들어 준 키워드에 붙일 다음 id(실제 저장소의 autoIncrement 대역).
+  int nextKeywordId = 100;
+
+  /// `createKeyword`가 실제로 불린 이름들(정책이 지켜지는지 확인용).
+  final List<String> createdKeywords = [];
 
   @override
   Future<Map<String, FileNode>> indexByPath() async => index;
+
+  @override
+  Future<Map<String, FileNode>> keywordIndexByName() async => keywords;
+
+  @override
+  Future<({FileNode? node, KeywordNameError? error})> createKeyword(
+    String name,
+  ) async {
+    createdKeywords.add(name);
+    final node = FileNode(
+      id: nextKeywordId++,
+      path: name,
+      kind: NodeKind.keyword,
+    );
+    keywords[name] = node;
+    return (node: node, error: null);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -500,6 +829,13 @@ class _FakeTags implements TagRepository {
         a.value,
   ];
 
+  List<bool> unresolvedOf(int fileNodeId, String name) => [
+    for (final a in assignments)
+      if (a.fileNodeId == fileNodeId &&
+          a.tagDefinitionId == definitions[name]?.id)
+        a.valueUnresolved,
+  ];
+
   @override
   Future<TagDefinition?> definitionByName(String name) async =>
       definitions[name];
@@ -532,6 +868,7 @@ class _FakeTags implements TagRepository {
     required List<int> fileNodeIds,
     required int tagDefinitionId,
     String? value,
+    bool valueUnresolved = false,
   }) async {
     writes++;
     final def = definitions.values.firstWhere((d) => d.id == tagDefinitionId);
@@ -549,6 +886,7 @@ class _FakeTags implements TagRepository {
           fileNodeId: fileNodeId,
           tagDefinitionId: tagDefinitionId,
           value: value,
+          valueUnresolved: valueUnresolved,
         ),
       );
     }

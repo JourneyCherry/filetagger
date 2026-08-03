@@ -1,8 +1,9 @@
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/file_tree_node.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-FileNode _node(String path) => FileNode(path: path, isDirectory: false);
+FileNode _node(String path) => FileNode(path: path, kind: NodeKind.file);
 
 FileTreeNode _leaf(String path) => FileTreeNode(_node(path), const []);
 

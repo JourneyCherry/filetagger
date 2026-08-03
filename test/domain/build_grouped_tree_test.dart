@@ -2,6 +2,7 @@ import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/file_grouping.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/file_sort.dart';
 import 'package:filetagger/domain/entities/file_tree_node.dart';
 import 'package:filetagger/domain/entities/tag_assignment.dart';
@@ -22,8 +23,11 @@ final _defsById = <int, TagDefinition>{
   for (final d in [_rating, _color, _label]) d.id!: d,
 };
 
-FileNode _node(int id, String path, {bool dir = false}) =>
-    FileNode(id: id, path: path, isDirectory: dir);
+FileNode _node(int id, String path, {bool dir = false}) => FileNode(
+  id: id,
+  path: path,
+  kind: dir ? NodeKind.directory : NodeKind.file,
+);
 
 AssignedTag _assign(int fileId, TagDefinition def, String? value) =>
     AssignedTag(

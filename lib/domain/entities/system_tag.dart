@@ -26,7 +26,8 @@ enum SystemTag {
   /// 이미지 픽셀 크기("가로x세로"). 이미지가 아니면 값 없음.
   imageDimensions(id: -4, displayName: '이미지 크기', valueType: TagValueType.text),
 
-  /// 파일/폴더 이름. **수정 가능** — 값 편집 시 디스크에서 실제 rename된다.
+  /// 노드 이름. **수정 가능** — 디스크 노드는 값 편집 시 실제 rename되고, 키워드는
+  /// 디스크에 실체가 없어 저장된 이름만 바뀐다.
   fileName(
     id: -5,
     displayName: '파일 이름',
@@ -36,7 +37,16 @@ enum SystemTag {
 
   /// 디렉토리 표식(label). 폴더에만 붙어 일반 파일과 구분한다. 파일은 값 없음이라
   /// '있음'으로 폴더만, '제외'로 파일만 걸러낼 수 있다.
-  folder(id: -6, displayName: '폴더', valueType: TagValueType.label);
+  folder(id: -6, displayName: '폴더', valueType: TagValueType.label),
+
+  /// 키워드 표식(label). 디스크에 실체가 없는 노드에만 붙는다. [folder]와 같은
+  /// 층위(노드 종류)이며, '제외'로 키워드를 목록에서 감추는 것이 이 태그의 주 용도다.
+  keyword(id: -7, displayName: '키워드', valueType: TagValueType.label),
+
+  /// 미해결 링크 표식(label). 대상을 가리키지 못하는 링크 태그를 **하나라도** 가진
+  /// 노드에 붙는다. 다른 시스템 태그와 달리 노드 자신이 아니라 그 노드의 **부여
+  /// 목록**에서 나오며, 사라진 대상을 찾아 재연결하거나 지우는 자리를 찾는 수단이다.
+  unresolvedLink(id: -8, displayName: '미해결 링크', valueType: TagValueType.label);
 
   const SystemTag({
     required this.id,
@@ -66,22 +76,32 @@ enum SystemTag {
 
   /// [node]에 대한 이 시스템 태그의 값. 해당 노드에 의미가 없으면(폴더의 크기 등)
   /// null을 돌려 "그 노드엔 이 시스템 태그가 없음"을 나타낸다.
-  String? valueFor(FileNode node) {
+  ///
+  /// [assignments]는 그 노드에 붙은 부여 목록으로, **노드만 봐서는 알 수 없는**
+  /// 시스템 태그([unresolvedLink])가 쓴다. 링크 해석이 끝난 목록을 넘겨야 한다
+  /// ([resolveLinkAssignments]) — 떠 버린 id는 해석 시점에야 드러나기 때문이다.
+  String? valueFor(FileNode node, {List<AssignedTag> assignments = const []}) {
     switch (this) {
       case SystemTag.fileSize:
         final size = node.size;
-        return (node.isDirectory || size == null) ? null : size.toString();
+        return (!node.isFile || size == null) ? null : size.toString();
       case SystemTag.modifiedTime:
         return node.modifiedAt?.toIso8601String();
       case SystemTag.extension:
-        return node.isDirectory ? null : _extensionOf(node.name);
+        // 파일 이름에서만 뽑는다. 키워드 이름이 확장자처럼 끝나도(예: 그림.png)
+        // 파일이 아니므로 확장자를 갖지 않는다.
+        return node.isFile ? _extensionOf(node.name) : null;
       case SystemTag.imageDimensions:
         return node.imageDimensions;
       case SystemTag.fileName:
         return node.name;
       case SystemTag.folder:
-        // label이므로 값은 의미 없다 — 폴더에만 존재 표식('')을 달고 파일은 없음.
+        // label이므로 값은 의미 없다 — 폴더에만 존재 표식('')을 달고 나머지는 없음.
         return node.isDirectory ? '' : null;
+      case SystemTag.keyword:
+        return node.isKeyword ? '' : null;
+      case SystemTag.unresolvedLink:
+        return assignments.any((a) => a.valueUnresolved) ? '' : null;
     }
   }
 }
@@ -122,12 +142,19 @@ final List<TagDefinition> systemTagDefinitions = [
 /// [node]가 가지는 시스템 태그의 부여 기록(값 있는 것만). 실제 존재하는 저장된
 /// 노드에만 붙인다 — 연결 끊김(미싱) 노드와 아직 저장 전(id 없음) 노드는 제외한다.
 /// 합성 부여이므로 [TagAssignment.id]는 null이다.
-List<AssignedTag> systemAssignmentsFor(FileNode node) {
+///
+/// [assignments]는 그 노드의 **사용자 태그 부여 목록**이다. 시스템 태그 대부분은
+/// 노드 하나만 보고 계산되지만 [SystemTag.unresolvedLink]는 부여를 봐야 알 수 있어,
+/// 계산 경로가 여기까지 넓다. 넘기지 않으면 그런 태그는 붙지 않는다.
+List<AssignedTag> systemAssignmentsFor(
+  FileNode node, {
+  List<AssignedTag> assignments = const [],
+}) {
   final nodeId = node.id;
   if (nodeId == null || node.isMissing) return const [];
   final result = <AssignedTag>[];
   for (final t in SystemTag.values) {
-    final value = t.valueFor(node);
+    final value = t.valueFor(node, assignments: assignments);
     if (value == null) continue;
     result.add(
       AssignedTag(

@@ -15,9 +15,13 @@ class CommandHandlers {
     this.assignTags,
     this.reconnect,
     this.revealInFileManager,
+    this.exportSelection,
     this.manageTags,
     this.manageThumbnailTags,
     this.tagDisplayOrder,
+    this.createKeyword,
+    this.editKeyword,
+    this.deleteKeyword,
     this.help,
     this.about,
     this.exitApp,
@@ -53,9 +57,13 @@ class CommandHandlers {
   final VoidCallback? assignTags;
   final VoidCallback? reconnect;
   final VoidCallback? revealInFileManager;
+  final VoidCallback? exportSelection;
   final VoidCallback? manageTags;
   final VoidCallback? manageThumbnailTags;
   final VoidCallback? tagDisplayOrder;
+  final VoidCallback? createKeyword;
+  final VoidCallback? editKeyword;
+  final VoidCallback? deleteKeyword;
   final VoidCallback? help;
   final VoidCallback? about;
   final VoidCallback? exitApp;
@@ -92,9 +100,13 @@ class CommandHandlers {
     AppCommandId.assignTags => assignTags,
     AppCommandId.reconnect => reconnect,
     AppCommandId.revealInFileManager => revealInFileManager,
+    AppCommandId.exportSelection => exportSelection,
     AppCommandId.manageTags => manageTags,
     AppCommandId.manageThumbnailTags => manageThumbnailTags,
     AppCommandId.tagDisplayOrder => tagDisplayOrder,
+    AppCommandId.createKeyword => createKeyword,
+    AppCommandId.editKeyword => editKeyword,
+    AppCommandId.deleteKeyword => deleteKeyword,
     AppCommandId.help => help,
     AppCommandId.about => about,
     AppCommandId.exitApp => exitApp,

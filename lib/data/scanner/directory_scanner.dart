@@ -7,6 +7,7 @@ import '../../core/constants.dart';
 import '../../core/file_types.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/node_kind.dart';
 import '../../domain/entities/scan_result.dart';
 import '../../domain/repositories/workspace_scanner.dart';
 import '../../domain/usecases/folder_index_scope.dart';
@@ -87,7 +88,7 @@ class DirectoryScanner implements WorkspaceScanner {
       nodes.add(
         FileNode(
           path: rel,
-          isDirectory: true,
+          kind: NodeKind.directory,
           // 저장값은 명시적 override(null=상속). effective는 저장하지 않고
           // 스캔·표시 시 부모 체인으로 다시 계산한다.
           manageMode: storedOverride,
@@ -151,7 +152,7 @@ class DirectoryScanner implements WorkspaceScanner {
         nodes.add(
           FileNode(
             path: relativePath,
-            isDirectory: false,
+            kind: NodeKind.file,
             size: stat.size,
             modifiedAt: stat.modified,
             contentHashPrefix: hash,

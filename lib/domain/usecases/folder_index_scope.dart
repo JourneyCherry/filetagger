@@ -144,8 +144,10 @@ Set<String> droppedNodePaths(
     return res;
   };
 
+  // 키워드는 디스크에 없어 폴더 관리 범위에 매이지 않는다 — 어떤 폴더를 불투명으로
+  // 돌려도 사라지지 않으므로 경고·정리 대상에서 뺀다.
   return {
     for (final n in nodes)
-      if (!indexed(n.path)) n.path,
+      if (!n.isKeyword && !indexed(n.path)) n.path,
   };
 }

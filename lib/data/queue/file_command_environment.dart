@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/constants.dart';
 import '../../domain/repositories/command_environment.dart';
 import '../thumbnails/thumbnail_store.dart';
 
@@ -22,7 +23,17 @@ class FileCommandEnvironment implements CommandEnvironment {
     return await File(full).exists() || await Directory(full).exists();
   }
 
+  /// 상대 경로가 가리키는 자리(요청 파일이 놓이는 큐 폴더).
+  String get _queueDir =>
+      p.join(workspaceRoot, filetaggerDirName, commandQueueDirName);
+
   @override
-  Future<String?> registerImage(String externalPath) =>
-      registerThumbnailImage(workspaceRoot, externalPath);
+  Future<String?> registerImage(String externalPath) {
+    // 상대 경로는 큐 폴더 기준이다 — 내보내기가 요청 파일 옆에 동봉한 이미지를
+    // 가리키는 자리이며, 절대 경로(외부 앱이 제 위치를 아는 경우)는 그대로 쓴다.
+    final full = p.isAbsolute(externalPath)
+        ? externalPath
+        : p.join(_queueDir, externalPath);
+    return registerThumbnailImage(workspaceRoot, full);
+  }
 }

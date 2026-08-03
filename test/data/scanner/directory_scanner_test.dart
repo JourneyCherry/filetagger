@@ -5,6 +5,7 @@ import 'package:ffi/ffi.dart';
 import 'package:filetagger/core/constants.dart';
 import 'package:filetagger/data/scanner/directory_scanner.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -78,7 +79,7 @@ void main() {
       final prior = <String, FileNode>{
         'pic.png': FileNode(
           path: 'pic.png',
-          isDirectory: false,
+          kind: NodeKind.file,
           size: first.size,
           modifiedAt: first.modifiedAt,
           contentHashPrefix: first.contentHashPrefix,
@@ -102,7 +103,7 @@ void main() {
       final prior = <String, FileNode>{
         'pic.png': FileNode(
           path: 'pic.png',
-          isDirectory: false,
+          kind: NodeKind.file,
           size: first.size,
           modifiedAt: first.modifiedAt,
           contentHashPrefix: first.contentHashPrefix,
@@ -159,7 +160,7 @@ void main() {
       final prior = {
         'sub': const FileNode(
           path: 'sub',
-          isDirectory: true,
+          kind: NodeKind.directory,
           manageMode: FolderManageMode.managed,
         ),
       };
@@ -205,7 +206,7 @@ void main() {
       final prior = {
         'sub': const FileNode(
           path: 'sub',
-          isDirectory: true,
+          kind: NodeKind.directory,
           manageMode: FolderManageMode.managed,
         ),
       };
@@ -336,7 +337,7 @@ void main() {
       final prior = {
         'a.txt': FileNode(
           path: 'a.txt',
-          isDirectory: false,
+          kind: NodeKind.file,
           size: stat.size,
           modifiedAt: stat.modified,
           contentHashPrefix: sentinel,
@@ -356,7 +357,7 @@ void main() {
       final prior = {
         'a.txt': FileNode(
           path: 'a.txt',
-          isDirectory: false,
+          kind: NodeKind.file,
           size: stat.size + 1,
           modifiedAt: stat.modified,
           contentHashPrefix: sentinel,
@@ -377,7 +378,7 @@ void main() {
       final prior = {
         'a.txt': FileNode(
           path: 'a.txt',
-          isDirectory: false,
+          kind: NodeKind.file,
           size: stat.size,
           modifiedAt: stat.modified.add(const Duration(seconds: 5)),
           contentHashPrefix: sentinel,
@@ -397,7 +398,7 @@ void main() {
       final prior = {
         'a.txt': FileNode(
           path: 'a.txt',
-          isDirectory: false,
+          kind: NodeKind.file,
           size: stat.size,
           modifiedAt: stat.modified,
           contentHashPrefix: null,

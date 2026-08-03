@@ -10,7 +10,11 @@ abstract interface class CommandEnvironment {
   /// 곧 나타나기를 기다리지 않는다.
   Future<bool> targetExists(String relPath);
 
-  /// 워크스페이스 **밖**의 이미지 파일 [externalPath]를 썸네일 캐시에 등록하고
-  /// 저장할 캐시 키를 돌려준다. 이미지가 아니거나 읽지 못하면 null.
+  /// 이미지 파일 [externalPath]를 썸네일 캐시에 등록하고 저장할 캐시 키를
+  /// 돌려준다. 이미지가 아니거나 읽지 못하면 null.
+  ///
+  /// **절대 경로면 그 파일을, 상대 경로면 큐 폴더 기준**으로 찾는다. 상대 경로를
+  /// 받는 것은 내보내기가 요청 파일 옆에 이미지를 함께 두기 때문이다 — 그래야 파일
+  /// 몇 개를 통째로 옮기는 것만으로 이관이 성립한다.
   Future<String?> registerImage(String externalPath);
 }

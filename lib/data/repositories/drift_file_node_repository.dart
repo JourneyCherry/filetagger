@@ -2,8 +2,10 @@ import 'package:drift/drift.dart';
 
 import '../../domain/entities/file_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../domain/entities/node_kind.dart';
 import '../../domain/repositories/file_node_repository.dart';
 import '../../domain/usecases/folder_index_scope.dart';
+import '../../domain/usecases/keyword_name.dart';
 import '../../domain/usecases/move_tracker.dart';
 import '../db/app_database.dart';
 import '../fs/node_renamer.dart';
@@ -23,7 +25,11 @@ class DriftFileNodeRepository implements FileNodeRepository {
 
   @override
   Future<Map<String, FileNode>> indexByPath() async {
-    final rows = await _db.select(_db.fileNodes).get();
+    // 디스크 노드만 담는다. 키워드는 스캐너가 볼 대상도, 외부 앱이 경로로 지목할
+    // 대상도 아니며, 같은 이름의 파일과 경로 자리를 다투게 해서도 안 된다.
+    final rows = await (_db.select(
+      _db.fileNodes,
+    )..where((t) => t.kind.equalsValue(NodeKind.keyword).not())).get();
     return {for (final r in rows) r.path: _toEntity(r)};
   }
 
@@ -38,8 +44,12 @@ class DriftFileNodeRepository implements FileNodeRepository {
     // 관리되지 않는(범위 밖) 서브트리의 노드는 연결 끊김이라도 보존하지 않고 제거.
     final seenAt = DateTime.now();
     await _db.transaction(() async {
-      // 스캔 전 인덱스 스냅샷(이동 추적용).
-      final before = await _db.select(_db.fileNodes).get();
+      // 스캔 전 인덱스 스냅샷(이동 추적용). **키워드는 빼고 본다** — 스캐너가 결코
+      // 내놓지 않는 노드라, 여기 섞이면 매 스캔마다 "사라진 노드"로 판정되어
+      // 지워진다(태그가 없으면 보존 대상도 아니다).
+      final before = await (_db.select(
+        _db.fileNodes,
+      )..where((t) => t.kind.equalsValue(NodeKind.keyword).not())).get();
       final beforePaths = {for (final r in before) r.path};
       final scannedPaths = {for (final n in scanned) n.path};
 
@@ -51,7 +61,8 @@ class DriftFileNodeRepository implements FileNodeRepository {
               _toCompanion(node, seenAt),
               onConflict: DoUpdate(
                 (_) => _toCompanion(node, seenAt),
-                target: [_db.fileNodes.path],
+                // 유일성이 (종류, 경로)이므로 충돌 대상도 둘을 함께 지목한다.
+                target: [_db.fileNodes.kind, _db.fileNodes.path],
               ),
             );
       }
@@ -139,8 +150,12 @@ class DriftFileNodeRepository implements FileNodeRepository {
   }) async {
     // 인덱스 전체를 훑어 이름 변경에 영향받는 경로(자기 자신 + 폴더면 하위)를
     // 재기록한다. LIKE의 '_'/'%' 오매칭을 피하려 SQL 패턴 대신 순수 헬퍼로 가른다.
+    // 키워드는 경로가 아니라 이름을 담아 디스크 rename과 무관하므로 제외한다(이름이
+    // 우연히 같은 키워드가 파일을 따라 개명되면 안 된다).
     await _db.transaction(() async {
-      final rows = await _db.select(_db.fileNodes).get();
+      final rows = await (_db.select(
+        _db.fileNodes,
+      )..where((t) => t.kind.equalsValue(NodeKind.keyword).not())).get();
       for (final row in rows) {
         final updated = rewriteRenamedPath(row.path, oldPath, newPath);
         if (updated == null || updated == row.path) continue;
@@ -157,6 +172,73 @@ class DriftFileNodeRepository implements FileNodeRepository {
   }
 
   @override
+  Future<Map<String, FileNode>> keywordIndexByName() async {
+    final rows = await (_db.select(
+      _db.fileNodes,
+    )..where((t) => t.kind.equalsValue(NodeKind.keyword))).get();
+    return {for (final r in rows) r.path: _toEntity(r)};
+  }
+
+  @override
+  Future<({FileNode? node, KeywordNameError? error})> createKeyword(
+    String name,
+  ) async {
+    final normalized = normalizeKeywordName(name);
+    final clean = normalized.name;
+    if (clean == null) return (node: null, error: normalized.error);
+    return _db.transaction(() async {
+      if (await _keywordIdForName(clean) != null) {
+        return (node: null, error: KeywordNameError.duplicate);
+      }
+      final row = await _db
+          .into(_db.fileNodes)
+          .insertReturning(
+            FileNodesCompanion.insert(
+              path: clean,
+              kind: NodeKind.keyword,
+              // 스캔이 관측하는 노드가 아니지만 컬럼이 값을 요구한다. 만든 시각을
+              // 넣어 두면 정렬·진단에서 "언제 생긴 키워드인지"가 남는다.
+              lastSeenAt: DateTime.now(),
+            ),
+          );
+      return (node: _toEntity(row), error: null);
+    });
+  }
+
+  @override
+  Future<KeywordNameError?> renameKeyword({
+    required int nodeId,
+    required String name,
+  }) async {
+    final normalized = normalizeKeywordName(name);
+    final clean = normalized.name;
+    if (clean == null) return normalized.error;
+    return _db.transaction(() async {
+      final taken = await _keywordIdForName(clean);
+      // 자기 자신과 같은 이름이면(대소문자·공백만 다듬은 경우) 중복이 아니다.
+      if (taken != null && taken != nodeId) return KeywordNameError.duplicate;
+      await (_db.update(_db.fileNodes)..where(
+            (t) => t.id.equals(nodeId) & t.kind.equalsValue(NodeKind.keyword),
+          ))
+          .write(FileNodesCompanion(path: Value(clean)));
+      return null;
+    });
+  }
+
+  /// 그 이름을 이미 쓰고 있는 키워드의 id. 없으면 null.
+  Future<int?> _keywordIdForName(String name) async {
+    final row =
+        await (_db.select(_db.fileNodes)
+              ..where(
+                (t) =>
+                    t.path.equals(name) & t.kind.equalsValue(NodeKind.keyword),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.id;
+  }
+
+  @override
   Future<void> setManageMode({
     required int nodeId,
     required FolderManageMode mode,
@@ -164,8 +246,9 @@ class DriftFileNodeRepository implements FileNodeRepository {
     // 폴더의 명시적 override만 갱신한다. 범위가 줄어 사라질 하위 노드(및 태그)의
     // 정리는 호출부가 이어서 도는 재스캔이 처리한다(사라진 노드 제거). 범위가
     // 늘면(관리/재귀) 재스캔이 새 하위를 인덱싱한다.
-    await (_db.update(_db.fileNodes)
-          ..where((t) => t.id.equals(nodeId) & t.isDirectory.equals(true)))
+    await (_db.update(_db.fileNodes)..where(
+          (t) => t.id.equals(nodeId) & t.kind.equalsValue(NodeKind.directory),
+        ))
         .write(FileNodesCompanion(manageMode: Value(mode)));
   }
 
@@ -174,8 +257,9 @@ class DriftFileNodeRepository implements FileNodeRepository {
     required String path,
     required FolderManageMode mode,
   }) async {
-    await (_db.update(_db.fileNodes)
-          ..where((t) => t.path.equals(path) & t.isDirectory.equals(true)))
+    await (_db.update(_db.fileNodes)..where(
+          (t) => t.path.equals(path) & t.kind.equalsValue(NodeKind.directory),
+        ))
         .write(FileNodesCompanion(manageMode: Value(mode)));
   }
 
@@ -206,7 +290,7 @@ class DriftFileNodeRepository implements FileNodeRepository {
           .write(TagAssignmentsCompanion(fileNodeId: Value(newId)));
       // 폴더가 옮겨졌으면 관리 방식을 새 노드로 이관해, 옮긴 뒤에도 같은 방식으로
       // 다뤄지게 한다(관리 폴더는 다음 스캔에서 내부가 다시 인덱싱된다).
-      if (oldRow.isDirectory && oldRow.manageMode != null) {
+      if (oldRow.kind == NodeKind.directory && oldRow.manageMode != null) {
         await (_db.update(_db.fileNodes)..where((t) => t.id.equals(newId)))
             .write(FileNodesCompanion(manageMode: Value(oldRow.manageMode)));
       }
@@ -226,11 +310,16 @@ class DriftFileNodeRepository implements FileNodeRepository {
         .toSet();
   }
 
-  /// 경로로 노드 id를 찾는다(방금 upsert된 새 노드의 id 조회용).
+  /// 경로로 디스크 노드의 id를 찾는다(방금 upsert된 새 노드의 id 조회용).
+  /// 같은 이름의 키워드가 있어도 그쪽을 집지 않도록 종류로 가른다.
   Future<int?> _idForPath(String path) async {
     final row =
         await (_db.select(_db.fileNodes)
-              ..where((t) => t.path.equals(path))
+              ..where(
+                (t) =>
+                    t.path.equals(path) &
+                    t.kind.equalsValue(NodeKind.keyword).not(),
+              )
               ..limit(1))
             .getSingleOrNull();
     return row?.id;
@@ -239,7 +328,7 @@ class DriftFileNodeRepository implements FileNodeRepository {
   FileNode _toEntity(FileNodeRow row) => FileNode(
     id: row.id,
     path: row.path,
-    isDirectory: row.isDirectory,
+    kind: row.kind,
     size: row.size,
     modifiedAt: row.modifiedAt,
     contentHashPrefix: row.contentHashPrefix,
@@ -252,7 +341,7 @@ class DriftFileNodeRepository implements FileNodeRepository {
   FileNodesCompanion _toCompanion(FileNode node, DateTime seenAt) =>
       FileNodesCompanion.insert(
         path: node.path,
-        isDirectory: node.isDirectory,
+        kind: node.kind,
         size: Value(node.size),
         modifiedAt: Value(node.modifiedAt),
         contentHashPrefix: Value(node.contentHashPrefix),

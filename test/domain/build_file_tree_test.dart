@@ -1,6 +1,7 @@
 import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/file_sort.dart';
 import 'package:filetagger/domain/entities/file_tree_node.dart';
 import 'package:filetagger/domain/entities/tag_assignment.dart';
@@ -9,8 +10,11 @@ import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:filetagger/domain/usecases/build_file_tree.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-FileNode _node(int id, String path, {bool dir = false}) =>
-    FileNode(id: id, path: path, isDirectory: dir);
+FileNode _node(int id, String path, {bool dir = false}) => FileNode(
+  id: id,
+  path: path,
+  kind: dir ? NodeKind.directory : NodeKind.file,
+);
 
 AssignedTag _assign(int fileId, int defId, TagValueType type, String? value) =>
     AssignedTag(

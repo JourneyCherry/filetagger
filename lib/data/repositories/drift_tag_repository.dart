@@ -161,6 +161,7 @@ class DriftTagRepository implements TagRepository {
     required List<int> fileNodeIds,
     required int tagDefinitionId,
     String? value,
+    bool valueUnresolved = false,
   }) async {
     if (fileNodeIds.isEmpty) return;
     final def = await (_db.select(
@@ -171,7 +172,12 @@ class DriftTagRepository implements TagRepository {
     await _db.transaction(() async {
       for (final fileNodeId in fileNodeIds) {
         if (def.allowMultiple) {
-          await _insertAssignment(fileNodeId, tagDefinitionId, value);
+          await _insertAssignment(
+            fileNodeId,
+            tagDefinitionId,
+            value,
+            valueUnresolved,
+          );
           continue;
         }
         // 1회 제한: 이미 있으면 값만 갱신, 없으면 새로 부여(파일별 upsert).
@@ -185,11 +191,21 @@ class DriftTagRepository implements TagRepository {
                   ..limit(1))
                 .getSingleOrNull();
         if (existing == null) {
-          await _insertAssignment(fileNodeId, tagDefinitionId, value);
+          await _insertAssignment(
+            fileNodeId,
+            tagDefinitionId,
+            value,
+            valueUnresolved,
+          );
         } else {
-          await (_db.update(_db.tagAssignments)
-                ..where((t) => t.id.equals(existing.id)))
-              .write(TagAssignmentsCompanion(value: Value(value)));
+          await (_db.update(
+            _db.tagAssignments,
+          )..where((t) => t.id.equals(existing.id))).write(
+            TagAssignmentsCompanion(
+              value: Value(value),
+              valueUnresolved: Value(valueUnresolved),
+            ),
+          );
         }
       }
     });
@@ -200,9 +216,15 @@ class DriftTagRepository implements TagRepository {
     required int assignmentId,
     String? value,
   }) async {
-    await (_db.update(_db.tagAssignments)
-          ..where((t) => t.id.equals(assignmentId)))
-        .write(TagAssignmentsCompanion(value: Value(value)));
+    await (_db.update(
+      _db.tagAssignments,
+    )..where((t) => t.id.equals(assignmentId))).write(
+      TagAssignmentsCompanion(
+        value: Value(value),
+        // 사용자가 고른 값은 늘 해결된 값이다 — 미해결 표식을 함께 내린다.
+        valueUnresolved: const Value(false),
+      ),
+    );
   }
 
   @override
@@ -230,6 +252,7 @@ class DriftTagRepository implements TagRepository {
     int fileNodeId,
     int tagDefinitionId,
     String? value,
+    bool valueUnresolved,
   ) {
     return _db
         .into(_db.tagAssignments)
@@ -238,6 +261,7 @@ class DriftTagRepository implements TagRepository {
             fileNodeId: fileNodeId,
             tagDefinitionId: tagDefinitionId,
             value: Value(value),
+            valueUnresolved: Value(valueUnresolved),
           ),
         );
   }
@@ -255,5 +279,6 @@ class DriftTagRepository implements TagRepository {
     fileNodeId: row.fileNodeId,
     tagDefinitionId: row.tagDefinitionId,
     value: row.value,
+    valueUnresolved: row.valueUnresolved,
   );
 }

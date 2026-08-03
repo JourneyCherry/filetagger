@@ -1,9 +1,10 @@
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/presentation/widgets/reconnect_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  FileNode node(String path) => FileNode(path: path, isDirectory: false);
+  FileNode node(String path) => FileNode(path: path, kind: NodeKind.file);
 
   test('이름이 유사한 후보를 위로 정렬한다', () {
     final candidates = [

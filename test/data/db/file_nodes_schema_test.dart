@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:filetagger/data/db/app_database.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 생성 파일(`app_database.g.dart`)까지 실제 컴파일되는지 확인하는 가드.
@@ -24,5 +25,15 @@ void main() {
   test('FileNodes 스키마에 이미지 크기 컬럼이 반영된다', () {
     const companion = FileNodesCompanion(imageDimensions: Value('400x300'));
     expect(companion.imageDimensions.value, '400x300');
+  });
+
+  test('FileNodes 스키마에 노드 종류 컬럼이 반영된다', () {
+    const companion = FileNodesCompanion(kind: Value(NodeKind.keyword));
+    expect(companion.kind.value, NodeKind.keyword);
+  });
+
+  test('TagAssignments 스키마에 미해결 링크 컬럼이 반영된다', () {
+    const companion = TagAssignmentsCompanion(valueUnresolved: Value(true));
+    expect(companion.valueUnresolved.value, isTrue);
   });
 }

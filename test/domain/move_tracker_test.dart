@@ -1,4 +1,5 @@
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/usecases/move_tracker.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,7 +13,7 @@ void main() {
     DateTime? at,
   }) => FileNode(
     path: path,
-    isDirectory: false,
+    kind: NodeKind.file,
     size: size,
     modifiedAt: at ?? mtime,
     contentHashPrefix: hash,
@@ -66,7 +67,7 @@ void main() {
   });
 
   FileNode dir(String path, {String? sig}) =>
-      FileNode(path: path, isDirectory: true, childSignature: sig);
+      FileNode(path: path, kind: NodeKind.directory, childSignature: sig);
 
   test('자식 시그니처가 같은 유일한 폴더 쌍을 이동으로 매칭한다', () {
     final old = dir('old/d', sig: 'sig1');

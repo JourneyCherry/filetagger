@@ -1,13 +1,14 @@
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/file_tree_node.dart';
 import 'package:filetagger/presentation/common/file_list_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 FileTreeNode _dir(String path, List<FileTreeNode> children) =>
-    FileTreeNode(FileNode(path: path, isDirectory: true), children);
+    FileTreeNode(FileNode(path: path, kind: NodeKind.directory), children);
 
 FileTreeNode _file(String path) =>
-    FileTreeNode(FileNode(path: path, isDirectory: false), const []);
+    FileTreeNode(FileNode(path: path, kind: NodeKind.file), const []);
 
 /// a/
 ///   a/b/

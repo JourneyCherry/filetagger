@@ -14,4 +14,7 @@ class AssignedTag {
   int get fileNodeId => assignment.fileNodeId;
   int get tagDefinitionId => assignment.tagDefinitionId;
   String? get value => assignment.value;
+
+  /// 링크 값이 대상을 가리키지 못하는 상태인지([TagAssignment.valueUnresolved]).
+  bool get valueUnresolved => assignment.valueUnresolved;
 }

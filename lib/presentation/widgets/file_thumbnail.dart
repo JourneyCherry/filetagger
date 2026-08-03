@@ -40,8 +40,6 @@ class FileThumbnail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final root = ref.watch(workspaceRootProvider);
-    final folderThumbnails = ref.watch(folderThumbnailIndexProvider);
-    final sources = ref.watch(thumbnailSourcesProvider);
     final customByTag = node.id == null
         ? const <int, List<String>>{}
         : (ref.watch(customThumbnailIndexProvider)[node.id] ?? const {});
@@ -49,8 +47,8 @@ class FileThumbnail extends ConsumerWidget {
         ? const <String>[]
         : resolveThumbnailRelPaths(
             node,
-            folderThumbnails,
-            sources: sources,
+            ref.watch(folderThumbnailIndexProvider),
+            sources: ref.watch(thumbnailSourcesProvider),
             customByTag: customByTag,
             preferSelfImage: preferSelfImage,
           );
@@ -108,6 +106,8 @@ class FileThumbnail extends ConsumerWidget {
       color = scheme.error;
     } else if (node.isDirectory) {
       icon = Icons.folder;
+    } else if (node.isKeyword) {
+      icon = Icons.sell_outlined;
     } else {
       icon = Icons.insert_drive_file_outlined;
     }

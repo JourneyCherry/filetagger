@@ -58,13 +58,21 @@ abstract interface class TagRepository {
 
   /// 여러 파일에 한 태그를 일괄 부여한다. 정의가 다중 부여를 허용하지 않으면
   /// 파일별로 upsert(기존 값 갱신), 허용하면 새 기록을 추가한다.
+  ///
+  /// [valueUnresolved]는 가져오기(큐)가 대상을 찾지 못한 링크를 버리지 않고 원문
+  /// 그대로 남길 때만 참이다([TagAssignment.valueUnresolved]).
   Future<void> assignToFiles({
     required List<int> fileNodeIds,
     required int tagDefinitionId,
     String? value,
+    bool valueUnresolved = false,
   });
 
   /// 특정 부여 기록의 값을 수정한다.
+  ///
+  /// **미해결 링크 표식은 함께 내린다** — 사용자가 값을 고치는 경로는 늘 실제 대상을
+  /// 고르는 것(재연결)이라, 표식을 남길 이유가 없다. 표식을 올리는 것은 큐 적용 한
+  /// 곳뿐이다.
   Future<void> updateAssignmentValue({
     required int assignmentId,
     String? value,

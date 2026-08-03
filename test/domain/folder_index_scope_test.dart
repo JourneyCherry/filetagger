@@ -1,12 +1,13 @@
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
 import 'package:filetagger/domain/usecases/folder_index_scope.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   FileNode dir(String path, {FolderManageMode? mode}) =>
-      FileNode(path: path, isDirectory: true, manageMode: mode);
-  FileNode file(String path) => FileNode(path: path, isDirectory: false);
+      FileNode(path: path, kind: NodeKind.directory, manageMode: mode);
+  FileNode file(String path) => FileNode(path: path, kind: NodeKind.file);
 
   group('resolveManageModes (상속)', () {
     test('override 없는 하위는 루트가 재귀면 재귀를 상속한다', () {
@@ -102,6 +103,25 @@ void main() {
         overridesOf(nodes),
       );
       expect(dropped, isEmpty);
+    });
+
+    test('키워드는 폴더를 불투명으로 돌려도 사라지지 않는다', () {
+      // 키워드는 디스크에 없어 폴더 관리 범위에 매이지 않는다. 이름이 사라질 폴더
+      // 아래 경로처럼 보여도(아래 'a/f.txt') 정리 대상이 아니다.
+      final nodes = [
+        ...tree(),
+        const FileNode(path: 'a/f.txt', kind: NodeKind.keyword),
+        const FileNode(path: '키워드', kind: NodeKind.keyword),
+      ];
+      final ov = overridesOf(nodes)..['a'] = FolderManageMode.opaque;
+      final dropped = droppedNodePaths(
+        nodes,
+        FolderManageMode.managedRecursive,
+        ov,
+      );
+      expect(dropped, {'a/f.txt', 'a/b', 'a/b/g.txt'});
+      // 같은 이름의 파일이 사라져도 키워드 자신은 목록에 남는다(경로가 곧 이름).
+      expect(dropped.contains('키워드'), isFalse);
     });
   });
 

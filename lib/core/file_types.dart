@@ -39,7 +39,9 @@ const int kFolderThumbnailStackCount = 3;
 Map<String, List<String>> buildFolderThumbnailIndex(Iterable<FileNode> nodes) {
   final images = <String>[];
   for (final node in nodes) {
-    if (node.isDirectory || node.isMissing) continue;
+    // 디스크에 실체가 있는 파일만 후보다. 키워드는 이름이 이미지 확장자로 끝나도
+    // 그 경로에 파일이 없다.
+    if (!node.isFile || node.isMissing) continue;
     if (isImagePath(node.path)) images.add(node.path);
   }
   images.sort();
@@ -79,7 +81,7 @@ List<String> resolveThumbnailRelPaths(
 }) {
   if (node.isMissing) return const [];
   // 프리뷰: 자기 이미지가 있으면 우선순위와 무관하게 자기 자신을 우선한다.
-  if (preferSelfImage && !node.isDirectory && isImagePath(node.path)) {
+  if (preferSelfImage && node.isFile && isImagePath(node.path)) {
     return [node.path];
   }
   for (final source in sources) {
@@ -101,10 +103,11 @@ List<String> _builtInThumbnails(
   FileNode node,
   Map<String, List<String>> folderThumbnails,
 ) {
-  if (!node.isDirectory) {
-    return isImagePath(node.path) ? [node.path] : const [];
-  }
-  return folderThumbnails[node.path] ?? const [];
+  if (node.isDirectory) return folderThumbnails[node.path] ?? const [];
+  // 키워드는 기본 썸네일이 없다 — 이름이 이미지 확장자로 끝나도 가리킬 파일이 없다
+  // (커스텀 썸네일 출처는 키워드에도 그대로 적용된다).
+  if (!node.isFile) return const [];
+  return isImagePath(node.path) ? [node.path] : const [];
 }
 
 /// 노드 id → (썸네일 출처 태그 id → 그 노드의 커스텀 이미지 상대 경로들) 인덱스.
@@ -132,9 +135,13 @@ Map<int, Map<int, List<String>>> buildCustomThumbnailIndex({
         // 기본 아이콘으로 폴백한다.
         path = thumbnailCacheRelPath(raw);
       } else {
-        // 링크: 저장값(대상 노드 id)이 가리키는 노드가 이미지면 그 경로를 쓴다.
+        // 링크: 저장값(대상 노드 id)이 가리키는 노드가 이미지 파일이면 그 경로를
+        // 쓴다. 대상이 키워드면 이름이 이미지처럼 생겼어도 읽을 파일이 없다.
         final target = nodesById[int.tryParse(raw)];
-        if (target == null || target.isMissing || !isImagePath(target.path)) {
+        if (target == null ||
+            target.isMissing ||
+            !target.isFile ||
+            !isImagePath(target.path)) {
           continue;
         }
         path = target.path;

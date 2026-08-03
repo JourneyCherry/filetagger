@@ -722,13 +722,16 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
       final present = tags.any((t) => t.tagDefinitionId == col.sortId);
       return present ? '✓' : '';
     }
-    // 링크는 저장값(대상 노드 id)이 아니라 대상 이름을 보인다(찾지 못하면 없음 표식).
+    // 링크는 저장값(대상 노드 id)이 아니라 대상 이름을 보인다. 미해결 링크는 가져온
+    // 원문(경로·키워드 이름)을 그대로 보이고, 대상이 떠 버린 id는 없음 표식으로 둔다.
     if (col.valueType == TagValueType.link) {
       final byId = ref.read(fileNodesByIdProvider);
       final names = <String>[
         for (final t in tags)
           if (t.tagDefinitionId == col.sortId && t.value != null)
-            byId[int.tryParse(t.value!)]?.name ?? '(없음)',
+            t.valueUnresolved
+                ? t.value!
+                : byId[int.tryParse(t.value!)]?.name ?? '(없음)',
       ];
       return names.join(', ');
     }

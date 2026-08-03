@@ -1,6 +1,7 @@
 import 'package:filetagger/core/file_types.dart';
 import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
+import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/tag_assignment.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
@@ -8,10 +9,16 @@ import 'package:filetagger/domain/entities/workspace_view_settings.dart';
 import 'package:filetagger/domain/usecases/thumbnail_cache.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-FileNode file(String path) => FileNode(path: path, isDirectory: false);
-FileNode dir(String path) => FileNode(path: path, isDirectory: true);
+FileNode file(String path) => FileNode(path: path, kind: NodeKind.file);
+FileNode dir(String path) => FileNode(path: path, kind: NodeKind.directory);
+FileNode memo(String name, {int? id}) =>
+    FileNode(id: id, path: name, kind: NodeKind.keyword);
 FileNode nodeWithId(int id, String path, {bool isDirectory = false}) =>
-    FileNode(id: id, path: path, isDirectory: isDirectory);
+    FileNode(
+      id: id,
+      path: path,
+      kind: isDirectory ? NodeKind.directory : NodeKind.file,
+    );
 
 AssignedTag linkTag(int fileId, int defId, String? value) => AssignedTag(
   assignment: TagAssignment(
@@ -104,11 +111,17 @@ void main() {
         dir('d'),
         FileNode(
           path: 'd/broken.png',
-          isDirectory: false,
+          kind: NodeKind.file,
           missingSince: DateTime(2026),
         ),
         file('d/ok.png'),
       ];
+      expect(buildFolderThumbnailIndex(nodes)['d'], ['d/ok.png']);
+    });
+
+    test('키워드는 이름이 이미지처럼 보여도 후보가 아니다', () {
+      // 이름은 경로가 아니라 이름일 뿐이라, 그 자리에 읽을 파일이 없다.
+      final nodes = [dir('d'), memo('d/cover.png'), file('d/ok.png')];
       expect(buildFolderThumbnailIndex(nodes)['d'], ['d/ok.png']);
     });
 
@@ -135,11 +148,29 @@ void main() {
     test('연결 끊김 노드는 빈 목록', () {
       final missing = FileNode(
         path: 'a/b.png',
-        isDirectory: false,
+        kind: NodeKind.file,
         missingSince: DateTime(2026),
       );
       expect(resolveThumbnailRelPaths(missing, const {}), isEmpty);
     });
+    test('키워드는 기본 썸네일이 없고, 커스텀 출처는 그대로 쓴다', () {
+      // 이름이 이미지 확장자로 끝나도 자기 이미지로 삼지 않는다(가리킬 파일이 없다).
+      expect(resolveThumbnailRelPaths(memo('그림.png'), const {}), isEmpty);
+      // 프리뷰(자기 이미지 우선)에서도 마찬가지다 — 키워드는 자기 이미지가 없다.
+      expect(
+        resolveThumbnailRelPaths(
+          memo('그림.png'),
+          const {},
+          preferSelfImage: true,
+          sources: const [5],
+          customByTag: const {
+            5: ['a/cover.png'],
+          },
+        ),
+        ['a/cover.png'],
+      );
+    });
+
     test('출처가 없어도(빈 목록) 기본 동작으로 폴백한다', () {
       // 우선순위가 비어 있어도 마지막에 기본 썸네일로 떨어진다.
       expect(resolveThumbnailRelPaths(file('a/self.png'), const {}), [
@@ -259,7 +290,7 @@ void main() {
     test('연결 끊김 노드는 출처가 있어도 빈 목록', () {
       final missing = FileNode(
         path: 'a/b.png',
-        isDirectory: false,
+        kind: NodeKind.file,
         missingSince: DateTime(2026),
       );
       expect(
@@ -403,6 +434,17 @@ void main() {
           3: [linkTag(3, 5, null)], // 값 없음 → 제외
         },
         nodesById: nodesById,
+      );
+      expect(index, isEmpty);
+    });
+
+    test('링크 대상이 키워드면 이름이 이미지처럼 보여도 담지 않는다', () {
+      final index = buildCustomThumbnailIndex(
+        sourceTagIds: const {5},
+        assignmentsByFile: {
+          1: [linkTag(1, 5, '77')],
+        },
+        nodesById: {77: memo('작가.png', id: 77)},
       );
       expect(index, isEmpty);
     });

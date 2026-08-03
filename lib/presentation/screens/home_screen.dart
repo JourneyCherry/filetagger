@@ -10,14 +10,17 @@ import '../../core/platform.dart';
 import '../../data/db/schema_probe.dart';
 import '../../data/fs/node_renamer.dart';
 import '../../data/fs/reveal_in_file_manager.dart';
+import '../../data/queue/command_export.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_merge_resolution.dart';
 import '../../domain/entities/system_tag.dart';
+import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
+import '../../domain/usecases/export_tag_commands.dart';
 import '../../domain/usecases/folder_index_scope.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
@@ -42,11 +45,14 @@ import '../providers/thumbnail_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../shells/command_context_menu.dart';
 import '../shells/desktop_shell.dart';
+import '../shells/menu_model.dart';
 import '../shells/mobile_sheets.dart';
 import '../shells/mobile_shell.dart';
 import '../widgets/app_about_dialog.dart';
+import '../widgets/export_dialog.dart';
 import '../widgets/folder_manage_menu.dart';
 import '../widgets/help_dialog.dart';
+import '../widgets/keyword_dialog.dart';
 import '../widgets/preview_pane.dart';
 import '../widgets/reconnect_dialog.dart';
 import '../widgets/tag_assign_dialog.dart';
@@ -509,8 +515,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// 행 우클릭: 선택 밖의 행이면 그 행만 선택한 뒤(탐색기와 같은 관용) 새 선택
-  /// 기준으로 명령 활성 상태를 다시 구해 컨텍스트 메뉴를 띄운다. 우클릭한 행이
-  /// 폴더면 관리 방식 항목을 메뉴 끝에 이어 붙인다(체크 = 상속 반영 모드).
+  /// 기준으로 명령 활성 상태를 다시 구해 컨텍스트 메뉴를 띄운다.
+  ///
+  /// 성격이 같은 조작(키워드 다루기, 폴더 관리 방식)은 **하위 메뉴로 접는다** — 첫 층을
+  /// 짧게 두고, 어느 대상에 걸리는 항목인지를 그 이름이 알린다. 키워드 하위 메뉴는 어느
+  /// 행에서 눌러도 자리를 지키고(만들기는 선택과 무관하다), 편집·삭제는 우클릭한 것이
+  /// 키워드가 아니면 회색으로 남는다 — 항목이 사라졌다 나타나면 어디에 무엇이 있는지
+  /// 외울 수 없기 때문이다. 폴더 관리는 폴더가 아닌 행엔 걸 것이 없어 아예 내지 않는다.
   Future<void> _onSecondaryTapNode(
     List<FileNode> items,
     int index,
@@ -536,24 +547,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       globalPosition: globalPosition,
       handlers: handlers,
       items: [
-        AppCommandId.activateNode,
-        null,
+        const MenuCommand(AppCommandId.activateNode),
+        const MenuDivider(),
         // 연결 끊긴 노드 하나면 태그 부여 대신 원본 찾기로 안내한다.
-        if (missing) AppCommandId.reconnect else AppCommandId.assignTags,
-        AppCommandId.revealInFileManager,
-        null,
-        AppCommandId.selectAll,
-        AppCommandId.clearSelection,
+        if (missing)
+          const MenuCommand(AppCommandId.reconnect)
+        else
+          const MenuCommand(AppCommandId.assignTags),
+        // 키워드는 디스크에 자리가 없어 탐색기에서 열 수 없다.
+        if (!node.isKeyword)
+          const MenuCommand(AppCommandId.revealInFileManager),
+        const MenuSubmenu('키워드', [
+          MenuCommand(AppCommandId.createKeyword),
+          MenuCommand(AppCommandId.editKeyword),
+          MenuCommand(AppCommandId.deleteKeyword),
+        ]),
+        if (resolved != null)
+          MenuSubmenu(
+            '폴더 관리 옵션',
+            folderManageMenuNodes(
+              resolved: resolved,
+              onSelected: (action) => _onFolderManage(node, resolved, action),
+            ),
+          ),
+        const MenuDivider(),
+        const MenuCommand(AppCommandId.exportSelection),
+        const MenuDivider(),
+        const MenuCommand(AppCommandId.selectAll),
+        const MenuCommand(AppCommandId.clearSelection),
       ],
-      extraItems: resolved == null
-          ? const []
-          : [
-              const PopupMenuDivider(),
-              ...folderManageMenuItems<AppCommandId>(
-                resolved: resolved,
-                onSelected: (action) => _onFolderManage(node, resolved, action),
-              ),
-            ],
     );
   }
 
@@ -574,10 +596,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// 선택이 정확히 디스크에 실재하는 노드 하나면 그 노드. 탐색기에서 열기처럼
-  /// 실제 파일을 필요로 하는 명령의 활성 조건이다.
+  /// 실제 파일을 필요로 하는 명령의 활성 조건이다. 키워드는 디스크에 자리가 없어
+  /// 연결이 끊긴 것이 아니어도 여기 들지 않는다.
   FileNode? get _singleExistingSelected {
     final node = _singleSelectedNode;
-    return node != null && !node.isMissing ? node : null;
+    return node != null && !node.isMissing && !node.isKeyword ? node : null;
+  }
+
+  /// 선택이 정확히 키워드 하나면 그 키워드. 키워드 편집·삭제의 활성 조건이다.
+  FileNode? get _singleSelectedKeyword {
+    final node = _singleSelectedNode;
+    return node != null && node.isKeyword ? node : null;
+  }
+
+  /// 키워드를 새로 만든다. 이름이 비었거나 겹치면 사유를 알리고 만들지 않는다.
+  Future<void> _createKeyword() async {
+    final repo = ref.read(fileNodeRepositoryProvider);
+    if (repo == null) return;
+    final name = await showKeywordDialog(
+      context,
+      title: '키워드 만들기',
+      confirmLabel: '만들기',
+    );
+    if (name == null) return;
+    final created = await repo.createKeyword(name);
+    final error = created.error;
+    if (error != null) {
+      _showSnack(error.message);
+      return;
+    }
+    final id = created.node?.id;
+    if (id == null) return;
+    // 키워드를 만드는 것은 거기에 태그를 붙이려는 것이 대부분이라, 만든 것을 곧바로
+    // 선택·커서 자리로 둔다 — 목록에서 방금 만든 것을 다시 찾아 고르지 않아도 된다.
+    ref.read(selectionControllerProvider.notifier).selectSingle(id);
+    ref.read(navigationCursorProvider.notifier).moveTo(id);
+  }
+
+  /// 고른 키워드의 이름을 고친다(키워드는 이름이 전부다). 규칙 위반·중복이면 알린다.
+  Future<void> _editKeyword() async {
+    final keyword = _singleSelectedKeyword;
+    final nodeId = keyword?.id;
+    final repo = ref.read(fileNodeRepositoryProvider);
+    if (keyword == null || nodeId == null || repo == null) return;
+
+    final name = await showKeywordDialog(
+      context,
+      title: '키워드 편집',
+      confirmLabel: '저장',
+      initialName: keyword.name,
+    );
+    if (name == null) return;
+    final error = await repo.renameKeyword(nodeId: nodeId, name: name);
+    if (error != null) _showSnack(error.message);
+  }
+
+  /// 고른 키워드를 지운다. 사용자가 만들어 둔 자산이라 확인을 한 번 거친다.
+  Future<void> _deleteKeyword() async {
+    final keyword = _singleSelectedKeyword;
+    final nodeId = keyword?.id;
+    final repo = ref.read(fileNodeRepositoryProvider);
+    if (keyword == null || nodeId == null || repo == null) return;
+    if (!await confirmKeywordDelete(context, keyword.name)) return;
+    await repo.removeNode(nodeId);
   }
 
   /// 선택한 항목의 위치를 OS 파일 관리자에서 연다(Windows 탐색기는 항목을 고른 채).
@@ -592,6 +673,98 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     } catch (e) {
       _showSnack('탐색기에서 열지 못했습니다: $e');
+    }
+  }
+
+  /// 저장 대화상자에 채워 넣을 기본 이름. 날짜를 붙여 여러 번 내보내도 앞의 것을
+  /// 덮어쓸지 묻지 않게 한다.
+  String get _exportFileName {
+    final now = DateTime.now();
+    final stamp = [
+      now.year.toString().padLeft(4, '0'),
+      now.month.toString().padLeft(2, '0'),
+      now.day.toString().padLeft(2, '0'),
+    ].join();
+    return 'filetagger-$stamp.json';
+  }
+
+  /// 고른 항목의 태그를 요청함 형식의 파일 하나로 내보낸다(이미지는 그 옆에 함께).
+  ///
+  /// 받는 쪽에 **import 경로가 따로 없다** — 큐가 이미 "이 항목에 이 태그를 붙여라"를
+  /// 말할 수 있어, 내보낸 파일을 그 워크스페이스의 요청함에 넣으면 그대로 적용된다.
+  Future<void> _exportSelection() async {
+    final root = ref.read(workspaceRootProvider);
+    if (root == null) return;
+    final selection = ref.read(selectionControllerProvider);
+    final byId = ref.read(fileNodesByIdProvider);
+    final nodes = [
+      for (final id in selection.selectedIds)
+        if (byId[id] != null) byId[id]!,
+    ];
+    if (nodes.isEmpty) return;
+
+    // 값이 캐시 키·노드 id 그대로인 원본 맵을 쓴다 — 내보내기가 그것을 경로·이름으로
+    // 직접 풀고, 이미지는 캐시 키로 파일을 찾아야 한다.
+    final assignments = ref.read(effectiveAssignmentsByFileProvider);
+    final candidateIds = exportableTagIds(
+      nodes: nodes,
+      assignmentsByFile: assignments,
+    );
+    final definitions = {
+      for (final d
+          in ref.read(tagDefinitionsProvider).valueOrNull ??
+              const <TagDefinition>[])
+        if (d.id != null) d.id!: d,
+    };
+    final candidates = [
+      for (final id in candidateIds)
+        if (definitions[id] != null) definitions[id]!,
+    ]..sort((a, b) => a.name.compareTo(b.name));
+
+    final options = await showExportDialog(
+      context,
+      candidates: candidates,
+      nodeCount: nodes.length,
+    );
+    if (options == null) return;
+
+    final exported = buildExportCommands(
+      nodes: nodes,
+      assignmentsByFile: assignments,
+      nodesById: byId,
+      tagIds: options.tagIds,
+      includeValues: options.includeValues,
+      includeImages: options.includeImages,
+    );
+    if (exported.commands.isEmpty) {
+      _showSnack('내보낼 태그 부여가 없습니다.');
+      return;
+    }
+
+    final location = await getSaveLocation(
+      suggestedName: _exportFileName,
+      acceptedTypeGroups: const [
+        XTypeGroup(label: '요청함 파일', extensions: ['json']),
+      ],
+    );
+    if (location == null) return;
+
+    try {
+      final result = await writeCommandExport(
+        // 확장자가 없으면 붙여 준다 — 요청함은 `.json`만 읽으므로, 이름만 적고 만
+        // 파일은 받는 쪽에서 조용히 무시된다.
+        filePath: location.path.toLowerCase().endsWith('.json')
+            ? location.path
+            : '${location.path}.json',
+        exported: exported,
+        workspaceRoot: root,
+      );
+      _showSnack(
+        '태그 ${result.commands}건을 내보냈습니다'
+        '${result.images == 0 ? '' : ' (이미지 ${result.images}개 동봉)'}.',
+      );
+    } catch (e) {
+      _showSnack('내보내지 못했습니다: $e');
     }
   }
 
@@ -690,7 +863,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// '파일 이름' 시스템 태그 편집: 새 이름을 받아 디스크에서 rename하고 인덱스
-  /// 경로를 맞춘다. fs 실패(권한·중복 이름 등)는 스낵바로 알린다.
+  /// 경로를 맞춘다. fs 실패(권한·중복 이름 등)는 스낵바로 알린다. 키워드는 디스크에
+  /// 실체가 없어 rename을 건너뛰고 저장된 이름만 고친다.
   Future<void> _renameNodeById(int nodeId) async {
     final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
     final matches = items.where((n) => n.id == nodeId);
@@ -706,6 +880,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (trimmed.isEmpty || trimmed == node.name) return;
     if (trimmed.contains('/') || trimmed.contains(r'\')) {
       _showSnack('이름에 경로 구분자(/ \\)는 쓸 수 없습니다.');
+      return;
+    }
+
+    if (node.isKeyword) {
+      final error = await ref
+          .read(fileNodeRepositoryProvider)
+          ?.renameKeyword(nodeId: nodeId, name: trimmed);
+      if (error != null) _showSnack(error.message);
       return;
     }
 
@@ -1016,6 +1198,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       revealInFileManager: _singleExistingSelected == null
           ? null
           : _revealSelected,
+      // 내보낼 대상은 지금 고른 것이다. 저장 위치 선택기가 데스크톱 전용이라 거기서만
+      // 활성한다(모바일은 백업 경로를 따로 두기로 되어 있다 — TODO.md).
+      exportSelection: (selection.isNotEmpty && isDesktopPlatform)
+          ? _exportSelection
+          : null,
       manageTags: hasWorkspace ? _openTagManagement : null,
       // 썸네일 태그 다이얼로그는 데스크톱 크롬(태그 메뉴)에만 있다.
       manageThumbnailTags: (hasWorkspace && isDesktopPlatform)
@@ -1025,6 +1212,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       tagDisplayOrder: (hasWorkspace && !isDesktopPlatform)
           ? () => showTagOrderDialog(context)
           : null,
+      // 키워드 만들기는 워크스페이스만 있으면 되고(선택과 무관), 편집·삭제는 고른
+      // 것이 정확히 키워드 하나일 때만 뜻이 있다.
+      createKeyword: hasWorkspace ? _createKeyword : null,
+      editKeyword: _singleSelectedKeyword == null ? null : _editKeyword,
+      deleteKeyword: _singleSelectedKeyword == null ? null : _deleteKeyword,
       // 도움말·정보는 폴더를 열기 전에도 봐야 하므로 워크스페이스에 매이지 않는다.
       help: () => showHelpDialog(context),
       about: () => showAppAboutDialog(context),

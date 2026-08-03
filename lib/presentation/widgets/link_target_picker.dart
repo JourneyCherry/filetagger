@@ -40,7 +40,8 @@ class _LinkTargetPickerState extends ConsumerState<_LinkTargetPicker> {
 
   @override
   Widget build(BuildContext context) {
-    // 대상은 파일(비디렉토리)만 후보로 낸다 — 폴더는 이미지·링크 대상이 아니다.
+    // 대상은 파일과 키워드만 후보로 낸다 — 폴더는 이미지·링크 대상이 아니다. 키워드는
+    // 링크로 가리키라고 만든 노드라 반드시 들어간다(작가 정보 등).
     final nodes = [
       for (final n in ref.watch(fileNodesProvider).valueOrNull ?? const [])
         if (!n.isDirectory && n.id != null) n,

@@ -23,9 +23,13 @@ enum AppCommandId {
   assignTags,
   reconnect,
   revealInFileManager,
+  exportSelection,
   manageTags,
   manageThumbnailTags,
   tagDisplayOrder,
+  createKeyword,
+  editKeyword,
+  deleteKeyword,
   help,
   about,
   exitApp,
@@ -160,6 +164,14 @@ final List<AppCommand> appCommands = [
     icon: Icons.open_in_new,
     shortcut: _primaryShift(LogicalKeyboardKey.keyR),
   ),
+  // 고른 항목의 태그를 요청함 파일로 내보낸다. 단축키는 두지 않는다 — 가끔 쓰는
+  // 조작이라 남은 조합을 차지하기보다 메뉴·컨텍스트 메뉴로만 부른다(키워드 명령과 같은 결).
+  const AppCommand(
+    id: AppCommandId.exportSelection,
+    label: '태그 내보내기…',
+    intent: ExportSelectionIntent(),
+    icon: Icons.ios_share,
+  ),
   AppCommand(
     id: AppCommandId.manageTags,
     label: '태그 관리',
@@ -173,6 +185,26 @@ final List<AppCommand> appCommands = [
     intent: const ManageThumbnailTagsIntent(),
     icon: Icons.image_outlined,
     shortcut: _primaryShift(LogicalKeyboardKey.keyT),
+  ),
+  // 키워드(디스크에 남지 않는 노드) 만들기·고치기·지우기. 단축키는 두지 않는다 —
+  // 가끔 쓰는 조작이라 남은 조합을 쓰기보다 메뉴·컨텍스트 메뉴로만 부른다.
+  const AppCommand(
+    id: AppCommandId.createKeyword,
+    label: '키워드 만들기…',
+    intent: CreateKeywordIntent(),
+    icon: Icons.sell_outlined,
+  ),
+  const AppCommand(
+    id: AppCommandId.editKeyword,
+    label: '키워드 편집…',
+    intent: EditKeywordIntent(),
+    icon: Icons.edit_outlined,
+  ),
+  const AppCommand(
+    id: AppCommandId.deleteKeyword,
+    label: '키워드 삭제',
+    intent: DeleteKeywordIntent(),
+    icon: Icons.delete_outline,
   ),
   const AppCommand(
     id: AppCommandId.help,

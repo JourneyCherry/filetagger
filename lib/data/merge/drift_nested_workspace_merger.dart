@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
+import '../../domain/entities/node_kind.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/repositories/nested_workspace_merger.dart';
 import '../db/app_database.dart';
@@ -72,15 +73,32 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
       // 비워(null) 흡수 후 재귀 관리 아래에서 모두 인덱싱되게 한다(폴더 노드 자체의
       // 관리 방식은 use case가 재귀로 설정). 이미 있던 경로면 id를 보존해 그 위에
       // 부여를 매단다.
+      //
+      // 키워드는 디스크 경로가 아니라 이름을 담으므로 재기준화하지 않는다. 대신 부모에
+      // 같은 이름의 키워드가 있으면 태그 정의와 같은 방식으로 식별 가능한 이름을 붙여
+      // 별개 키워드로 남긴다 — 이름이 같다고 합치면 서로 다른 대상에 붙은 태그가
+      // 한 노드로 뒤섞인다.
+      final takenKeywordNames = {
+        for (final r in await (_parentDb.select(
+          _parentDb.fileNodes,
+        )..where((t) => t.kind.equalsValue(NodeKind.keyword))).get())
+          r.path,
+      };
       final nodeIdByChildId = <int, int>{};
       for (final n in nodes) {
-        final rebased = '$childRelPath/${n.path}';
+        final String rebased;
+        if (n.kind == NodeKind.keyword) {
+          rebased = _uniqueName(n.path, childBase, takenKeywordNames);
+          takenKeywordNames.add(rebased);
+        } else {
+          rebased = '$childRelPath/${n.path}';
+        }
         final row = await _parentDb
             .into(_parentDb.fileNodes)
             .insertReturning(
               FileNodesCompanion.insert(
                 path: rebased,
-                isDirectory: n.isDirectory,
+                kind: n.kind,
                 size: Value(n.size),
                 modifiedAt: Value(n.modifiedAt),
                 contentHashPrefix: Value(n.contentHashPrefix),
@@ -91,14 +109,20 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
               ),
               onConflict: DoUpdate(
                 (_) => FileNodesCompanion(lastSeenAt: Value(seenAt)),
-                target: [_parentDb.fileNodes.path],
+                target: [_parentDb.fileNodes.kind, _parentDb.fileNodes.path],
               ),
             );
         nodeIdByChildId[n.id] = row.id;
       }
 
       // 링크 태그의 값은 대상 노드 id다 — 흡수하며 노드 id가 재매핑되므로 링크 값도
-      // 새 부모 id로 옮긴다. 대상이 흡수 목록 밖이면 값을 비워(null) 링크를 무효로 둔다.
+      // 새 부모 id로 옮긴다. 대상을 찾지 못하면(하위에서 이미 떠 있던 id) 값을
+      // 비운다 — 남겨 봐야 사람에게 뜻이 없는 옛 id다.
+      //
+      // **미해결 링크는 값을 그대로 옮긴다**(재매핑도 재기준화도 하지 않는다). 그
+      // 값은 id가 아니라 사람이 읽는 원문이고, 그것이 경로인지 키워드 이름인지는
+      // 부여만 봐서는 알 수 없어 접두를 붙이면 되레 망가진다. 자리가 어긋났다면
+      // 사용자가 재연결하면 된다 — 여기서 버리면 그 기회가 사라진다.
       final linkChildDefIds = {
         for (final d in defs)
           if (d.valueType == TagValueType.link) d.id,
@@ -108,7 +132,8 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
         final defId = defIdMap[a.tagDefinitionId];
         if (fileId == null || defId == null) continue;
         var value = a.value;
-        if (linkChildDefIds.contains(a.tagDefinitionId) && value != null) {
+        final isLink = linkChildDefIds.contains(a.tagDefinitionId);
+        if (isLink && !a.valueUnresolved && value != null) {
           final targetChildId = int.tryParse(value);
           final mapped = targetChildId == null
               ? null
@@ -122,6 +147,7 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
                 fileNodeId: fileId,
                 tagDefinitionId: defId,
                 value: Value(value),
+                valueUnresolved: Value(a.valueUnresolved),
               ),
             );
       }

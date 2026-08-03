@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
+import '../shells/menu_model.dart';
 
 /// 폴더 관리 방식 메뉴의 선택지. 라디오(불투명/관리)와 토글(재귀)이 섞여 있어
 /// 모드 자체가 아니라 '조작'으로 표현한다.
@@ -28,76 +29,34 @@ FolderManageMode? nextManageMode(
   }
 }
 
-/// 폴더 관리 방식 항목들. 컨텍스트 메뉴(명령 카탈로그 항목들) 뒤에 이어 붙인다.
-/// 어느 대상에 걸리는 항목인지 드러나도록 머리말을 앞세운다.
+/// 폴더 관리 방식 항목들. 컨텍스트 메뉴의 하위 메뉴로 접어 넣는다 — 어느 대상에
+/// 걸리는 항목인지는 그 하위 메뉴의 이름이 알린다(따로 머리말을 두지 않는다).
 ///
-/// 체크 상태는 상속까지 반영한 [resolved]를 그대로 보여 준다. 값을 갖지 않는
-/// 항목이라 메뉴가 돌려주는 선택 결과(명령 식별자)에 섞이지 않고, 고른 조작은
-/// [onSelected]로만 알린다.
-List<PopupMenuEntry<T>> folderManageMenuItems<T>({
+/// 체크 상태는 상속까지 반영한 [resolved]를 그대로 보여 준다. 고른 조작은
+/// [onSelected]로 알린다.
+List<MenuNode> folderManageMenuNodes({
   required FolderManageMode resolved,
   required ValueChanged<FolderManageAction> onSelected,
 }) {
   final managedFamily = resolved != FolderManageMode.opaque;
   return [
-    _MenuSectionHeader<T>('폴더 관리 옵션'),
-    CheckedPopupMenuItem<T>(
+    MenuChecked(
+      '폴더만 관리 (내부 감춤)',
       checked: !managedFamily,
-      onTap: () => onSelected(FolderManageAction.opaque),
-      child: const Text('폴더만 관리 (내부 감춤)'),
+      onSelected: () => onSelected(FolderManageAction.opaque),
     ),
-    CheckedPopupMenuItem<T>(
+    MenuChecked(
+      '내부 관리',
       checked: managedFamily,
-      onTap: () => onSelected(FolderManageAction.managed),
-      child: const Text('내부 관리'),
+      onSelected: () => onSelected(FolderManageAction.managed),
     ),
-    CheckedPopupMenuItem<T>(
+    MenuChecked(
+      '재귀적으로 관리',
       checked: resolved == FolderManageMode.managedRecursive,
-      // 폴더만 관리(불투명)일 땐 재귀를 켤 수 없다.
-      enabled: managedFamily,
-      onTap: () => onSelected(FolderManageAction.toggleRecursive),
-      child: const Text('재귀적으로 관리'),
+      // 폴더만 관리(불투명)일 땐 재귀가 의미 없어 고를 수 없다.
+      onSelected: managedFamily
+          ? () => onSelected(FolderManageAction.toggleRecursive)
+          : null,
     ),
   ];
-}
-
-/// 팝업 메뉴 안에서 뒤따르는 항목들이 무엇에 걸리는지 알리는 머리말.
-///
-/// 고를 수 없는 표시 전용 줄이다(전통적 메뉴의 그룹 제목). 값을 대표하지 않아
-/// 키보드 이동·선택 결과에 끼어들지 않는다.
-class _MenuSectionHeader<T> extends PopupMenuEntry<T> {
-  const _MenuSectionHeader(this.label);
-
-  /// 머리말 한 줄이 차지하는 높이(항목보다 낮게 둔다).
-  static const double _height = 28;
-
-  final String label;
-
-  @override
-  double get height => _height;
-
-  @override
-  bool represents(T? value) => false;
-
-  @override
-  State<_MenuSectionHeader<T>> createState() => _MenuSectionHeaderState<T>();
-}
-
-class _MenuSectionHeaderState<T> extends State<_MenuSectionHeader<T>> {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      height: _MenuSectionHeader._height,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        widget.label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
 }

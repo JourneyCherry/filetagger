@@ -10,6 +10,7 @@ import '../help_topics.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/view_mode_selector.dart';
+import 'menu_model.dart';
 
 /// 네이티브 메뉴(macOS)에서 체크 항목의 라벨 앞에 붙일 표식.
 const String _checkMark = '✓';
@@ -17,74 +18,6 @@ const String _checkMark = '✓';
 /// 네이티브 메뉴 항목은 체크 상태를 받지 않으므로 라벨에 표식을 얹어 대신한다.
 String _platformLabel(String label, bool? checked) =>
     (checked ?? false) ? '$_checkMark $label' : label;
-
-/// 체크 표시 아이콘의 크기(메뉴 라벨 글자와 어울리게 줄인다).
-const double _checkIconSize = 18;
-
-/// 체크 상태를 갖는 항목의 앞 아이콘. [checked]가 null이면(토글이 아닌 항목) 자리를
-/// 아예 두지 않고, false면 자리만 비워 같은 메뉴의 켜진 항목과 라벨을 맞춘다.
-Widget? _checkIcon(bool? checked) => checked == null
-    ? null
-    : Icon(checked ? Icons.check : null, size: _checkIconSize);
-
-/// 메뉴 트리의 한 항목.
-///
-/// 메뉴 구성을 데이터로 한 번만 적어 두고, 플랫폼별 렌더러가 이를 읽어 각각
-/// OS 네이티브 메뉴(macOS)와 앱 내 메뉴(그 외)를 그린다. 라벨·단축키·활성 여부는
-/// 명령 카탈로그가 단일 출처다.
-sealed class MenuNode {
-  const MenuNode();
-}
-
-/// 명령 카탈로그의 명령 하나를 그대로 항목으로 보인다.
-class MenuCommand extends MenuNode {
-  const MenuCommand(this.id);
-
-  final AppCommandId id;
-}
-
-/// 라벨·동작을 직접 주는 항목(최근 폴더처럼 카탈로그에 없는 동적 목록).
-class MenuAction extends MenuNode {
-  const MenuAction(this.label, this.onSelected);
-
-  final String label;
-
-  /// null이면 비활성.
-  final VoidCallback? onSelected;
-}
-
-/// 현재 선택 여부를 체크로 보이는 항목(라디오·토글 성격의 설정).
-class MenuChecked extends MenuNode {
-  const MenuChecked(
-    this.label, {
-    required this.checked,
-    this.onSelected,
-    this.shortcut,
-  });
-
-  final String label;
-  final bool checked;
-
-  /// null이면 비활성.
-  final VoidCallback? onSelected;
-
-  /// 같은 동작을 부르는 단축키(표기용). 명령 카탈로그에 대응 명령이 있는 라디오
-  /// 항목이 힌트를 보이도록 얹는다.
-  final SingleActivator? shortcut;
-}
-
-/// 하위 메뉴.
-class MenuSubmenu extends MenuNode {
-  const MenuSubmenu(this.label, this.children);
-
-  final String label;
-  final List<MenuNode> children;
-}
-
-/// 항목 사이의 구분선.
-class MenuDivider extends MenuNode {
-  const MenuDivider();
-}
 
 /// 앱 메뉴바. macOS는 OS 네이티브 메뉴로, Windows/Linux는 본문 위 앱 내 메뉴로
 /// 그린다. 어느 쪽이든 [child]를 그대로 아래에 둔다.
@@ -172,6 +105,8 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.rescan),
         const MenuCommand(AppCommandId.closeFolder),
         const MenuDivider(),
+        const MenuCommand(AppCommandId.exportSelection),
+        const MenuDivider(),
         const MenuCommand(AppCommandId.exitApp),
       ]),
       MenuSubmenu('편집', [
@@ -181,6 +116,12 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.assignTags),
         const MenuCommand(AppCommandId.reconnect),
         const MenuCommand(AppCommandId.revealInFileManager),
+        const MenuDivider(),
+        const MenuSubmenu('키워드', [
+          MenuCommand(AppCommandId.createKeyword),
+          MenuCommand(AppCommandId.editKeyword),
+          MenuCommand(AppCommandId.deleteKeyword),
+        ]),
         const MenuDivider(),
         MenuSubmenu('루트 폴더 관리 방식', _rootManageItems(rootMode)),
       ]),
@@ -294,42 +235,9 @@ class AppMenuBar extends ConsumerWidget {
     ];
   }
 
-  // ── Material 렌더(Windows/Linux) ──
-
-  Widget _materialNode(MenuNode node) {
-    switch (node) {
-      case MenuSubmenu(:final label, :final children):
-        return SubmenuButton(
-          menuChildren: [for (final child in children) _materialNode(child)],
-          child: Text(label),
-        );
-      case MenuCommand(:final id):
-        final command = commandOf(id);
-        // 메뉴바는 라벨·단축키와, 토글 명령이면 체크만 보인다(아이콘은 툴바의 몫).
-        return MenuItemButton(
-          onPressed: handlers.handlerOf(id),
-          shortcut: command.shortcut,
-          leadingIcon: _checkIcon(commandChecks[id]),
-          child: Text(command.label),
-        );
-      case MenuAction(:final label, :final onSelected):
-        return MenuItemButton(onPressed: onSelected, child: Text(label));
-      case MenuChecked(
-        :final label,
-        :final checked,
-        :final onSelected,
-        :final shortcut,
-      ):
-        return MenuItemButton(
-          onPressed: onSelected,
-          shortcut: shortcut,
-          leadingIcon: _checkIcon(checked),
-          child: Text(label),
-        );
-      case MenuDivider():
-        return const Divider();
-    }
-  }
+  /// 메뉴바는 라벨·단축키와, 토글 명령이면 체크만 보인다(아이콘은 툴바의 몫).
+  Widget _materialNode(MenuNode node) =>
+      materialMenuNode(node, handlers: handlers, commandChecks: commandChecks);
 
   // ── PlatformMenuBar 렌더(macOS) ──
 

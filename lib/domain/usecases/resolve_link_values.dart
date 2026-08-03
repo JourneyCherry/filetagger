@@ -11,8 +11,16 @@ import '../entities/tag_value_type.dart';
 /// 이름 기준으로 동작한다. 이름 해석 함수는 소비 계층(파일 노드 인덱스를 아는
 /// presentation)이 주입한다.
 ///
-/// 대상을 찾지 못한 링크는 값을 비워(null) "값 없음"처럼 취급한다 — 사라지거나
-/// 워크스페이스 밖을 가리키는 링크가 엉뚱한 버킷·조건에 걸리지 않게 한다.
+/// **대상을 찾지 못한 링크는 버리지 않고 미해결로 표시한다**
+/// ([TagAssignment.valueUnresolved]). 값을 비워 "값 없음"처럼 다루면 대상이 지워진
+/// 링크가 조용히 사라진 것처럼 보여, 사용자가 재연결할지 지울지 정할 기회를 잃는다.
+/// 방침은 노드의 연결 끊김과 같다 — 버리지 않고, 눈에 띄게 두고, 사용자가 정한다.
+///
+/// 미해결에는 두 갈래가 있고 여기서 하나로 합쳐 내보낸다:
+/// - **가져온 값**(부여에 표식이 이미 붙어 있음): 값은 외부 앱이 적어 보낸 원문
+///   (상대 경로·키워드 이름)이라 그대로 두어 사람이 읽고 필터에도 걸린다.
+/// - **떠 버린 id**(대상이 지워짐): 값은 사람에게 뜻이 없는 노드 id라 비운다 —
+///   날 id를 UI에 내보이지 않는다는 원칙 그대로다.
 Map<int, List<AssignedTag>> resolveLinkAssignments(
   Map<int, List<AssignedTag>> byFile,
   String? Function(String rawValue) nameOf,
@@ -28,14 +36,29 @@ Map<int, List<AssignedTag>> resolveLinkAssignments(
       }
       changed = true;
       final raw = a.value;
-      final name = (raw == null || raw.isEmpty) ? null : nameOf(raw);
+      final String? value;
+      final bool unresolved;
+      if (a.valueUnresolved) {
+        // 이미 미해결로 들어온 값 — 원문을 그대로 들고 간다.
+        value = raw;
+        unresolved = true;
+      } else if (raw == null || raw.isEmpty) {
+        // 값이 아예 없는 부여다(미해결이 아니라 "값 없음").
+        value = null;
+        unresolved = false;
+      } else {
+        final name = nameOf(raw);
+        value = name;
+        unresolved = name == null;
+      }
       resolved.add(
         AssignedTag(
           assignment: TagAssignment(
             id: a.assignment.id,
             fileNodeId: a.assignment.fileNodeId,
             tagDefinitionId: a.assignment.tagDefinitionId,
-            value: name,
+            value: value,
+            valueUnresolved: unresolved,
           ),
           definition: a.definition,
         ),

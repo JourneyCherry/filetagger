@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_tagger_mode.dart';
+import '../../domain/entities/node_kind.dart';
 import '../../domain/entities/tag_value_type.dart';
 
 /// 태그의 종류(이름·값 유형·색상). 라벨/키-값 태그를 [valueType] 하나로
@@ -29,16 +30,17 @@ class TagDefinitions extends Table {
       boolean().withDefault(const Constant(false))();
 }
 
-/// 스캔된 파일/폴더의 인덱스. 경로 외에 이동 추적용 메타(크기·수정시각·
-/// 부분 해시)를 함께 보관한다.
+/// 인덱스에 실린 노드(스캔된 파일/폴더 + 사용자가 만든 키워드). 경로 외에 이동
+/// 추적용 메타(크기·수정시각·부분 해시)를 함께 보관한다.
 @DataClassName('FileNodeRow')
 class FileNodes extends Table {
   IntColumn get id => integer().autoIncrement()();
 
-  /// 관리 폴더 루트 기준 경로. 같은 노드를 한 번만 인덱싱한다.
-  TextColumn get path => text().unique()();
+  /// 관리 폴더 루트 기준 경로. 키워드는 경로가 아니라 이름을 담는다.
+  TextColumn get path => text()();
 
-  BoolColumn get isDirectory => boolean()();
+  /// 노드 종류(파일/디렉토리/키워드). 이름 기반 저장.
+  TextColumn get kind => textEnum<NodeKind>()();
 
   /// 파일 크기. 폴더 등 의미 없는 경우 미지정.
   IntColumn get size => integer().nullable()();
@@ -66,6 +68,14 @@ class FileNodes extends Table {
   /// 태그를 잃지 않으려 보존한 "연결 끊김" 상태의 시각. null이면 정상(존재)
   /// 노드다. 파일이 같은 경로로 다시 나타나거나 사용자가 수동 재연결하면 지워진다.
   DateTimeColumn get missingSince => dateTime().nullable()();
+
+  /// 같은 노드를 한 번만 인덱싱하되, **유일성은 종류 안에서만** 요구한다. 키워드는
+  /// 디스크 경로가 아니라 이름을 [path]에 담으므로, 같은 이름의 파일이 있어도
+  /// 서로를 밀어내지 않아야 한다.
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {kind, path},
+  ];
 }
 
 /// 파일 노드에 태그를 부여한 기록(N:M). 값은 [TagDefinitions.valueType]에
@@ -82,6 +92,15 @@ class TagAssignments extends Table {
 
   /// 부여된 값. label 유형 등 값이 없으면 미지정.
   TextColumn get value => text().nullable()();
+
+  /// 링크 값이 대상 노드를 가리키지 못하는 상태(미해결 링크)인지. 참이면 [value]는
+  /// 노드 id가 아니라 외부에서 받은 원래 문자열이다. 값 안에 표식을 섞지 않는 이유는
+  /// 도메인 엔티티([TagAssignment.valueUnresolved])에 적어 두었다.
+  ///
+  /// 세 값이 필요 없어 nullable로 두지 않는다 — "모름"이라는 상태가 없고, 링크가
+  /// 아닌 부여는 늘 거짓이다.
+  BoolColumn get valueUnresolved =>
+      boolean().withDefault(const Constant(false))();
 }
 
 /// 중첩 워크스페이스(자체 `.filetagger/`를 가진 하위 폴더)에 대해 사용자가 확정한

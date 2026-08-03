@@ -402,22 +402,16 @@ class $FileNodesTable extends FileNodes
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
-  );
-  static const VerificationMeta _isDirectoryMeta = const VerificationMeta(
-    'isDirectory',
   );
   @override
-  late final GeneratedColumn<bool> isDirectory = GeneratedColumn<bool>(
-    'is_directory',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_directory" IN (0, 1))',
-    ),
-  );
+  late final GeneratedColumnWithTypeConverter<NodeKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<NodeKind>($FileNodesTable.$converterkind);
   static const VerificationMeta _sizeMeta = const VerificationMeta('size');
   @override
   late final GeneratedColumn<int> size = GeneratedColumn<int>(
@@ -507,7 +501,7 @@ class $FileNodesTable extends FileNodes
   List<GeneratedColumn> get $columns => [
     id,
     path,
-    isDirectory,
+    kind,
     size,
     modifiedAt,
     contentHashPrefix,
@@ -539,17 +533,6 @@ class $FileNodesTable extends FileNodes
       );
     } else if (isInserting) {
       context.missing(_pathMeta);
-    }
-    if (data.containsKey('is_directory')) {
-      context.handle(
-        _isDirectoryMeta,
-        isDirectory.isAcceptableOrUnknown(
-          data['is_directory']!,
-          _isDirectoryMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_isDirectoryMeta);
     }
     if (data.containsKey('size')) {
       context.handle(
@@ -616,6 +599,10 @@ class $FileNodesTable extends FileNodes
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {kind, path},
+  ];
+  @override
   FileNodeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return FileNodeRow(
@@ -627,10 +614,12 @@ class $FileNodesTable extends FileNodes
         DriftSqlType.string,
         data['${effectivePrefix}path'],
       )!,
-      isDirectory: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_directory'],
-      )!,
+      kind: $FileNodesTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
       size: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}size'],
@@ -673,6 +662,8 @@ class $FileNodesTable extends FileNodes
     return $FileNodesTable(attachedDatabase, alias);
   }
 
+  static JsonTypeConverter2<NodeKind, String, String> $converterkind =
+      const EnumNameConverter<NodeKind>(NodeKind.values);
   static JsonTypeConverter2<FolderManageMode, String, String>
   $convertermanageMode = const EnumNameConverter<FolderManageMode>(
     FolderManageMode.values,
@@ -684,9 +675,11 @@ class $FileNodesTable extends FileNodes
 class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   final int id;
 
-  /// 관리 폴더 루트 기준 경로. 같은 노드를 한 번만 인덱싱한다.
+  /// 관리 폴더 루트 기준 경로. 키워드는 경로가 아니라 이름을 담는다.
   final String path;
-  final bool isDirectory;
+
+  /// 노드 종류(파일/디렉토리/키워드). 이름 기반 저장.
+  final NodeKind kind;
 
   /// 파일 크기. 폴더 등 의미 없는 경우 미지정.
   final int? size;
@@ -716,7 +709,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   const FileNodeRow({
     required this.id,
     required this.path,
-    required this.isDirectory,
+    required this.kind,
     this.size,
     this.modifiedAt,
     this.contentHashPrefix,
@@ -731,7 +724,11 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['path'] = Variable<String>(path);
-    map['is_directory'] = Variable<bool>(isDirectory);
+    {
+      map['kind'] = Variable<String>(
+        $FileNodesTable.$converterkind.toSql(kind),
+      );
+    }
     if (!nullToAbsent || size != null) {
       map['size'] = Variable<int>(size);
     }
@@ -763,7 +760,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     return FileNodesCompanion(
       id: Value(id),
       path: Value(path),
-      isDirectory: Value(isDirectory),
+      kind: Value(kind),
       size: size == null && nullToAbsent ? const Value.absent() : Value(size),
       modifiedAt: modifiedAt == null && nullToAbsent
           ? const Value.absent()
@@ -795,7 +792,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     return FileNodeRow(
       id: serializer.fromJson<int>(json['id']),
       path: serializer.fromJson<String>(json['path']),
-      isDirectory: serializer.fromJson<bool>(json['isDirectory']),
+      kind: $FileNodesTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
       size: serializer.fromJson<int?>(json['size']),
       modifiedAt: serializer.fromJson<DateTime?>(json['modifiedAt']),
       contentHashPrefix: serializer.fromJson<String?>(
@@ -816,7 +815,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'path': serializer.toJson<String>(path),
-      'isDirectory': serializer.toJson<bool>(isDirectory),
+      'kind': serializer.toJson<String>(
+        $FileNodesTable.$converterkind.toJson(kind),
+      ),
       'size': serializer.toJson<int?>(size),
       'modifiedAt': serializer.toJson<DateTime?>(modifiedAt),
       'contentHashPrefix': serializer.toJson<String?>(contentHashPrefix),
@@ -833,7 +834,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   FileNodeRow copyWith({
     int? id,
     String? path,
-    bool? isDirectory,
+    NodeKind? kind,
     Value<int?> size = const Value.absent(),
     Value<DateTime?> modifiedAt = const Value.absent(),
     Value<String?> contentHashPrefix = const Value.absent(),
@@ -845,7 +846,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   }) => FileNodeRow(
     id: id ?? this.id,
     path: path ?? this.path,
-    isDirectory: isDirectory ?? this.isDirectory,
+    kind: kind ?? this.kind,
     size: size.present ? size.value : this.size,
     modifiedAt: modifiedAt.present ? modifiedAt.value : this.modifiedAt,
     contentHashPrefix: contentHashPrefix.present
@@ -865,9 +866,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     return FileNodeRow(
       id: data.id.present ? data.id.value : this.id,
       path: data.path.present ? data.path.value : this.path,
-      isDirectory: data.isDirectory.present
-          ? data.isDirectory.value
-          : this.isDirectory,
+      kind: data.kind.present ? data.kind.value : this.kind,
       size: data.size.present ? data.size.value : this.size,
       modifiedAt: data.modifiedAt.present
           ? data.modifiedAt.value
@@ -898,7 +897,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     return (StringBuffer('FileNodeRow(')
           ..write('id: $id, ')
           ..write('path: $path, ')
-          ..write('isDirectory: $isDirectory, ')
+          ..write('kind: $kind, ')
           ..write('size: $size, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('contentHashPrefix: $contentHashPrefix, ')
@@ -915,7 +914,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   int get hashCode => Object.hash(
     id,
     path,
-    isDirectory,
+    kind,
     size,
     modifiedAt,
     contentHashPrefix,
@@ -931,7 +930,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       (other is FileNodeRow &&
           other.id == this.id &&
           other.path == this.path &&
-          other.isDirectory == this.isDirectory &&
+          other.kind == this.kind &&
           other.size == this.size &&
           other.modifiedAt == this.modifiedAt &&
           other.contentHashPrefix == this.contentHashPrefix &&
@@ -945,7 +944,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
 class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   final Value<int> id;
   final Value<String> path;
-  final Value<bool> isDirectory;
+  final Value<NodeKind> kind;
   final Value<int?> size;
   final Value<DateTime?> modifiedAt;
   final Value<String?> contentHashPrefix;
@@ -957,7 +956,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   const FileNodesCompanion({
     this.id = const Value.absent(),
     this.path = const Value.absent(),
-    this.isDirectory = const Value.absent(),
+    this.kind = const Value.absent(),
     this.size = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.contentHashPrefix = const Value.absent(),
@@ -970,7 +969,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   FileNodesCompanion.insert({
     this.id = const Value.absent(),
     required String path,
-    required bool isDirectory,
+    required NodeKind kind,
     this.size = const Value.absent(),
     this.modifiedAt = const Value.absent(),
     this.contentHashPrefix = const Value.absent(),
@@ -980,12 +979,12 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     required DateTime lastSeenAt,
     this.missingSince = const Value.absent(),
   }) : path = Value(path),
-       isDirectory = Value(isDirectory),
+       kind = Value(kind),
        lastSeenAt = Value(lastSeenAt);
   static Insertable<FileNodeRow> custom({
     Expression<int>? id,
     Expression<String>? path,
-    Expression<bool>? isDirectory,
+    Expression<String>? kind,
     Expression<int>? size,
     Expression<DateTime>? modifiedAt,
     Expression<String>? contentHashPrefix,
@@ -998,7 +997,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (path != null) 'path': path,
-      if (isDirectory != null) 'is_directory': isDirectory,
+      if (kind != null) 'kind': kind,
       if (size != null) 'size': size,
       if (modifiedAt != null) 'modified_at': modifiedAt,
       if (contentHashPrefix != null) 'content_hash_prefix': contentHashPrefix,
@@ -1013,7 +1012,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   FileNodesCompanion copyWith({
     Value<int>? id,
     Value<String>? path,
-    Value<bool>? isDirectory,
+    Value<NodeKind>? kind,
     Value<int?>? size,
     Value<DateTime?>? modifiedAt,
     Value<String?>? contentHashPrefix,
@@ -1026,7 +1025,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     return FileNodesCompanion(
       id: id ?? this.id,
       path: path ?? this.path,
-      isDirectory: isDirectory ?? this.isDirectory,
+      kind: kind ?? this.kind,
       size: size ?? this.size,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       contentHashPrefix: contentHashPrefix ?? this.contentHashPrefix,
@@ -1047,8 +1046,10 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     if (path.present) {
       map['path'] = Variable<String>(path.value);
     }
-    if (isDirectory.present) {
-      map['is_directory'] = Variable<bool>(isDirectory.value);
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $FileNodesTable.$converterkind.toSql(kind.value),
+      );
     }
     if (size.present) {
       map['size'] = Variable<int>(size.value);
@@ -1084,7 +1085,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     return (StringBuffer('FileNodesCompanion(')
           ..write('id: $id, ')
           ..write('path: $path, ')
-          ..write('isDirectory: $isDirectory, ')
+          ..write('kind: $kind, ')
           ..write('size: $size, ')
           ..write('modifiedAt: $modifiedAt, ')
           ..write('contentHashPrefix: $contentHashPrefix, ')
@@ -1154,12 +1155,28 @@ class $TagAssignmentsTable extends TagAssignments
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _valueUnresolvedMeta = const VerificationMeta(
+    'valueUnresolved',
+  );
+  @override
+  late final GeneratedColumn<bool> valueUnresolved = GeneratedColumn<bool>(
+    'value_unresolved',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("value_unresolved" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     fileNodeId,
     tagDefinitionId,
     value,
+    valueUnresolved,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1204,6 +1221,15 @@ class $TagAssignmentsTable extends TagAssignments
         value.isAcceptableOrUnknown(data['value']!, _valueMeta),
       );
     }
+    if (data.containsKey('value_unresolved')) {
+      context.handle(
+        _valueUnresolvedMeta,
+        valueUnresolved.isAcceptableOrUnknown(
+          data['value_unresolved']!,
+          _valueUnresolvedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1229,6 +1255,10 @@ class $TagAssignmentsTable extends TagAssignments
         DriftSqlType.string,
         data['${effectivePrefix}value'],
       ),
+      valueUnresolved: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}value_unresolved'],
+      )!,
     );
   }
 
@@ -1246,11 +1276,20 @@ class TagAssignmentRow extends DataClass
 
   /// 부여된 값. label 유형 등 값이 없으면 미지정.
   final String? value;
+
+  /// 링크 값이 대상 노드를 가리키지 못하는 상태(미해결 링크)인지. 참이면 [value]는
+  /// 노드 id가 아니라 외부에서 받은 원래 문자열이다. 값 안에 표식을 섞지 않는 이유는
+  /// 도메인 엔티티([TagAssignment.valueUnresolved])에 적어 두었다.
+  ///
+  /// 세 값이 필요 없어 nullable로 두지 않는다 — "모름"이라는 상태가 없고, 링크가
+  /// 아닌 부여는 늘 거짓이다.
+  final bool valueUnresolved;
   const TagAssignmentRow({
     required this.id,
     required this.fileNodeId,
     required this.tagDefinitionId,
     this.value,
+    required this.valueUnresolved,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1261,6 +1300,7 @@ class TagAssignmentRow extends DataClass
     if (!nullToAbsent || value != null) {
       map['value'] = Variable<String>(value);
     }
+    map['value_unresolved'] = Variable<bool>(valueUnresolved);
     return map;
   }
 
@@ -1272,6 +1312,7 @@ class TagAssignmentRow extends DataClass
       value: value == null && nullToAbsent
           ? const Value.absent()
           : Value(value),
+      valueUnresolved: Value(valueUnresolved),
     );
   }
 
@@ -1285,6 +1326,7 @@ class TagAssignmentRow extends DataClass
       fileNodeId: serializer.fromJson<int>(json['fileNodeId']),
       tagDefinitionId: serializer.fromJson<int>(json['tagDefinitionId']),
       value: serializer.fromJson<String?>(json['value']),
+      valueUnresolved: serializer.fromJson<bool>(json['valueUnresolved']),
     );
   }
   @override
@@ -1295,6 +1337,7 @@ class TagAssignmentRow extends DataClass
       'fileNodeId': serializer.toJson<int>(fileNodeId),
       'tagDefinitionId': serializer.toJson<int>(tagDefinitionId),
       'value': serializer.toJson<String?>(value),
+      'valueUnresolved': serializer.toJson<bool>(valueUnresolved),
     };
   }
 
@@ -1303,11 +1346,13 @@ class TagAssignmentRow extends DataClass
     int? fileNodeId,
     int? tagDefinitionId,
     Value<String?> value = const Value.absent(),
+    bool? valueUnresolved,
   }) => TagAssignmentRow(
     id: id ?? this.id,
     fileNodeId: fileNodeId ?? this.fileNodeId,
     tagDefinitionId: tagDefinitionId ?? this.tagDefinitionId,
     value: value.present ? value.value : this.value,
+    valueUnresolved: valueUnresolved ?? this.valueUnresolved,
   );
   TagAssignmentRow copyWithCompanion(TagAssignmentsCompanion data) {
     return TagAssignmentRow(
@@ -1319,6 +1364,9 @@ class TagAssignmentRow extends DataClass
           ? data.tagDefinitionId.value
           : this.tagDefinitionId,
       value: data.value.present ? data.value.value : this.value,
+      valueUnresolved: data.valueUnresolved.present
+          ? data.valueUnresolved.value
+          : this.valueUnresolved,
     );
   }
 
@@ -1328,13 +1376,15 @@ class TagAssignmentRow extends DataClass
           ..write('id: $id, ')
           ..write('fileNodeId: $fileNodeId, ')
           ..write('tagDefinitionId: $tagDefinitionId, ')
-          ..write('value: $value')
+          ..write('value: $value, ')
+          ..write('valueUnresolved: $valueUnresolved')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, fileNodeId, tagDefinitionId, value);
+  int get hashCode =>
+      Object.hash(id, fileNodeId, tagDefinitionId, value, valueUnresolved);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1342,7 +1392,8 @@ class TagAssignmentRow extends DataClass
           other.id == this.id &&
           other.fileNodeId == this.fileNodeId &&
           other.tagDefinitionId == this.tagDefinitionId &&
-          other.value == this.value);
+          other.value == this.value &&
+          other.valueUnresolved == this.valueUnresolved);
 }
 
 class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
@@ -1350,17 +1401,20 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
   final Value<int> fileNodeId;
   final Value<int> tagDefinitionId;
   final Value<String?> value;
+  final Value<bool> valueUnresolved;
   const TagAssignmentsCompanion({
     this.id = const Value.absent(),
     this.fileNodeId = const Value.absent(),
     this.tagDefinitionId = const Value.absent(),
     this.value = const Value.absent(),
+    this.valueUnresolved = const Value.absent(),
   });
   TagAssignmentsCompanion.insert({
     this.id = const Value.absent(),
     required int fileNodeId,
     required int tagDefinitionId,
     this.value = const Value.absent(),
+    this.valueUnresolved = const Value.absent(),
   }) : fileNodeId = Value(fileNodeId),
        tagDefinitionId = Value(tagDefinitionId);
   static Insertable<TagAssignmentRow> custom({
@@ -1368,12 +1422,14 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
     Expression<int>? fileNodeId,
     Expression<int>? tagDefinitionId,
     Expression<String>? value,
+    Expression<bool>? valueUnresolved,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (fileNodeId != null) 'file_node_id': fileNodeId,
       if (tagDefinitionId != null) 'tag_definition_id': tagDefinitionId,
       if (value != null) 'value': value,
+      if (valueUnresolved != null) 'value_unresolved': valueUnresolved,
     });
   }
 
@@ -1382,12 +1438,14 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
     Value<int>? fileNodeId,
     Value<int>? tagDefinitionId,
     Value<String?>? value,
+    Value<bool>? valueUnresolved,
   }) {
     return TagAssignmentsCompanion(
       id: id ?? this.id,
       fileNodeId: fileNodeId ?? this.fileNodeId,
       tagDefinitionId: tagDefinitionId ?? this.tagDefinitionId,
       value: value ?? this.value,
+      valueUnresolved: valueUnresolved ?? this.valueUnresolved,
     );
   }
 
@@ -1406,6 +1464,9 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
     if (value.present) {
       map['value'] = Variable<String>(value.value);
     }
+    if (valueUnresolved.present) {
+      map['value_unresolved'] = Variable<bool>(valueUnresolved.value);
+    }
     return map;
   }
 
@@ -1415,7 +1476,8 @@ class TagAssignmentsCompanion extends UpdateCompanion<TagAssignmentRow> {
           ..write('id: $id, ')
           ..write('fileNodeId: $fileNodeId, ')
           ..write('tagDefinitionId: $tagDefinitionId, ')
-          ..write('value: $value')
+          ..write('value: $value, ')
+          ..write('valueUnresolved: $valueUnresolved')
           ..write(')'))
         .toString();
   }
@@ -2038,7 +2100,7 @@ typedef $$FileNodesTableCreateCompanionBuilder =
     FileNodesCompanion Function({
       Value<int> id,
       required String path,
-      required bool isDirectory,
+      required NodeKind kind,
       Value<int?> size,
       Value<DateTime?> modifiedAt,
       Value<String?> contentHashPrefix,
@@ -2052,7 +2114,7 @@ typedef $$FileNodesTableUpdateCompanionBuilder =
     FileNodesCompanion Function({
       Value<int> id,
       Value<String> path,
-      Value<bool> isDirectory,
+      Value<NodeKind> kind,
       Value<int?> size,
       Value<DateTime?> modifiedAt,
       Value<String?> contentHashPrefix,
@@ -2108,10 +2170,11 @@ class $$FileNodesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<bool> get isDirectory => $composableBuilder(
-    column: $table.isDirectory,
-    builder: (column) => ColumnFilters(column),
-  );
+  ColumnWithTypeConverterFilters<NodeKind, NodeKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<int> get size => $composableBuilder(
     column: $table.size,
@@ -2199,8 +2262,8 @@ class $$FileNodesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<bool> get isDirectory => $composableBuilder(
-    column: $table.isDirectory,
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2260,10 +2323,8 @@ class $$FileNodesTableAnnotationComposer
   GeneratedColumn<String> get path =>
       $composableBuilder(column: $table.path, builder: (column) => column);
 
-  GeneratedColumn<bool> get isDirectory => $composableBuilder(
-    column: $table.isDirectory,
-    builder: (column) => column,
-  );
+  GeneratedColumnWithTypeConverter<NodeKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
 
   GeneratedColumn<int> get size =>
       $composableBuilder(column: $table.size, builder: (column) => column);
@@ -2360,7 +2421,7 @@ class $$FileNodesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> path = const Value.absent(),
-                Value<bool> isDirectory = const Value.absent(),
+                Value<NodeKind> kind = const Value.absent(),
                 Value<int?> size = const Value.absent(),
                 Value<DateTime?> modifiedAt = const Value.absent(),
                 Value<String?> contentHashPrefix = const Value.absent(),
@@ -2372,7 +2433,7 @@ class $$FileNodesTableTableManager
               }) => FileNodesCompanion(
                 id: id,
                 path: path,
-                isDirectory: isDirectory,
+                kind: kind,
                 size: size,
                 modifiedAt: modifiedAt,
                 contentHashPrefix: contentHashPrefix,
@@ -2386,7 +2447,7 @@ class $$FileNodesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String path,
-                required bool isDirectory,
+                required NodeKind kind,
                 Value<int?> size = const Value.absent(),
                 Value<DateTime?> modifiedAt = const Value.absent(),
                 Value<String?> contentHashPrefix = const Value.absent(),
@@ -2398,7 +2459,7 @@ class $$FileNodesTableTableManager
               }) => FileNodesCompanion.insert(
                 id: id,
                 path: path,
-                isDirectory: isDirectory,
+                kind: kind,
                 size: size,
                 modifiedAt: modifiedAt,
                 contentHashPrefix: contentHashPrefix,
@@ -2472,6 +2533,7 @@ typedef $$TagAssignmentsTableCreateCompanionBuilder =
       required int fileNodeId,
       required int tagDefinitionId,
       Value<String?> value,
+      Value<bool> valueUnresolved,
     });
 typedef $$TagAssignmentsTableUpdateCompanionBuilder =
     TagAssignmentsCompanion Function({
@@ -2479,6 +2541,7 @@ typedef $$TagAssignmentsTableUpdateCompanionBuilder =
       Value<int> fileNodeId,
       Value<int> tagDefinitionId,
       Value<String?> value,
+      Value<bool> valueUnresolved,
     });
 
 final class $$TagAssignmentsTableReferences
@@ -2551,6 +2614,11 @@ class $$TagAssignmentsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get valueUnresolved => $composableBuilder(
+    column: $table.valueUnresolved,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$FileNodesTableFilterComposer get fileNodeId {
     final $$FileNodesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -2617,6 +2685,11 @@ class $$TagAssignmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get valueUnresolved => $composableBuilder(
+    column: $table.valueUnresolved,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$FileNodesTableOrderingComposer get fileNodeId {
     final $$FileNodesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -2678,6 +2751,11 @@ class $$TagAssignmentsTableAnnotationComposer
 
   GeneratedColumn<String> get value =>
       $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<bool> get valueUnresolved => $composableBuilder(
+    column: $table.valueUnresolved,
+    builder: (column) => column,
+  );
 
   $$FileNodesTableAnnotationComposer get fileNodeId {
     final $$FileNodesTableAnnotationComposer composer = $composerBuilder(
@@ -2760,11 +2838,13 @@ class $$TagAssignmentsTableTableManager
                 Value<int> fileNodeId = const Value.absent(),
                 Value<int> tagDefinitionId = const Value.absent(),
                 Value<String?> value = const Value.absent(),
+                Value<bool> valueUnresolved = const Value.absent(),
               }) => TagAssignmentsCompanion(
                 id: id,
                 fileNodeId: fileNodeId,
                 tagDefinitionId: tagDefinitionId,
                 value: value,
+                valueUnresolved: valueUnresolved,
               ),
           createCompanionCallback:
               ({
@@ -2772,11 +2852,13 @@ class $$TagAssignmentsTableTableManager
                 required int fileNodeId,
                 required int tagDefinitionId,
                 Value<String?> value = const Value.absent(),
+                Value<bool> valueUnresolved = const Value.absent(),
               }) => TagAssignmentsCompanion.insert(
                 id: id,
                 fileNodeId: fileNodeId,
                 tagDefinitionId: tagDefinitionId,
                 value: value,
+                valueUnresolved: valueUnresolved,
               ),
           withReferenceMapper: (p0) => p0
               .map(

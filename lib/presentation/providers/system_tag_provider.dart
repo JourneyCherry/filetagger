@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/assigned_tag.dart';
+import '../../domain/entities/file_node.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/resolve_link_values.dart';
@@ -46,30 +47,6 @@ final effectiveTagDisplayOrderProvider = Provider<List<int>>((ref) {
   return normalizeTagOrder(allIds, stored);
 });
 
-/// 파일 노드 id → 그 노드의 **사용자 + 시스템** 태그 부여 목록. 시스템 태그 값은
-/// 노드에서 계산해 병합한다. 표시/필터/정렬이 쓰는 단일 출처.
-///
-/// 사용자 태그가 앞, 시스템 태그가 뒤에 온다. 시스템 태그 값은 표시 여부와 무관하게
-/// 항상 병합되어(필터·정렬 정확성) 있고, 칩 표시 필터는 소비 측이
-/// [visibleSystemTagIdsProvider]로 건다.
-final effectiveAssignmentsByFileProvider =
-    Provider<Map<int, List<AssignedTag>>>((ref) {
-      final nodes = ref.watch(fileNodesProvider).valueOrNull ?? const [];
-      final userByFile =
-          ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
-
-      final result = <int, List<AssignedTag>>{};
-      for (final node in nodes) {
-        final id = node.id;
-        if (id == null) continue;
-        final system = systemAssignmentsFor(node);
-        final user = userByFile[id] ?? const <AssignedTag>[];
-        if (system.isEmpty && user.isEmpty) continue;
-        result[id] = [...user, ...system];
-      }
-      return result;
-    });
-
 /// 링크 태그값(대상 노드 id 문자열)을 대상 이름으로 해석하는 함수. 대상을 찾지
 /// 못하면 null. 표시·필터·정렬·그룹이 링크를 이름 기준으로 다루도록 주입한다.
 final linkTargetNameResolverProvider = Provider<String? Function(String)>((
@@ -79,13 +56,85 @@ final linkTargetNameResolverProvider = Provider<String? Function(String)>((
   return (raw) => byId[int.tryParse(raw)]?.name;
 });
 
+/// 사용자 태그 부여만 담되 **링크 값을 대상 이름으로 해석한** 맵. 대상을 찾지 못한
+/// 링크에는 미해결 표식이 붙는다([resolveLinkAssignments]).
+///
+/// 시스템 태그를 병합하기 **전에** 놓는 이유는 미해결 링크 시스템 태그 때문이다 —
+/// 그 값은 해석이 끝나야 알 수 있어, 병합 뒤에 해석하면 계산 순서가 거꾸로 된다.
+final _resolvedUserAssignmentsProvider = Provider<Map<int, List<AssignedTag>>>((
+  ref,
+) {
+  final userByFile =
+      ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
+  final nameOf = ref.watch(linkTargetNameResolverProvider);
+  return resolveLinkAssignments(userByFile, nameOf);
+});
+
+/// 파일 노드 id → 그 노드의 시스템 태그 부여. 노드에서 파생되는 것과, 부여 목록을
+/// 봐야 아는 것(미해결 링크)을 함께 계산한다. 링크 해석 여부와 무관하게 같은 값이라
+/// 아래 두 맵이 이것을 나눠 쓴다.
+final _systemAssignmentsByFileProvider = Provider<Map<int, List<AssignedTag>>>((
+  ref,
+) {
+  final nodes = ref.watch(fileNodesProvider).valueOrNull ?? const [];
+  final resolvedUser = ref.watch(_resolvedUserAssignmentsProvider);
+  final result = <int, List<AssignedTag>>{};
+  for (final node in nodes) {
+    final id = node.id;
+    if (id == null) continue;
+    final system = systemAssignmentsFor(
+      node,
+      assignments: resolvedUser[id] ?? const [],
+    );
+    if (system.isNotEmpty) result[id] = system;
+  }
+  return result;
+});
+
+/// 파일 노드 id → 그 노드의 **사용자 + 시스템** 태그 부여 목록. 시스템 태그 값은
+/// 노드에서 계산해 병합한다. 표시·이동이 쓰는 단일 출처라 링크 값은 **저장값(id)
+/// 그대로**다(필터·정렬·그룹은 [resolvedAssignmentsByFileProvider]를 쓴다).
+///
+/// 사용자 태그가 앞, 시스템 태그가 뒤에 온다. 시스템 태그 값은 표시 여부와 무관하게
+/// 항상 병합되어(필터·정렬 정확성) 있고, 칩 표시 필터는 소비 측이
+/// [visibleSystemTagIdsProvider]로 건다.
+final effectiveAssignmentsByFileProvider =
+    Provider<Map<int, List<AssignedTag>>>((ref) {
+      return _merge(
+        ref.watch(fileNodesProvider).valueOrNull ?? const [],
+        ref.watch(assignmentsByFileProvider).valueOrNull ?? const {},
+        ref.watch(_systemAssignmentsByFileProvider),
+      );
+    });
+
 /// [effectiveAssignmentsByFileProvider]에서 링크 태그값만 대상 이름으로 바꾼 맵.
 /// 도메인 질의 계층(필터·정렬·그룹)이 링크를 이름 기준으로 다루도록 이 맵을 쓴다
 /// (표시·이동은 id가 필요해 원본 맵을 쓴다).
 final resolvedAssignmentsByFileProvider = Provider<Map<int, List<AssignedTag>>>(
   (ref) {
-    final raw = ref.watch(effectiveAssignmentsByFileProvider);
-    final nameOf = ref.watch(linkTargetNameResolverProvider);
-    return resolveLinkAssignments(raw, nameOf);
+    return _merge(
+      ref.watch(fileNodesProvider).valueOrNull ?? const [],
+      ref.watch(_resolvedUserAssignmentsProvider),
+      ref.watch(_systemAssignmentsByFileProvider),
+    );
   },
 );
+
+/// 노드마다 사용자 부여 뒤에 시스템 부여를 잇는다. 인덱스에 있는 노드만 담고,
+/// 둘 다 빈 노드는 자리를 만들지 않는다.
+Map<int, List<AssignedTag>> _merge(
+  List<FileNode> nodes,
+  Map<int, List<AssignedTag>> user,
+  Map<int, List<AssignedTag>> system,
+) {
+  final result = <int, List<AssignedTag>>{};
+  for (final node in nodes) {
+    final id = node.id;
+    if (id == null) continue;
+    final u = user[id] ?? const <AssignedTag>[];
+    final s = system[id] ?? const <AssignedTag>[];
+    if (u.isEmpty && s.isEmpty) continue;
+    result[id] = [...u, ...s];
+  }
+  return result;
+}

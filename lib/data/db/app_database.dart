@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_tagger_mode.dart';
+import '../../domain/entities/node_kind.dart';
 import '../../domain/entities/tag_value_type.dart';
 import 'database_connection.dart';
 import 'tables.dart';
@@ -21,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
     : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,6 +53,55 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) {
         // 중첩 워크스페이스 병합 확정 기록(프롬프트 반복 억제).
         await m.createTable(nestedWorkspaces);
+      }
+      if (from < 7) {
+        // 노드 종류(파일/디렉토리/키워드) 도입. 폴더 여부 불리언을 열거로 갈고,
+        // 경로 유일성을 종류 안으로 좁힌다(키워드는 이름을 경로 자리에 담으므로
+        // 같은 이름의 파일과 공존해야 한다). 컬럼 제거와 제약 변경이라 컬럼
+        // 추가로 끝나지 않고 테이블을 다시 쓴다.
+        await m.alterTable(
+          // 테이블 재작성은 Drift가 experimental로 표시해 두었지만, 컬럼 제거·제약
+          // 변경을 SQLite에서 안전하게 하는(외래키·legacy_alter_table 처리를 포함한)
+          // 유일한 공식 경로다. 손으로 쓴 SQL은 그 처리를 다시 만들어야 한다.
+          // ignore: experimental_member_use
+          TableMigration(
+            fileNodes,
+            columnTransformer: {
+              // 옛 폴더 여부 컬럼을 그대로 종류로 옮긴다(키워드는 이 시점에 없다).
+              // 저장 표현이 갈리지 않도록 이름은 열거에서 읽는다.
+              fileNodes.kind: CustomExpression<String>(
+                "CASE WHEN is_directory THEN '${NodeKind.directory.name}' "
+                "ELSE '${NodeKind.file.name}' END",
+              ),
+            },
+            newColumns: [fileNodes.kind],
+          ),
+        );
+      }
+      if (from < 8) {
+        // 키워드 노드에서 본문 컬럼을 걷어낸다 — 부연 정보는 본문이 아니라 태그로
+        // 붙어야 필터·정렬·그룹에 걸리기 때문이다. 그와 함께 종류 이름도 갈렸으므로,
+        // 직전 스키마로 한 번이라도 연 DB의 옛 이름을 새 이름으로 옮긴다(종류는 열거
+        // **이름**으로 저장되어, 안 옮기면 그 행을 읽지 못한다). 컬럼 제거라 어차피
+        // 테이블을 다시 쓰므로 둘을 한 번에 묶는다.
+        await m.alterTable(
+          // ignore: experimental_member_use
+          TableMigration(
+            fileNodes,
+            columnTransformer: {
+              // 옛 이름은 열거에서 사라져 상수로만 남길 수 있다(레거시 값).
+              fileNodes.kind: CustomExpression<String>(
+                "CASE WHEN kind = 'memo' THEN '${NodeKind.keyword.name}' "
+                'ELSE kind END',
+              ),
+            },
+          ),
+        );
+      }
+      if (from < 9) {
+        // 미해결 링크 표식 도입. 기존 부여는 모두 해결된 값(또는 링크가 아닌 값)이라
+        // 컬럼 기본값(거짓)이 그대로 맞다.
+        await m.addColumn(tagAssignments, tagAssignments.valueUnresolved);
       }
     },
     beforeOpen: (details) async {

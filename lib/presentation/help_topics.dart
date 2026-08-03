@@ -108,6 +108,16 @@ const List<HelpTopic> helpTopics = [
     icon: Icons.merge_outlined,
   ),
   HelpTopic(
+    title: '키워드 — 파일로 남지 않는 항목',
+    body:
+        '키워드는 디스크에 파일이나 폴더로 남지 않고 태그 저장소 안에만 있는 항목입니다. '
+        '이름 하나가 전부이고, 작가의 국적이나 계정 같은 부연 정보는 그 키워드에 태그로 '
+        '붙입니다 — 그래야 다른 항목과 똑같이 필터·정렬·그룹에 걸립니다. 파일에서는 링크 '
+        '태그로 키워드를 가리켜 둘을 잇습니다. 스캔의 대상이 아니라 폴더 관리 방식이나 '
+        '파일 이동에 영향받지 않고, 목록에서는 맨 위 층에 놓입니다.',
+    icon: Icons.sell_outlined,
+  ),
+  HelpTopic(
     title: '연결이 끊긴 항목',
     body:
         '앱 밖에서 파일을 옮기거나 지우면 그 항목은 연결 끊김으로 남고 태그는 보존됩니다. '
@@ -137,6 +147,7 @@ const List<HelpCommandGroup> helpCommandGroups = [
     AppCommandId.closeFolder,
     AppCommandId.rescan,
     AppCommandId.revealInFileManager,
+    AppCommandId.exportSelection,
     AppCommandId.exitApp,
   ]),
   HelpCommandGroup('선택 · 태그', [
@@ -149,6 +160,11 @@ const List<HelpCommandGroup> helpCommandGroups = [
     AppCommandId.manageThumbnailTags,
     AppCommandId.tagDisplayOrder,
   ]),
+  HelpCommandGroup('키워드', [
+    AppCommandId.createKeyword,
+    AppCommandId.editKeyword,
+    AppCommandId.deleteKeyword,
+  ], note: '편집·삭제는 키워드를 하나만 고른 상태에서 듣습니다.'),
   HelpCommandGroup('보기', [
     AppCommandId.viewModeList,
     AppCommandId.viewModeIcon,
@@ -200,11 +216,20 @@ String systemTagDescription(SystemTag tag) => switch (tag) {
     '이미지의 가로·세로 픽셀 크기입니다. 크기를 읽을 수 '
         '있는 이미지에만 붙으므로, 이 태그를 "있음"으로 걸러 이미지만 모을 수 있습니다.',
   SystemTag.fileName =>
-    '파일·폴더의 이름입니다. 시스템 태그 중 유일하게 값을 고칠 '
-        '수 있고, 고치면 디스크의 실제 이름이 바뀝니다.',
+    '항목의 이름입니다. 시스템 태그 중 유일하게 값을 고칠 '
+        '수 있고, 고치면 디스크의 실제 이름이 바뀝니다(키워드는 디스크에 실체가 없어 '
+        '키워드의 이름만 바뀝니다).',
   SystemTag.folder =>
     '폴더에만 붙는 표식으로 값은 없습니다. 필터에서 "있음"으로 '
         '폴더만, 제외로 파일만 남길 수 있습니다.',
+  SystemTag.keyword =>
+    '키워드에만 붙는 표식으로 값은 없습니다. 키워드를 목록에서 '
+        '보고 싶지 않으면 필터에서 이 태그를 제외하면 됩니다.',
+  SystemTag.unresolvedLink =>
+    '가리키는 대상을 찾지 못한 링크 태그를 하나라도 가진 '
+        '항목에 붙는 표식으로 값은 없습니다. 대상이 지워졌거나, 다른 태거에서 가져온 '
+        '링크의 대상이 아직 이 폴더에 없을 때 생깁니다. 필터에서 "있음"으로 걸러 모아 '
+        '두고, 각 링크 칩을 더블클릭해 다시 연결하거나 x로 지우면 됩니다.',
 };
 
 /// 시스템 태그 전체를 설명하는 안내 문단(탭 머리에 둔다).

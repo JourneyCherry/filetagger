@@ -18,6 +18,7 @@ class CommandHandlers {
     this.exportSelection,
     this.manageTags,
     this.manageThumbnailTags,
+    this.manageNameTags,
     this.tagDisplayOrder,
     this.createKeyword,
     this.editKeyword,
@@ -60,6 +61,7 @@ class CommandHandlers {
   final VoidCallback? exportSelection;
   final VoidCallback? manageTags;
   final VoidCallback? manageThumbnailTags;
+  final VoidCallback? manageNameTags;
   final VoidCallback? tagDisplayOrder;
   final VoidCallback? createKeyword;
   final VoidCallback? editKeyword;
@@ -103,6 +105,7 @@ class CommandHandlers {
     AppCommandId.exportSelection => exportSelection,
     AppCommandId.manageTags => manageTags,
     AppCommandId.manageThumbnailTags => manageThumbnailTags,
+    AppCommandId.manageNameTags => manageNameTags,
     AppCommandId.tagDisplayOrder => tagDisplayOrder,
     AppCommandId.createKeyword => createKeyword,
     AppCommandId.editKeyword => editKeyword,

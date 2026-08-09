@@ -6,6 +6,7 @@ import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/resolve_link_values.dart';
 import '../../domain/usecases/tag_display_order.dart';
+import '../tag_visuals.dart';
 import 'file_node_provider.dart';
 import 'file_view_provider.dart';
 import 'tag_provider.dart';
@@ -119,6 +120,20 @@ final resolvedAssignmentsByFileProvider = Provider<Map<int, List<AssignedTag>>>(
     );
   },
 );
+
+/// 노드 id → 이름 칸에 보일 문자열(이름 태그가 정한 것). 태그가 글자를 내지 못한
+/// 노드는 키가 없어, 소비 측이 노드 이름으로 폴백한다.
+///
+/// 링크 값이 대상 이름으로 풀린 맵을 쓴다 — 저장값(노드 id)을 이름 자리에 그대로
+/// 보이면 뜻이 없다.
+final displayNameByIdProvider = Provider<Map<int, String>>((ref) {
+  final sources = ref.watch(nameSourcesProvider);
+  if (sources.isEmpty) return const {};
+  return buildDisplayNameIndex(
+    assignmentsByFile: ref.watch(resolvedAssignmentsByFileProvider),
+    nameSources: sources,
+  );
+});
 
 /// 노드마다 사용자 부여 뒤에 시스템 부여를 잇는다. 인덱스에 있는 노드만 담고,
 /// 둘 다 빈 노드는 자리를 만들지 않는다.

@@ -67,6 +67,7 @@ Map<String, dynamic> _settingsToJson(WorkspaceViewSettings s) => {
     for (final e in s.detailColumnWidths.entries) '${e.key}': e.value,
   },
   if (s.thumbnailSources.isNotEmpty) 'thumbnailSources': s.thumbnailSources,
+  if (s.nameSources.isNotEmpty) 'nameSources': s.nameSources,
 };
 
 WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
@@ -85,6 +86,7 @@ WorkspaceViewSettings _settingsFromJson(Map<String, dynamic> json) =>
       detailSort: sortFromJson(json['detailSort']),
       detailColumnWidths: _detailWidthsFromJson(json['detailColumnWidths']),
       thumbnailSources: _thumbnailSourcesFromJson(json),
+      nameSources: intListFromJson(json['nameSources']),
     );
 
 /// 썸네일 출처 우선순위를 읽는다. 기본 썸네일은 늘 맨 아래(암묵적)라 목록에 두지

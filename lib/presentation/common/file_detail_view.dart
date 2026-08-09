@@ -110,6 +110,9 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
   /// 이번 build의 저장된 컬럼 폭(손잡이 콜백이 참조).
   Map<int, double> _persisted = const {};
 
+  /// 이름 칸에 노드 이름 대신 보일 값(이름 태그 파생). 없는 노드는 노드 이름을 쓴다.
+  Map<int, String> _displayNames = const {};
+
   /// 인라인 편집 중인 셀(파일·컬럼)과 그 입력 상태. null이면 편집 중이 아니다.
   FileNode? _editNode;
   _Col? _editCol;
@@ -158,6 +161,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     final byFile = ref.watch(effectiveAssignmentsByFileProvider);
     final selection = ref.watch(selectionControllerProvider);
     final scale = ref.watch(currentViewScaleProvider);
+    _displayNames = ref.watch(displayNameByIdProvider);
 
     final columns = _columnsFrom(tagCols);
 
@@ -682,7 +686,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                node.name,
+                _displayNames[node.id] ?? node.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: style,

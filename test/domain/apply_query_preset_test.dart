@@ -21,26 +21,33 @@ void main() {
       ],
     ),
     grouping: FileGrouping(keys: [FolderHierarchyGroupKey(), TagGroupKey(2)]),
+    nameSources: [3, 2],
+    thumbnailSources: [2],
   );
 
-  test('태그가 모두 살아 있으면 조건을 그대로 낸다', () {
+  test('태그가 모두 살아 있으면 조건·표시 출처를 그대로 낸다', () {
     final applied = resolvePresetApplication(preset, {1, 2, 3});
 
     expect(applied.filter, preset.filter);
     expect(applied.sort, preset.sort);
     expect(applied.grouping, preset.grouping);
+    expect(applied.nameSources, preset.nameSources);
+    expect(applied.thumbnailSources, preset.thumbnailSources);
     expect(applied.droppedCount, 0);
   });
 
   test('사라진 태그를 가리키는 조각만 빼고 그 수를 센다', () {
-    // 태그 2가 지워진 상황: 필터 조건 1개와 그룹 단계 1개가 걸 수 없게 된다.
+    // 태그 2가 지워진 상황: 필터 조건 1개, 그룹 단계 1개, 이름 출처 1개, 썸네일
+    // 출처 1개가 걸 수 없게 된다.
     final applied = resolvePresetApplication(preset, {1, 3});
 
     expect(applied.filter.conditions.single.tagDefinitionId, 1);
     expect(applied.sort, preset.sort);
     // 폴더 계층 키는 진짜 태그가 아니라 늘 남는다.
     expect(applied.grouping.keys, [const FolderHierarchyGroupKey()]);
-    expect(applied.droppedCount, 2);
+    expect(applied.nameSources, [3]);
+    expect(applied.thumbnailSources, isEmpty);
+    expect(applied.droppedCount, 4);
   });
 
   test('원본 프리셋은 고쳐지지 않는다(정리가 아니라 걸러 내기다)', () {
@@ -49,9 +56,11 @@ void main() {
     expect(preset.filter.conditions.length, 2);
     expect(preset.sort.keys.length, 2);
     expect(preset.grouping.keys.length, 2);
+    expect(preset.nameSources.length, 2);
+    expect(preset.thumbnailSources.length, 1);
   });
 
-  test('빈 조건 프리셋은 조건을 모두 지우는 뜻이다', () {
+  test('빈 프리셋은 조건을 모두 지우고 표시도 기본으로 되돌리는 뜻이다', () {
     const empty = QueryPreset(name: '모두 보기');
 
     final applied = resolvePresetApplication(empty, {1, 2, 3});
@@ -59,15 +68,21 @@ void main() {
     expect(applied.filter.isEmpty, isTrue);
     expect(applied.sort.isEmpty, isTrue);
     expect(applied.grouping.isEmpty, isTrue);
+    // 비면 파일 이름·기본 썸네일로 돌아간다(부분 병합이 없으므로 "안 담김"과
+    // 구분하지 않는다).
+    expect(applied.nameSources, isEmpty);
+    expect(applied.thumbnailSources, isEmpty);
     expect(applied.droppedCount, 0);
   });
 
-  test('조건이 같은지는 값으로 견준다(활성 프리셋 표시)', () {
+  test('같은지는 값으로 견준다(활성 프리셋 표시)', () {
     expect(
       preset.matchesQuery(
         filter: preset.filter,
         sort: preset.sort,
         grouping: preset.grouping,
+        nameSources: preset.nameSources,
+        thumbnailSources: preset.thumbnailSources,
       ),
       isTrue,
     );
@@ -77,6 +92,30 @@ void main() {
         filter: preset.filter,
         sort: FileSortOrder(keys: preset.sort.keys.reversed.toList()),
         grouping: preset.grouping,
+        nameSources: preset.nameSources,
+        thumbnailSources: preset.thumbnailSources,
+      ),
+      isFalse,
+    );
+    // 표시 출처도 우선순위라 순서가 다르면 다른 프리셋이다.
+    expect(
+      preset.matchesQuery(
+        filter: preset.filter,
+        sort: preset.sort,
+        grouping: preset.grouping,
+        nameSources: preset.nameSources.reversed.toList(),
+        thumbnailSources: preset.thumbnailSources,
+      ),
+      isFalse,
+    );
+    // 조건이 같아도 썸네일 출처가 다르면 활성으로 보지 않는다.
+    expect(
+      preset.matchesQuery(
+        filter: preset.filter,
+        sort: preset.sort,
+        grouping: preset.grouping,
+        nameSources: preset.nameSources,
+        thumbnailSources: const [],
       ),
       isFalse,
     );

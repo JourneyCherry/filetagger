@@ -139,6 +139,7 @@ class AppMenuBar extends ConsumerWidget {
       ]),
       MenuSubmenu('태그', [
         const MenuCommand(AppCommandId.manageTags),
+        const MenuCommand(AppCommandId.manageNameTags),
         const MenuCommand(AppCommandId.manageThumbnailTags),
       ]),
       MenuSubmenu('도움말', [

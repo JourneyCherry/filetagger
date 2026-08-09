@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../domain/entities/assigned_tag.dart';
 import '../domain/entities/file_filter.dart';
 import '../domain/entities/tag_value_type.dart';
 
@@ -138,9 +139,16 @@ String filterOperatorMenuLabel(FilterOperator op) {
 
 /// 부여된 값의 표시 문자열. label은 값이 없고, date는 날짜만 보기 좋게 자른다.
 /// 표시할 값이 없으면 null을 돌려 칩이 값 부분을 생략하게 한다.
+/// 이 값 유형이 **글자를 낼 수 있는가**. label은 값이 없고, image는 값이 불투명한
+/// 캐시 키라 칩에도 이름 칸에도 글자로 보이지 않는다.
+///
+/// [formatTagValue]가 이 판정을 그대로 쓰고, 이름 태그를 고르는 자리도 같은 것으로
+/// 후보를 거른다 — 두 곳이 갈라지면 "골랐는데 아무 일도 일어나지 않는" 태그가 생긴다.
+bool canNameSourceShowText(TagValueType type) =>
+    type != TagValueType.label && type != TagValueType.image;
+
 String? formatTagValue(TagValueType type, String? value) {
-  // label은 값이 없고, image는 값이 불투명한 캐시 키라 칩에 글자로 보이지 않는다.
-  if (type == TagValueType.label || type == TagValueType.image) return null;
+  if (!canNameSourceShowText(type)) return null;
   if (value == null || value.isEmpty) return null;
   if (type == TagValueType.date) {
     final parsed = DateTime.tryParse(value);
@@ -151,4 +159,41 @@ String? formatTagValue(TagValueType type, String? value) {
     }
   }
   return value;
+}
+
+/// 노드 id → **이름 칸에 보일 문자열**. 이름 태그가 글자를 내지 못한 노드는 키가
+/// 아예 없어, 소비 측이 노드 이름(파일 이름)으로 폴백한다.
+///
+/// [nameSources]는 앞이 높은 우선순위다. 한 노드는 이 순서로 훑어 **처음으로 글자를
+/// 낸 태그**의 값을 쓴다 — 노드마다 가진 태그가 달라도 각자 맞는 출처가 뽑히고, 둘 다
+/// 가지면 앞선 것이 이긴다. 썸네일 출처와 같은 얼개다([resolveThumbnailRelPaths]).
+///
+/// 값을 글자로 보일 수 없는 태그(label·image)를 골라 두어도 **기본과 같게 동작**하는
+/// 것은 [formatTagValue]가 그런 유형에 null을 돌려주기 때문이다 — 그 규칙을 여기서
+/// 다시 적지 않아 두 자리가 갈라지지 않는다.
+///
+/// [assignmentsByFile]은 **링크 해석이 끝난** 부여 맵이어야 한다(링크는 저장값이 노드
+/// id라 그대로 보이면 뜻이 없다). 다중값 태그는 처음 값 하나만 쓴다 — 이름은 한 줄에
+/// 놓이는 자리라 여럿을 이어 붙이면 되레 읽히지 않는다.
+Map<int, String> buildDisplayNameIndex({
+  required Map<int, List<AssignedTag>> assignmentsByFile,
+  required List<int> nameSources,
+}) {
+  if (nameSources.isEmpty) return const {};
+  final result = <int, String>{};
+  for (final entry in assignmentsByFile.entries) {
+    for (final tagId in nameSources) {
+      String? found;
+      for (final a in entry.value) {
+        if (a.tagDefinitionId != tagId) continue;
+        found = formatTagValue(a.definition.valueType, a.value);
+        if (found != null) break;
+      }
+      if (found != null) {
+        result[entry.key] = found;
+        break;
+      }
+    }
+  }
+  return result;
 }

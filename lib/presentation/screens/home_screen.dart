@@ -53,6 +53,7 @@ import '../widgets/export_dialog.dart';
 import '../widgets/folder_manage_menu.dart';
 import '../widgets/help_dialog.dart';
 import '../widgets/keyword_dialog.dart';
+import '../widgets/name_tag_dialog.dart';
 import '../widgets/preview_pane.dart';
 import '../widgets/reconnect_dialog.dart';
 import '../widgets/tag_assign_dialog.dart';
@@ -1207,6 +1208,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // 썸네일 태그 다이얼로그는 데스크톱 크롬(태그 메뉴)에만 있다.
       manageThumbnailTags: (hasWorkspace && isDesktopPlatform)
           ? () => showThumbnailTagDialog(context)
+          : null,
+      // 이름 태그도 같은 자리(데스크톱 '태그' 메뉴)에 산다.
+      manageNameTags: (hasWorkspace && isDesktopPlatform)
+          ? () => showNameTagDialog(context)
           : null,
       // 데스크톱은 표시 순서를 태그 관리 다이얼로그가 함께 다룬다.
       tagDisplayOrder: (hasWorkspace && !isDesktopPlatform)

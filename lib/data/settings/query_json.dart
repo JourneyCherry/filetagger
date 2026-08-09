@@ -87,6 +87,15 @@ FileGrouping? groupingFromJson(Object? json) {
   ]);
 }
 
+/// 태그 id 나열(이름·썸네일 출처, 태그 표시 순서). 순서가 곧 우선순위라 그대로 담고,
+/// int가 아닌 항목만 건너뛴다 — 지워진 태그를 가리키는 id는 소비하는 쪽이 걸러 낸다.
+List<int> intListFromJson(Object? json) => json is! List
+    ? const []
+    : [
+        for (final v in json)
+          if (v is int) v,
+      ];
+
 /// 이름으로 열거형 값을 찾되, 알 수 없는 이름이면 null(해당 항목은 건너뜀).
 ///
 /// 열거형은 이름으로 저장해 값 순서 변경에 영향받지 않는다(태그 유형 저장과 동일

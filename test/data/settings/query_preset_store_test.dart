@@ -43,6 +43,8 @@ void main() {
         grouping: FileGrouping(
           keys: [FolderHierarchyGroupKey(), TagGroupKey(1)],
         ),
+        nameSources: [4, 1],
+        thumbnailSources: [5],
       ),
       QueryPreset(name: '모두 보기'),
     ];
@@ -50,6 +52,18 @@ void main() {
     await store.save(presets);
 
     expect(await store.load(), presets);
+  });
+
+  test('표시 출처가 없는 옛 프리셋은 빈 목록으로 읽힌다(=기본으로 되돌림)', () async {
+    final file = File(
+      p.join(root.path, filetaggerDirName, queryPresetsFileName),
+    )..createSync(recursive: true);
+    file.writeAsStringSync('{"presets":[{"name":"옛것"}]}');
+
+    final loaded = await JsonQueryPresetStore(root.path).load();
+
+    expect(loaded.single.nameSources, isEmpty);
+    expect(loaded.single.thumbnailSources, isEmpty);
   });
 
   test('워크스페이스 안(.filetagger)에 저장한다', () async {

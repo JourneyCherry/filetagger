@@ -22,11 +22,18 @@ const _rating = TagDefinition(
 );
 const _read = TagDefinition(id: 2, name: '읽음', valueType: TagValueType.label);
 
-/// 조건만 담은 프리셋 하나. 정렬·그룹이 비어 있어, 불러오면 지금 걸린 정렬·그룹까지
-/// 지워져야 한다("모두 지우고 불러온다").
+/// 조건만 담은 프리셋 하나. 정렬·그룹과 표시 출처가 비어 있어, 불러오면 지금 걸린
+/// 것까지 지워져야 한다("모두 지우고 불러온다").
 const _preset = QueryPreset(
   name: '읽던 만화',
   filter: FileFilter(conditions: [FilterCondition(tagDefinitionId: 1)]),
+);
+
+/// 표시 출처만 담은 프리셋. 조건이 아니라 이름·썸네일도 함께 갈리는지 본다.
+const _displayPreset = QueryPreset(
+  name: '제목으로 보기',
+  nameSources: [1],
+  thumbnailSources: [2],
 );
 
 class _FakeViewStore implements ViewSettingsRepository {
@@ -64,11 +71,12 @@ Future<ProviderContainer> pumpPresetRow(WidgetTester tester) async {
             ),
             sort: FileSortOrder(keys: [SortKey(tagDefinitionId: 1)]),
             grouping: kDefaultGrouping,
+            nameSources: [2],
           ),
         ),
       ),
       queryPresetRepositoryProvider.overrideWithValue(
-        _FakePresetStore(const [_preset]),
+        _FakePresetStore(const [_preset, _displayPreset]),
       ),
       tagDefinitionsProvider.overrideWith(
         (ref) => Stream.value([_rating, _read]),
@@ -113,6 +121,29 @@ void main() {
     );
     expect(container.read(fileSortProvider).isEmpty, isTrue);
     expect(container.read(groupingProvider).isEmpty, isTrue);
+  });
+
+  testWidgets('이름·썸네일 출처도 프리셋의 것으로 갈린다', (tester) async {
+    final container = await pumpPresetRow(tester);
+    expect(container.read(nameSourcesProvider), [2]);
+
+    await tester.tap(find.text('제목으로 보기'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(nameSourcesProvider), [1]);
+    expect(container.read(thumbnailSourcesProvider), [2]);
+  });
+
+  testWidgets('표시 출처가 빈 프리셋은 이름·썸네일을 기본으로 되돌린다', (tester) async {
+    // 부분 병합이 없으므로 "안 담김"과 "비어 있음"을 가르지 않는다 — 이 기능 이전에
+    // 만든 프리셋도 이 길로 들어온다.
+    final container = await pumpPresetRow(tester);
+
+    await tester.tap(find.text('읽던 만화'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(nameSourcesProvider), isEmpty);
+    expect(container.read(thumbnailSourcesProvider), isEmpty);
   });
 
   testWidgets('걸린 조건과 같아진 프리셋은 활성으로 표시된다', (tester) async {

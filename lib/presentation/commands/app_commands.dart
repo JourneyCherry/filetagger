@@ -26,6 +26,7 @@ enum AppCommandId {
   exportSelection,
   manageTags,
   manageThumbnailTags,
+  manageNameTags,
   tagDisplayOrder,
   createKeyword,
   editKeyword,
@@ -185,6 +186,15 @@ final List<AppCommand> appCommands = [
     intent: const ManageThumbnailTagsIntent(),
     icon: Icons.image_outlined,
     shortcut: _primaryShift(LogicalKeyboardKey.keyT),
+  ),
+  AppCommand(
+    id: AppCommandId.manageNameTags,
+    label: '이름 태그…',
+    intent: const ManageNameTagsIntent(),
+    icon: Icons.text_fields,
+    // 태그 설정 셋은 같은 층(Shift)에 두되, T 자리는 썸네일이 이미 썼으므로 이름의
+    // 머리글자를 쓴다.
+    shortcut: _primaryShift(LogicalKeyboardKey.keyN),
   ),
   // 키워드(디스크에 남지 않는 노드) 만들기·고치기·지우기. 단축키는 두지 않는다 —
   // 가끔 쓰는 조작이라 남은 조합을 쓰기보다 메뉴·컨텍스트 메뉴로만 부른다.

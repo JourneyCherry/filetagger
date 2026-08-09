@@ -137,6 +137,31 @@ void main() {
     expect(store.lastSaved!.tagDisplayOrder, [1, SystemTag.fileSize.id]);
   });
 
+  test('삭제된 태그를 참조하는 썸네일·이름 출처를 걷어낸다', () async {
+    // 사라진 태그를 계속 가리키면 그 자리는 영영 폴백만 하면서 목록에 남는다.
+    final store = _FakeStore(
+      const WorkspaceViewSettings(
+        thumbnailSources: [2, 1],
+        nameSources: [1, 2],
+      ),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        viewSettingsRepositoryProvider.overrideWithValue(store),
+        tagDefinitionsProvider.overrideWith((ref) => Stream.value([_def(1)])),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(viewSettingsProvider, (_, __) {});
+
+    await _settle();
+
+    expect(container.read(viewSettingsProvider).thumbnailSources, [1]);
+    expect(container.read(viewSettingsProvider).nameSources, [1]);
+    expect(store.lastSaved!.nameSources, [1]);
+  });
+
   test('폴더 펼침 토글은 상태를 뒤집고 디스크에 저장한다', () async {
     final store = _FakeStore(const WorkspaceViewSettings());
     final container = ProviderContainer(

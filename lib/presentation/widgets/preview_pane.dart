@@ -112,7 +112,7 @@ class PreviewPane extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          target.name,
+          ref.watch(displayNameByIdProvider)[target.id] ?? target.name,
           style: theme.textTheme.titleMedium?.copyWith(
             color: target.isMissing ? scheme.error : null,
           ),
@@ -120,7 +120,9 @@ class PreviewPane extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
         ),
         Text(
-          target.path,
+          // 키워드는 경로 계층에 속하지 않아 경로 자리에 이름이 그대로 들어간다 —
+          // 이름 칸과 같은 글자를 두 번 보이느니 종류를 알린다.
+          target.isKeyword ? '키워드' : target.path,
           style: theme.textTheme.bodySmall?.copyWith(color: scheme.outline),
         ),
         const SizedBox(height: 4),

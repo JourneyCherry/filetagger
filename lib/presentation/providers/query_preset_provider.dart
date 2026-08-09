@@ -45,7 +45,7 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
     state = loaded;
   }
 
-  /// 지금 걸린 조건을 [name]으로 저장한다. 같은 이름이 이미 있으면 **그 자리에서**
+  /// 지금 걸린 것을 [name]으로 저장한다. 같은 이름이 이미 있으면 **그 자리에서**
   /// 덮어써(순서가 튀지 않게), 없으면 목록 끝에 붙인다.
   void saveCurrent(String name) {
     final preset = QueryPreset(
@@ -53,6 +53,8 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
       filter: ref.read(fileFilterProvider),
       sort: ref.read(fileSortProvider),
       grouping: ref.read(groupingProvider),
+      nameSources: ref.read(nameSourcesProvider),
+      thumbnailSources: ref.read(thumbnailSourcesProvider),
     );
     final index = indexOfName(name);
     _set(
@@ -65,7 +67,7 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
     );
   }
 
-  /// [index] 프리셋의 조건을 지금 걸린 조건으로 갈아끼운다(이름은 그대로).
+  /// [index] 프리셋을 지금 걸린 것으로 갈아끼운다(이름은 그대로).
   void overwriteAt(int index) {
     final current = state[index];
     _set([
@@ -75,6 +77,8 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
             filter: ref.read(fileFilterProvider),
             sort: ref.read(fileSortProvider),
             grouping: ref.read(groupingProvider),
+            nameSources: ref.read(nameSourcesProvider),
+            thumbnailSources: ref.read(thumbnailSourcesProvider),
           )
         else
           state[i],
@@ -118,18 +122,22 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
   }
 }
 
-/// 지금 걸린 조건과 똑같은 프리셋의 자리(없으면 null). 그 캡슐을 활성으로 그려,
+/// 지금 걸린 것과 똑같은 프리셋의 자리(없으면 null). 그 캡슐을 활성으로 그려,
 /// 지금 보고 있는 것이 어느 프리셋인지 보이게 한다.
 final activeQueryPresetProvider = Provider<int?>((ref) {
   final presets = ref.watch(queryPresetsProvider);
   final filter = ref.watch(fileFilterProvider);
   final sort = ref.watch(fileSortProvider);
   final grouping = ref.watch(groupingProvider);
+  final nameSources = ref.watch(nameSourcesProvider);
+  final thumbnailSources = ref.watch(thumbnailSourcesProvider);
   for (var i = 0; i < presets.length; i++) {
     if (presets[i].matchesQuery(
       filter: filter,
       sort: sort,
       grouping: grouping,
+      nameSources: nameSources,
+      thumbnailSources: thumbnailSources,
     )) {
       return i;
     }

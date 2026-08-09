@@ -67,6 +67,7 @@ class WorkspaceViewSettings {
     this.detailSort = const FileSortOrder(),
     this.detailColumnWidths = const <int, double>{},
     this.thumbnailSources = const <int>[],
+    this.nameSources = const <int>[],
   });
 
   final FileFilter filter;
@@ -136,6 +137,15 @@ class WorkspaceViewSettings {
   /// 커스텀 없이 기본 동작만 쓴다. 사라진 태그 id는 로드 후 정리로 걸러진다.
   final List<int> thumbnailSources;
 
+  /// 목록의 **이름 칸에 보일 값의 출처 우선순위**(앞이 높음). 썸네일 출처와 같은
+  /// 얼개다 — 이 순서로 훑어 **처음으로 글자를 낸 태그**의 값을 이름 자리에 보이고,
+  /// 어느 태그도 못 내면 노드 이름(파일 이름)으로 폴백한다. 그래서 기본은 늘 맨
+  /// 아래에 있는 셈이라 목록에 두지 않는다.
+  ///
+  /// 값을 글자로 보일 수 없는 태그(label·image)는 골라 두어도 늘 못 내므로 **기본과
+  /// 같게 동작**한다 — 고르는 자리에서 막지 않고 이 폴백으로 흡수한다.
+  final List<int> nameSources;
+
   /// [id] 컬럼의 폭(저장값이 없으면 기본, 늘 허용 범위로 가둔다).
   double detailColumnWidthFor(int id) =>
       (detailColumnWidths[id] ?? kDefaultDetailColumnWidth).clamp(
@@ -160,6 +170,7 @@ class WorkspaceViewSettings {
     FileSortOrder? detailSort,
     Map<int, double>? detailColumnWidths,
     List<int>? thumbnailSources,
+    List<int>? nameSources,
   }) => WorkspaceViewSettings(
     filter: filter ?? this.filter,
     sort: sort ?? this.sort,
@@ -175,5 +186,6 @@ class WorkspaceViewSettings {
     detailSort: detailSort ?? this.detailSort,
     detailColumnWidths: detailColumnWidths ?? this.detailColumnWidths,
     thumbnailSources: thumbnailSources ?? this.thumbnailSources,
+    nameSources: nameSources ?? this.nameSources,
   );
 }

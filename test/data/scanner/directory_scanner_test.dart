@@ -321,6 +321,34 @@ void main() {
     );
   });
 
+  test('파일이 동시성 상한보다 많아도 빠짐·겹침 없이 각자 제 값을 갖는다', () async {
+    // 파일 인덱싱은 순회가 끝난 뒤 여러 일꾼이 나눠 도는데, 일꾼끼리 결과가 섞이면
+    // 크기·해시가 남의 파일 것이 된다. 상한을 넉넉히 넘는 수를 여러 폴더에 흩어
+    // 두고, 파일마다 다른 길이의 내용을 넣어 제 값이 제자리에 왔는지 본다.
+    const count = 60;
+    for (var i = 0; i < count; i++) {
+      final file = File(p.join(root.path, 'dir${i % 5}', 'f$i.txt'));
+      await file.create(recursive: true);
+      await file.writeAsString('x' * (i + 1));
+    }
+
+    final result = await const DirectoryScanner().scan(
+      root.path,
+      rootManageMode: FolderManageMode.managedRecursive,
+    );
+    final byPath = {
+      for (final n in result.nodes.where((n) => n.isFile)) n.path: n,
+    };
+
+    expect(byPath, hasLength(count));
+    for (var i = 0; i < count; i++) {
+      final node = byPath['dir${i % 5}/f$i.txt'];
+      expect(node, isNotNull, reason: 'f$i.txt가 빠졌다');
+      expect(node!.size, i + 1, reason: 'f$i.txt의 크기가 남의 것이다');
+      expect(node.contentHashPrefix, isNotNull);
+    }
+  });
+
   group('부분 해시 재사용(재해시 최적화)', () {
     // 재계산되면 절대 나올 수 없는 값 — 이 값이 그대로면 저장된 해시를 재사용한 것.
     const sentinel = 'reused-sentinel';

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/entities/file_tree_node.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../common/selection_controller.dart';
@@ -60,7 +59,7 @@ class DesktopStatusBar extends ConsumerWidget {
   ) {
     final database = ref.watch(databaseProvider);
     final selection = ref.watch(selectionControllerProvider);
-    final tree = ref.watch(fileTreeProvider).valueOrNull;
+    final visibleCount = ref.watch(visibleNodeCountProvider);
     final filter = ref.watch(fileFilterProvider);
     final sort = ref.watch(fileSortProvider);
 
@@ -75,7 +74,7 @@ class DesktopStatusBar extends ConsumerWidget {
         const Text('스캔 중…'),
         const _Separator(),
       ],
-      Text(tree == null ? '목록 불러오는 중…' : '항목 ${countTreeNodes(tree)}개'),
+      Text(visibleCount == null ? '목록 불러오는 중…' : '항목 $visibleCount개'),
       if (selection.isNotEmpty) ...[
         const _Separator(),
         Text('${selection.length}개 선택'),

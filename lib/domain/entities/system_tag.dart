@@ -66,13 +66,9 @@ enum SystemTag {
   /// 값 편집이 원본(파일명 등)에 반영되어 실제로 바뀌는지. false면 읽기 전용.
   final bool editable;
 
-  /// 이 시스템 태그의 표시용 정의(항상 회색·시스템 소유).
-  TagDefinition get definition => TagDefinition(
-    id: id,
-    name: displayName,
-    valueType: valueType,
-    isSystem: true,
-  );
+  /// 이 시스템 태그의 표시용 정의(항상 회색·시스템 소유). 노드마다 되풀이해 묻는
+  /// 자리라([systemAssignmentsFor]) 태그당 한 벌만 만들어 나눠 쓴다.
+  TagDefinition get definition => _definitionsByTag[this]!;
 
   /// [node]에 대한 이 시스템 태그의 값. 해당 노드에 의미가 없으면(폴더의 크기 등)
   /// null을 돌려 "그 노드엔 이 시스템 태그가 없음"을 나타낸다.
@@ -114,6 +110,22 @@ String? _extensionOf(String name) {
   return name.substring(dot + 1).toLowerCase();
 }
 
+/// 시스템 태그 → 그 표시용 정의. [SystemTag.definition]이 나눠 쓴다.
+final Map<SystemTag, TagDefinition> _definitionsByTag = {
+  for (final t in SystemTag.values)
+    t: TagDefinition(
+      id: t.id,
+      name: t.displayName,
+      valueType: t.valueType,
+      isSystem: true,
+    ),
+};
+
+/// 식별자 → 시스템 태그. [systemTagById]가 나눠 쓴다.
+final Map<int, SystemTag> _tagsById = {
+  for (final t in SystemTag.values) t.id: t,
+};
+
 /// 식별자가 시스템 태그의 것(음수)인지.
 bool isSystemTagId(int id) => id < 0;
 
@@ -127,12 +139,7 @@ bool isEditableAssignment(AssignedTag tag) {
 }
 
 /// 식별자로 시스템 태그를 찾는다. 없으면 null.
-SystemTag? systemTagById(int id) {
-  for (final t in SystemTag.values) {
-    if (t.id == id) return t;
-  }
-  return null;
-}
+SystemTag? systemTagById(int id) => _tagsById[id];
 
 /// 모든 시스템 태그의 표시용 정의 목록(선택기·정의맵 병합용).
 final List<TagDefinition> systemTagDefinitions = [

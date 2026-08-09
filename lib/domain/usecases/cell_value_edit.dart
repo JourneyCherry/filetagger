@@ -48,18 +48,9 @@ List<String> parseCellEditText(
 }
 
 /// 저장값 하나를 편집창에 보일 문자열로. 날짜만 사람이 읽는 형식으로 자르고,
-/// 나머지는 저장값 그대로다.
-String _display(TagValueType type, String value) {
-  if (type == TagValueType.date) {
-    final parsed = DateTime.tryParse(value);
-    if (parsed != null) {
-      final m = parsed.month.toString().padLeft(2, '0');
-      final d = parsed.day.toString().padLeft(2, '0');
-      return '${parsed.year}-$m-$d';
-    }
-  }
-  return value;
-}
+/// 나머지는 저장값 그대로다(칩에 보이는 글자와 같은 변환을 쓴다).
+String _display(TagValueType type, String value) =>
+    type == TagValueType.date ? storedDateToDisplay(value) ?? value : value;
 
 /// 편집창 조각 하나를 저장값으로. 유형에 맞지 않거나 비면 null(버린다).
 String? _toStored(TagValueType type, String raw) {

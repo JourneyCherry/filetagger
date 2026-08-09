@@ -1,4 +1,4 @@
-import '../../core/collections.dart';
+import 'package:collection/collection.dart';
 
 /// 정렬 방향.
 enum SortDirection { ascending, descending }
@@ -33,6 +33,8 @@ class SortKey {
   @override
   int get hashCode => Object.hash(tagDefinitionId, direction);
 }
+
+const _keys = ListEquality<SortKey>();
 
 /// 순서 있는 정렬 단계 목록.
 ///
@@ -74,8 +76,8 @@ class FileSortOrder {
   /// 값 동등성(단계 순서=우선순위까지 같아야 같다). 조건 프리셋의 활성 여부 판정에 쓴다.
   @override
   bool operator ==(Object other) =>
-      other is FileSortOrder && equalLists(other.keys, keys);
+      other is FileSortOrder && _keys.equals(other.keys, keys);
 
   @override
-  int get hashCode => hashList(keys);
+  int get hashCode => _keys.hash(keys);
 }

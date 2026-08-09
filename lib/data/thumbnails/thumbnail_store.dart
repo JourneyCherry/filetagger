@@ -10,6 +10,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants.dart';
@@ -73,7 +74,7 @@ Future<String?> registerThumbnailImage(
 
   // 키는 항상 원본 내용 해시 기준이라, 축소 여부·형식과 무관하게 같은 원본이면 같은
   // 키로 접혀 중복 저장되지 않는다.
-  final key = '${_fnv1a64Hex(bytes)}.$ext';
+  final key = '${_contentKey(bytes)}.$ext';
 
   final dir = Directory(thumbnailCacheDirPath(workspaceRoot));
   if (!await dir.exists()) {
@@ -168,14 +169,7 @@ Future<Uint8List?> _downscaleToPng(Uint8List bytes, int tw, int th) async {
   }
 }
 
-/// 바이트열의 FNV-1a(64비트) 해시를 16진 문자열로. 스캐너의 32비트 해시와 같은
-/// 방침(암호 강도 불필요)이되, 내용 주소로 쓰는 만큼 충돌을 더 줄이려 64비트를 쓴다.
-String _fnv1a64Hex(List<int> bytes) {
-  var hash = 0xcbf29ce484222325; // FNV offset basis (64비트).
-  const prime = 0x100000001b3; // FNV prime (64비트).
-  for (final b in bytes) {
-    hash ^= b;
-    hash = hash * prime; // 네이티브 64비트에서 자연히 2^64로 감싼다.
-  }
-  return hash.toUnsigned(64).toRadixString(16).padLeft(16, '0');
-}
+/// 바이트열의 내용 주소를 16진 문자열로. 같은 내용을 같은 키로 접어 캐시가 중복
+/// 저장되지 않게 하는 것이 목적이라 암호 강도가 필요한 자리는 아니지만, 충돌이 곧
+/// **다른 이미지가 보이는 것**이라 해시를 손으로 짜지 않고 표준 구현을 쓴다.
+String _contentKey(List<int> bytes) => md5.convert(bytes).toString();

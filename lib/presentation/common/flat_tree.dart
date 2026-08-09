@@ -1,0 +1,117 @@
+/// 표시 트리를 화면에 놓이는 순서의 **평면 행**으로 펴는 순수 로직.
+///
+/// 목록 렌더뿐 아니라 셸(범위 선택·전체 선택·키보드 커서)도 같은 순서를 알아야 해서,
+/// 위젯에서 떼어 여기에 둔다(프로바이더가 한 번 계산해 둘이 나눠 쓴다).
+library;
+
+import '../../domain/entities/file_node.dart';
+import '../../domain/entities/file_tree_node.dart';
+
+/// 트리를 편 뒤의 한 표시 행. 실제 파일/폴더 노드([FileTreeNode])이거나 태그값
+/// 버킷의 그룹 헤더([GroupHeaderNode])다. 폴더·헤더는 접었다 펼 수 있고
+/// ([expandable]), 헤더는 선택 대상이 아니다([nodeIndex]가 null).
+class TreeRow {
+  const TreeRow({
+    required this.item,
+    required this.depth,
+    required this.expandable,
+    required this.expanded,
+    required this.expandKey,
+    this.nodeIndex,
+  });
+
+  final TreeItem item;
+  final int depth;
+  final bool expandable;
+  final bool expanded;
+
+  /// 펼침 상태를 저장·조회할 키. 폴더는 실제 경로, 그룹 헤더는 조상 맥락을 실은
+  /// 합성 키(경로엔 없는 제어문자로 시작해 폴더 경로와 겹치지 않는다)다.
+  final String expandKey;
+
+  /// 파일/폴더 노드 행이면 선택 가능한 노드 목록([FlatTree.nodes])에서의 위치.
+  /// 그룹 헤더 행이면 null(선택 대상이 아니다).
+  final int? nodeIndex;
+}
+
+/// [flattenTree]의 결과: 표시 행과, 그와 나란한 선택 가능한 노드 목록.
+class FlatTree {
+  const FlatTree({required this.rows, required this.nodes});
+
+  static const FlatTree empty = FlatTree(rows: [], nodes: []);
+
+  final List<TreeRow> rows;
+
+  /// 표시 순서의 선택 가능한 노드(파일·폴더). 범위 선택·전체 선택이 이 순서를 쓴다.
+  /// 다중값 그룹에선 같은 노드가 여러 버킷에 들어 여러 번 나올 수 있다.
+  final List<FileNode> nodes;
+
+  /// 표시 순서의 노드 id들(id 없는 노드는 빠진다). 커서 이동·범위 선택의 순서 기준.
+  List<int> get nodeIds => [
+    for (final n in nodes)
+      if (n.id != null) n.id!,
+  ];
+}
+
+/// 필터·정렬·그룹된 트리를 표시 순서의 평면 행으로 편다. 접힌 폴더·헤더의 자식은
+/// 건너뛴다. [expandAll]이면(필터 활성 등) 접힘 상태를 무시하고 전부 편다.
+FlatTree flattenTree(
+  List<TreeItem> roots, {
+  required Set<String> expandedFolders,
+  required bool expandAll,
+}) {
+  final rows = <TreeRow>[];
+  final nodes = <FileNode>[];
+
+  void walk(List<TreeItem> items, int depth, String keyPrefix) {
+    for (final item in items) {
+      switch (item) {
+        case FileTreeNode(:final node, :final children):
+          final expandable = children.isNotEmpty;
+          final expanded = expandAll || expandedFolders.contains(node.path);
+          rows.add(
+            TreeRow(
+              item: item,
+              depth: depth,
+              expandable: expandable,
+              expanded: expanded,
+              expandKey: node.path,
+              nodeIndex: nodes.length,
+            ),
+          );
+          nodes.add(node);
+          if (expandable && expanded) walk(children, depth + 1, node.path);
+        case GroupHeaderNode(:final children):
+          final key = _headerKey(keyPrefix, item);
+          final expandable = children.isNotEmpty;
+          final expanded = expandAll || expandedFolders.contains(key);
+          rows.add(
+            TreeRow(
+              item: item,
+              depth: depth,
+              expandable: expandable,
+              expanded: expanded,
+              expandKey: key,
+            ),
+          );
+          if (expandable && expanded) walk(children, depth + 1, key);
+      }
+    }
+  }
+
+  walk(roots, 0, '');
+  return FlatTree(rows: rows, nodes: nodes);
+}
+
+/// 헤더 펼침 키에서 각 조각을 시작하는 표식. 경로에 들어갈 수 없는 제어문자라 합성
+/// 키가 실제 폴더 경로와 겹치지 않는다(소스에서도 보이도록 이스케이프로 적는다).
+const String _headerKeyMark = '\u0000';
+
+/// 그룹 헤더의 펼침 키. 조상 맥락([prefix])에 이 단계의 태그·값을 잇는다 — 같은 값
+/// 버킷이 서로 다른 폴더 아래 놓여도 조상 경로가 달라 키가 갈린다.
+String _headerKey(String prefix, GroupHeaderNode header) {
+  final value = header.value == null
+      ? '${_headerKeyMark}none'
+      : '=${header.value}';
+  return '$prefix$_headerKeyMark${header.tagDefinitionId}$value';
+}

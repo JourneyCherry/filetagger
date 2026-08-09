@@ -36,89 +36,46 @@ class QueryFiles {
 
   /// 다단계 태그 정렬 + 이름 안정화 비교기. 평면 목록 정렬과 트리의 형제 정렬이
   /// 같은 규칙을 쓰도록 공개한다.
+  ///
+  /// 비교기는 노드마다 뽑은 **정렬 재료**(단계별 대표값·소문자 이름)를 기억해 두고
+  /// 쓴다 — 정렬은 한 노드를 여러 번 비교하므로, 대표값 고르기와 숫자·날짜 파싱을
+  /// 비교마다 되풀이하면 값이 없는 노드까지 매번 목록을 훑게 된다. 그래서 한 번 만든
+  /// 비교기는 그것을 만들 때 넘긴 부여·정의 맵에서만 쓴다(트리 빌더가 형제 목록마다
+  /// 같은 비교기를 다시 쓰는 방식 그대로다).
   Comparator<FileNode> comparator({
     required Map<int, List<AssignedTag>> assignmentsByFile,
     required FileSortOrder sort,
     required Map<int, TagDefinition> definitionsById,
   }) {
+    final keys = sort.keys;
+    final types = [
+      for (final key in keys) definitionsById[key.tagDefinitionId]?.valueType,
+    ];
+    // 노드는 같은 객체로 여러 번 비교되므로 신원(identity)으로 재료를 기억한다.
+    final materials = <FileNode, _SortMaterial>{};
+    _SortMaterial materialOf(FileNode node) => materials.putIfAbsent(
+      node,
+      () => _SortMaterial(node, keys, types, assignmentsByFile),
+    );
+
     return (a, b) {
-      for (final key in sort.keys) {
-        final cmp = _compareByKey(
-          a,
-          b,
-          key,
-          assignmentsByFile,
-          definitionsById,
-        );
-        if (cmp != 0) return cmp;
+      final ma = materialOf(a);
+      final mb = materialOf(b);
+      for (var i = 0; i < keys.length; i++) {
+        final av = ma.values[i];
+        final bv = mb.values[i];
+        // 이 태그값이 없는 노드는 방향과 무관하게 이 단계에서 뒤로 민다.
+        if (av == null && bv == null) continue;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        final cmp = av.compareTo(bv);
+        if (cmp != 0) {
+          return keys[i].direction == SortDirection.descending ? -cmp : cmp;
+        }
       }
       // 정렬 단계가 없거나 모든 단계가 동률이면 이름으로 안정화한다.
-      return _compareName(a, b);
+      return _compareName(ma, mb);
     };
-  }
-
-  int _compareByKey(
-    FileNode a,
-    FileNode b,
-    SortKey key,
-    Map<int, List<AssignedTag>> assignmentsByFile,
-    Map<int, TagDefinition> definitionsById,
-  ) {
-    final type = definitionsById[key.tagDefinitionId]?.valueType;
-    final descending = key.direction == SortDirection.descending;
-    final av = _representativeValue(
-      _tagsOf(a, assignmentsByFile),
-      key.tagDefinitionId,
-      type,
-      descending,
-    );
-    final bv = _representativeValue(
-      _tagsOf(b, assignmentsByFile),
-      key.tagDefinitionId,
-      type,
-      descending,
-    );
-    // 이 태그값이 없는 노드는 방향과 무관하게 이 단계에서 뒤로 민다.
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    if (type == null) return 0;
-    final cmp = compareTagValues(type, av, bv);
-    return descending ? -cmp : cmp;
-  }
-
-  /// 파일이 가진 이 태그의 값 중 정렬 방향에 맞는 대표값(오름=최소, 내림=최대).
-  /// 값이 하나도 없으면 null(→ 정렬에서 항상 뒤로). 여러 값(다중 부여)을 하나로
-  /// 접어 안정적으로 비교한다. label은 값이 없으므로 부여 여부만 보아, 존재하면
-  /// 비교상 동률인 대표값(빈 문자열)을, 없으면 null을 돌려 방향과 무관하게
-  /// "부여된 요소가 위, 없는 요소는 뒤"가 되게 한다.
-  String? _representativeValue(
-    List<AssignedTag> tags,
-    int tagDefinitionId,
-    TagValueType? type,
-    bool descending,
-  ) {
-    // label과 image는 값이 없거나(label) 불투명해(image) 부여 여부만 정렬한다.
-    if (type == TagValueType.label || type == TagValueType.image) {
-      final present = tags.any((t) => t.tagDefinitionId == tagDefinitionId);
-      return present ? '' : null;
-    }
-
-    String? best;
-    for (final t in tags) {
-      if (t.tagDefinitionId != tagDefinitionId) continue;
-      final v = t.value;
-      if (v == null || v.isEmpty) continue;
-      if (best == null) {
-        best = v;
-        continue;
-      }
-      if (type == null) continue;
-      final cmp = compareTagValues(type, v, best);
-      // 오름차순이면 더 작은 값, 내림차순이면 더 큰 값을 대표로.
-      if (descending ? cmp > 0 : cmp < 0) best = v;
-    }
-    return best;
   }
 
   List<AssignedTag> _tagsOf(
@@ -130,10 +87,100 @@ class QueryFiles {
     return assignmentsByFile[id] ?? const [];
   }
 
-  int _compareName(FileNode a, FileNode b) {
+  int _compareName(_SortMaterial a, _SortMaterial b) {
     // 탐색기 관례대로 폴더를 파일보다 먼저 두고, 그 안에서 이름순.
     if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
-    final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    final byName = a.lowerName.compareTo(b.lowerName);
     return byName != 0 ? byName : a.path.compareTo(b.path);
+  }
+}
+
+/// 값을 견줄 수는 없고 "붙어 있다"만 뜻하는 대표값(label·image·유형 미상). 서로
+/// 견주면 늘 동률이라 한 벌만 만들어 나눠 쓴다.
+final TagValueKey _presenceKey = TagValueKey(TagValueType.label, '');
+
+/// 한 노드를 정렬하는 데 필요한 재료를 미리 뽑아 둔 것(비교마다 다시 뽑지 않는다).
+class _SortMaterial {
+  _SortMaterial(
+    FileNode node,
+    List<SortKey> keys,
+    List<TagValueType?> types,
+    Map<int, List<AssignedTag>> assignmentsByFile,
+  ) : isDirectory = node.isDirectory,
+      lowerName = node.name.toLowerCase(),
+      path = node.path,
+      values = _representativeValues(node, keys, types, assignmentsByFile);
+
+  /// 정렬 단계별 대표값(값이 없는 단계는 null → 그 단계에서 늘 뒤로).
+  final List<TagValueKey?> values;
+  final bool isDirectory;
+  final String lowerName;
+  final String path;
+
+  /// 파일이 가진 각 정렬 단계 태그의 값 중 정렬 방향에 맞는 대표값(오름=최소,
+  /// 내림=최대). 값이 하나도 없으면 null. 여러 값(다중 부여)을 하나로 접어 안정적으로
+  /// 비교한다. label·image는 값이 없거나(label) 불투명해(image) 부여 여부만 보아,
+  /// 붙어 있으면 비교상 동률인 대표값(빈 값)을, 없으면 null을 돌려 방향과 무관하게
+  /// "부여된 요소가 위, 없는 요소는 뒤"가 되게 한다.
+  static List<TagValueKey?> _representativeValues(
+    FileNode node,
+    List<SortKey> keys,
+    List<TagValueType?> types,
+    Map<int, List<AssignedTag>> assignmentsByFile,
+  ) {
+    if (keys.isEmpty) return const [];
+    final id = node.id;
+    final tags = id == null
+        ? const <AssignedTag>[]
+        : (assignmentsByFile[id] ?? const <AssignedTag>[]);
+    return [
+      for (var i = 0; i < keys.length; i++)
+        _representativeValue(
+          tags,
+          keys[i].tagDefinitionId,
+          types[i],
+          keys[i].direction == SortDirection.descending,
+        ),
+    ];
+  }
+
+  static TagValueKey? _representativeValue(
+    List<AssignedTag> tags,
+    int tagDefinitionId,
+    TagValueType? type,
+    bool descending,
+  ) {
+    if (type == TagValueType.label || type == TagValueType.image) {
+      for (final t in tags) {
+        if (t.tagDefinitionId == tagDefinitionId) return _presenceKey;
+      }
+      return null;
+    }
+    // 유형을 모르면(정의가 사라진 태그) 값을 견줄 규칙이 없다 — 값이 있는지만 보아
+    // 없는 쪽을 뒤로 밀고, 있는 것끼리는 동률로 둔다.
+    if (type == null) {
+      for (final t in tags) {
+        if (t.tagDefinitionId != tagDefinitionId) continue;
+        final v = t.value;
+        if (v != null && v.isNotEmpty) return _presenceKey;
+      }
+      return null;
+    }
+
+    TagValueKey? best;
+    for (final t in tags) {
+      if (t.tagDefinitionId != tagDefinitionId) continue;
+      final v = t.value;
+      if (v == null || v.isEmpty) continue;
+      final key = TagValueKey(type, v);
+      // 오름차순이면 더 작은 값, 내림차순이면 더 큰 값을 대표로.
+      if (best == null) {
+        best = key;
+      } else {
+        final cmp = key.compareTo(best);
+        if (descending ? cmp > 0 : cmp < 0) best = key;
+      }
+    }
+    return best;
   }
 }

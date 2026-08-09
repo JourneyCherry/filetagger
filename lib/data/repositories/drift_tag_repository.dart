@@ -127,12 +127,19 @@ class DriftTagRepository implements TagRepository {
       ),
     ]);
     return query.watch().map((rows) {
-      return rows.map((row) {
-        return AssignedTag(
-          assignment: _toAssignment(row.readTable(_db.tagAssignments)),
-          definition: _toDefinition(row.readTable(_db.tagDefinitions)),
-        );
-      }).toList();
+      // 부여마다 정의 row가 딸려 오지만 정의는 몇 안 된다 — id로 한 벌만 만들어
+      // 나눠 쓴다(부여 수만큼 같은 정의를 새로 만들지 않는다).
+      final definitions = <int, TagDefinition>{};
+      return [
+        for (final row in rows)
+          AssignedTag(
+            assignment: _toAssignment(row.readTable(_db.tagAssignments)),
+            definition: _sharedDefinition(
+              definitions,
+              row.readTable(_db.tagDefinitions),
+            ),
+          ),
+      ];
     });
   }
 
@@ -265,6 +272,12 @@ class DriftTagRepository implements TagRepository {
           ),
         );
   }
+
+  /// 같은 정의 row를 여러 번 만나도 엔티티는 한 번만 만든다([cache]에 id로 기억).
+  TagDefinition _sharedDefinition(
+    Map<int, TagDefinition> cache,
+    TagDefinitionRow row,
+  ) => cache.putIfAbsent(row.id, () => _toDefinition(row));
 
   TagDefinition _toDefinition(TagDefinitionRow row) => TagDefinition(
     id: row.id,

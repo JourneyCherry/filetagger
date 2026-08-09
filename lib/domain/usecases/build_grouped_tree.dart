@@ -54,8 +54,7 @@ class BuildGroupedTree {
 
     // 노드에 붙은 이 태그의 값들(비어있지 않고 중복 제거). label은 값이 없으므로
     // 부여 여부만 보아, 붙어 있으면 "붙음" 버킷(값 '')으로, 없으면 미분류로 간다.
-    List<String> valuesOf(FileNode node, int tagId) {
-      final type = definitionsById[tagId]?.valueType;
+    List<String> valuesOf(FileNode node, int tagId, TagValueType? type) {
       // label과 image는 값 대신 부여 여부만 본다(image 값은 불투명 캐시 키).
       if (type == TagValueType.label || type == TagValueType.image) {
         final present = tagsOf(node).any((t) => t.tagDefinitionId == tagId);
@@ -132,7 +131,7 @@ class BuildGroupedTree {
         // 값 버킷은 파일만 담는다 — 폴더는 값의 대상이 아니라 폴더 계층 키가
         // 세우는 구조(조상)로만 나타난다. 그룹 카운트도 파일(비디렉토리) 수다.
         if (n.isDirectory) continue;
-        final vals = valuesOf(n, tagId);
+        final vals = valuesOf(n, tagId, type);
         if (vals.isEmpty) {
           unclassified.add(n);
           continue;
@@ -141,8 +140,10 @@ class BuildGroupedTree {
           byValue.putIfAbsent(v, () => []).add(n);
         }
       }
+      // 버킷 순서는 값 오름차순. 값마다 해석을 한 번만 하도록 비교 재료를 미리 뽑는다.
+      final sortKeys = {for (final v in byValue.keys) v: TagValueKey(type, v)};
       final values = byValue.keys.toList()
-        ..sort((a, b) => compareTagValues(type, a, b));
+        ..sort((a, b) => sortKeys[a]!.compareTo(sortKeys[b]!));
 
       GroupHeaderNode header(String? value, List<FileNode> members) {
         final children = build(members, rest);

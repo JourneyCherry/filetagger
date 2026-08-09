@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/platform.dart';
@@ -28,6 +29,7 @@ import '../common/ctrl_wheel_zoom.dart';
 import '../common/file_detail_view.dart';
 import '../common/file_icon_view.dart';
 import '../common/file_list_view.dart';
+import '../common/flat_tree.dart';
 import '../common/navigation_cursor.dart';
 import '../common/pointer_presence.dart';
 import '../common/preview_split.dart';
@@ -233,19 +235,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(viewSettingsProvider.notifier).toggleExpandedFolder(path);
 
   /// 표시 중인(펼쳐진) 모든 행을 선택한다. 표시 순서는 목록 렌더와 같은
-  /// [flattenTree]로 구해 Shift 범위 선택과 어긋나지 않게 한다.
+  /// [flatTreeProvider]에서 얻어 Shift 범위 선택과 어긋나지 않게 한다.
   void _selectAll() {
-    final roots = ref.read(fileTreeProvider).valueOrNull;
-    if (roots == null) return;
-    final flat = flattenTree(
-      roots,
-      expandedFolders: ref.read(expandedFoldersProvider),
-      expandAll: !ref.read(fileFilterProvider).isEmpty,
-    );
-    final ids = [
-      for (final n in flat.nodes)
-        if (n.id != null) n.id!,
-    ];
+    final ids = _orderedNodeIds();
     ref.read(selectionControllerProvider.notifier).selectAll(ids);
     if (ids.isEmpty) {
       _exitSelectionMode();
@@ -371,22 +363,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // 목록 보기에서만 의미가 있어(좌우 태그 이동은 칩이 행에 늘어선 목록 전용) 명령
   // 활성도 목록 보기로 가둔다.
 
-  /// 지금 표시 중인 평면 트리(목록 렌더와 같은 flattenTree). 워크스페이스가 없으면 null.
-  FlatTree? _currentFlat() {
-    final roots = ref.read(fileTreeProvider).valueOrNull;
-    if (roots == null) return null;
-    return flattenTree(
-      roots,
-      expandedFolders: ref.read(expandedFoldersProvider),
-      expandAll: !ref.read(fileFilterProvider).isEmpty,
-    );
-  }
+  /// 지금 표시 중인 평면 트리(목록 렌더가 쓰는 것과 같은 것). 아직 없으면 null.
+  FlatTree? _currentFlat() => ref.read(flatTreeProvider).valueOrNull;
 
   /// 표시 순서의 선택 가능한 노드 id들(커서 세로 이동·범위 선택의 순서 기준).
-  List<int> _orderedNodeIds() => [
-    for (final n in (_currentFlat()?.nodes ?? const <FileNode>[]))
-      if (n.id != null) n.id!,
-  ];
+  List<int> _orderedNodeIds() => _currentFlat()?.nodeIds ?? const [];
 
   /// [nodeId] 행에 보이는 태그(표시 순서·표시 술어를 목록 행과 똑같이 적용).
   List<AssignedTag> _visibleTagsOf(int nodeId) => visibleOrderedTags(
@@ -395,11 +376,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(tagChipVisibleProvider),
   );
 
-  FileNode? _nodeById(int id) {
-    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
-    final matches = items.where((n) => n.id == id);
-    return matches.isEmpty ? null : matches.first;
-  }
+  FileNode? _nodeById(int id) => ref.read(fileNodesByIdProvider)[id];
 
   /// 커서를 세로로 [delta]칸(위 -1/아래 +1) 옮긴다. [mode]에 따라 선택도 함께
   /// 바꾼다: single=그 항목만 선택, range=앵커에서 범위 선택, cursorOnly=선택 불변.
@@ -584,9 +561,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   FileNode? get _singleSelectedNode {
     final single = ref.read(selectionControllerProvider).singleOrNull;
     if (single == null) return null;
-    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
-    final matches = items.where((n) => n.id == single);
-    return matches.isEmpty ? null : matches.first;
+    return _nodeById(single);
   }
 
   /// 선택이 정확히 연결 끊긴(보존) 노드 하나면 그 노드를 반환한다. 이때
@@ -678,16 +653,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// 저장 대화상자에 채워 넣을 기본 이름. 날짜를 붙여 여러 번 내보내도 앞의 것을
-  /// 덮어쓸지 묻지 않게 한다.
-  String get _exportFileName {
-    final now = DateTime.now();
-    final stamp = [
-      now.year.toString().padLeft(4, '0'),
-      now.month.toString().padLeft(2, '0'),
-      now.day.toString().padLeft(2, '0'),
-    ].join();
-    return 'filetagger-$stamp.json';
-  }
+  /// 덮어쓸지 묻지 않게 한다(파일 이름이라 구분자 없이 붙인다).
+  static final DateFormat _exportStamp = DateFormat('yyyyMMdd');
+
+  String get _exportFileName =>
+      'filetagger-${_exportStamp.format(DateTime.now())}.json';
 
   /// 고른 항목의 태그를 요청함 형식의 파일 하나로 내보낸다(이미지는 그 옆에 함께).
   ///
@@ -813,11 +783,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selection = ref.read(selectionControllerProvider);
     if (selection.isEmpty) return;
     final ids = selection.selectedIds.toList();
-    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
     String title;
     if (ids.length == 1) {
-      final matches = items.where((n) => n.id == ids.first);
-      title = matches.isEmpty ? '파일 1개' : matches.first.name;
+      title = _nodeById(ids.first)?.name ?? '파일 1개';
     } else {
       title = '${ids.length}개 파일';
     }
@@ -867,10 +835,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 경로를 맞춘다. fs 실패(권한·중복 이름 등)는 스낵바로 알린다. 키워드는 디스크에
   /// 실체가 없어 rename을 건너뛰고 저장된 이름만 고친다.
   Future<void> _renameNodeById(int nodeId) async {
-    final items = ref.read(fileNodesProvider).valueOrNull ?? const [];
-    final matches = items.where((n) => n.id == nodeId);
-    if (matches.isEmpty) return;
-    final node = matches.first;
+    final node = _nodeById(nodeId);
+    if (node == null) return;
     final root = ref.read(workspaceRootProvider);
     final repo = ref.read(fileNodeRepositoryProvider);
     if (root == null || repo == null) return;
@@ -1408,15 +1374,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 선택이 정확히 하나일 때 그 노드를 미리본다. 없거나 여럿이면 노드는 null이고
   /// 프리뷰 창이 안내(빈 상태/"N개 선택됨")를 대신 보인다.
   Widget _buildPreviewPane() {
-    final items = ref.watch(fileNodesProvider).valueOrNull ?? const [];
+    final byId = ref.watch(fileNodesByIdProvider);
     final selection = ref.read(selectionControllerProvider);
-    FileNode? node;
     final single = selection.singleOrNull;
-    if (single != null) {
-      final matches = items.where((n) => n.id == single);
-      if (matches.isNotEmpty) node = matches.first;
-    }
-    final target = node;
+    final target = single == null ? null : byId[single];
     return PreviewPane(
       node: target,
       selectedCount: selection.length,

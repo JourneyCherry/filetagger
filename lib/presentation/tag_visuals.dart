@@ -11,6 +11,8 @@ import '../domain/entities/file_filter.dart';
 import '../domain/entities/tag_value_type.dart';
 
 // 저장 형식은 domain이 단일 출처다. 표시 헬퍼와 함께 쓰이므로 여기서 다시 내보낸다.
+import '../domain/entities/tag_value_format.dart';
+
 export '../domain/entities/tag_value_format.dart' show dateToStoredValue;
 
 /// 도구모음의 조건 줄(프리셋·필터·정렬·그룹)이 비었을 때 그 자리에 두는 문구.
@@ -150,14 +152,7 @@ bool canNameSourceShowText(TagValueType type) =>
 String? formatTagValue(TagValueType type, String? value) {
   if (!canNameSourceShowText(type)) return null;
   if (value == null || value.isEmpty) return null;
-  if (type == TagValueType.date) {
-    final parsed = DateTime.tryParse(value);
-    if (parsed != null) {
-      final m = parsed.month.toString().padLeft(2, '0');
-      final d = parsed.day.toString().padLeft(2, '0');
-      return '${parsed.year}-$m-$d';
-    }
-  }
+  if (type == TagValueType.date) return storedDateToDisplay(value) ?? value;
   return value;
 }
 

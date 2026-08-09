@@ -1,7 +1,11 @@
-import '../../core/collections.dart';
+import 'package:collection/collection.dart';
+
 import 'file_filter.dart';
 import 'file_grouping.dart';
 import 'file_sort.dart';
+
+/// 출처 목록은 순서까지 견준다(앞이 높은 우선순위라 순서가 곧 뜻이다).
+const _sources = ListEquality<int>();
 
 /// 이름을 붙여 저장해 둔 한 벌(필터 + 정렬 + 그룹 + 이름·썸네일 출처).
 ///
@@ -55,8 +59,8 @@ class QueryPreset {
       this.filter == filter &&
       this.sort == sort &&
       this.grouping == grouping &&
-      equalLists(this.nameSources, nameSources) &&
-      equalLists(this.thumbnailSources, thumbnailSources);
+      _sources.equals(this.nameSources, nameSources) &&
+      _sources.equals(this.thumbnailSources, thumbnailSources);
 
   QueryPreset copyWith({
     String? name,
@@ -81,8 +85,8 @@ class QueryPreset {
       other.filter == filter &&
       other.sort == sort &&
       other.grouping == grouping &&
-      equalLists(other.nameSources, nameSources) &&
-      equalLists(other.thumbnailSources, thumbnailSources);
+      _sources.equals(other.nameSources, nameSources) &&
+      _sources.equals(other.thumbnailSources, thumbnailSources);
 
   @override
   int get hashCode => Object.hash(
@@ -90,7 +94,7 @@ class QueryPreset {
     filter,
     sort,
     grouping,
-    hashList(nameSources),
-    hashList(thumbnailSources),
+    _sources.hash(nameSources),
+    _sources.hash(thumbnailSources),
   );
 }

@@ -18,6 +18,7 @@ import '../../domain/usecases/build_grouped_tree.dart';
 import '../../domain/usecases/folder_index_scope.dart';
 import '../../domain/usecases/query_files.dart';
 import '../../domain/usecases/tag_display_order.dart';
+import '../common/flat_tree.dart';
 import 'file_node_provider.dart';
 import 'system_tag_provider.dart';
 import 'tag_provider.dart';
@@ -410,4 +411,26 @@ final fileTreeProvider = Provider<AsyncValue<List<TreeItem>>>((ref) {
       definitionsById: definitionsById,
     ),
   );
+});
+
+/// [fileTreeProvider]를 화면에 놓이는 순서의 평면 행으로 편 것.
+///
+/// 목록 렌더와 셸의 조작(범위·전체 선택, 키보드 커서 이동)이 **같은 결과**를 나눠
+/// 쓴다 — 각자 펴면 키를 누를 때마다 트리를 다시 펴게 되고, 두 순서가 어긋날 여지도
+/// 생긴다. 필터가 걸리면 매치를 드러내기 위해 접힘 상태와 무관하게 전부 편다.
+final flatTreeProvider = Provider<AsyncValue<FlatTree>>((ref) {
+  final tree = ref.watch(fileTreeProvider);
+  final expanded = ref.watch(expandedFoldersProvider);
+  final filterActive = !ref.watch(fileFilterProvider).isEmpty;
+  return tree.whenData(
+    (roots) =>
+        flattenTree(roots, expandedFolders: expanded, expandAll: filterActive),
+  );
+});
+
+/// 표시 중인 트리에 남은 실제 노드 수(상태표시줄). 선택이 바뀔 때마다 트리를 다시
+/// 세지 않도록 트리에서만 파생시킨다.
+final visibleNodeCountProvider = Provider<int?>((ref) {
+  final tree = ref.watch(fileTreeProvider).valueOrNull;
+  return tree == null ? null : countTreeNodes(tree);
 });

@@ -15,10 +15,21 @@ import 'query_json.dart';
 ///
 /// 열거형은 이름으로 저장해 값 순서 변경에 영향받지 않는다(태그 유형 저장과 동일
 /// 원칙). 파일이 없거나 형식이 깨지면 기본값을 돌려줘 앱이 계속 뜨게 한다.
+///
+/// 저장은 **한 번에 하나씩, 마지막 값만** 쓴다. zoom 휠·펼침 토글처럼 잦은 조작이
+/// 매번 파일 전체를 다시 쓰는 자리라, 쓰는 동안 들어온 값은 대기 자리에 덮어 두었다가
+/// 한 번만 쓴다(중간 값은 어차피 다음 값에 덮인다). 겹쳐 쓰다 파일이 섞이는 것도 함께
+/// 막는다.
 class JsonViewSettingsStore implements ViewSettingsRepository {
   JsonViewSettingsStore(this.workspaceRoot);
 
   final String workspaceRoot;
+
+  /// 쓰기가 도는 동안 들어온 가장 최근 값(없으면 null).
+  WorkspaceViewSettings? _pending;
+
+  /// 지금 도는 쓰기 루프. 없으면 null.
+  Future<void>? _writing;
 
   File _file() =>
       File(p.join(workspaceRoot, filetaggerDirName, viewSettingsFileName));
@@ -36,10 +47,24 @@ class JsonViewSettingsStore implements ViewSettingsRepository {
   }
 
   @override
-  Future<void> save(WorkspaceViewSettings settings) async {
-    final file = _file();
-    await file.create(recursive: true);
-    await file.writeAsString(jsonEncode(_settingsToJson(settings)));
+  Future<void> save(WorkspaceViewSettings settings) {
+    _pending = settings;
+    return _writing ??= _drain();
+  }
+
+  /// 대기 자리가 빌 때까지 최신 값만 이어서 쓴다.
+  Future<void> _drain() async {
+    try {
+      while (_pending != null) {
+        final next = _pending!;
+        _pending = null;
+        final file = _file();
+        await file.create(recursive: true);
+        await file.writeAsString(jsonEncode(_settingsToJson(next)));
+      }
+    } finally {
+      _writing = null;
+    }
   }
 }
 

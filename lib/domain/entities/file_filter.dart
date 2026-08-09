@@ -1,4 +1,5 @@
-import '../../core/collections.dart';
+import 'package:collection/collection.dart';
+
 import 'assigned_tag.dart';
 import 'tag_value_ordering.dart';
 import 'tag_value_type.dart';
@@ -79,43 +80,53 @@ class FilterCondition {
   final bool exclude;
 
   /// 이 조건이 한 노드(그 부여 기록들)를 만족시키는지.
+  ///
+  /// 노드마다 불리므로 해당 태그의 부여만 골라 담지 않고 한 번 훑으며 판정한다.
+  /// 피연산자 해석([TagValueKey])도 값마다가 아니라 노드마다 한 번만 한다.
   bool matches(Iterable<AssignedTag> tags) {
-    final relevant = <AssignedTag>[
-      for (final t in tags)
-        if (t.tagDefinitionId == tagDefinitionId) t,
-    ];
-    if (operator == FilterOperator.exists) return relevant.isNotEmpty;
-    if (relevant.isEmpty) return false;
-    final type = relevant.first.definition.valueType;
-    final operandValue = operand ?? '';
-    for (final t in relevant) {
+    if (operator == FilterOperator.exists) {
+      for (final t in tags) {
+        if (t.tagDefinitionId == tagDefinitionId) return true;
+      }
+      return false;
+    }
+    TagValueKey? operandKey;
+    for (final t in tags) {
+      if (t.tagDefinitionId != tagDefinitionId) continue;
+      // 유형은 이 태그의 첫 부여에서 읽는다(같은 태그의 부여는 유형이 같다).
+      operandKey ??= TagValueKey(t.definition.valueType, operand ?? '');
       final value = t.value;
       if (value == null || value.isEmpty) continue;
-      if (_valueMatches(type, value, operandValue)) return true;
+      if (_valueMatches(operandKey, value)) return true;
     }
     return false;
   }
 
-  bool _valueMatches(TagValueType type, String value, String operandValue) {
+  bool _valueMatches(TagValueKey operandKey, String value) {
+    // 대소 비교 연산에서만 값을 유형에 맞게 해석한다(포함 연산은 글자만 본다).
+    late final int cmp = TagValueKey(
+      operandKey.type,
+      value,
+    ).compareTo(operandKey);
     switch (operator) {
       case FilterOperator.exists:
         return true;
       case FilterOperator.contains:
-        return value.toLowerCase().contains(operandValue.toLowerCase());
+        return value.toLowerCase().contains(operandKey.lowerValue);
       case FilterOperator.notContains:
-        return !value.toLowerCase().contains(operandValue.toLowerCase());
+        return !value.toLowerCase().contains(operandKey.lowerValue);
       case FilterOperator.equals:
-        return compareTagValues(type, value, operandValue) == 0;
+        return cmp == 0;
       case FilterOperator.notEquals:
-        return compareTagValues(type, value, operandValue) != 0;
+        return cmp != 0;
       case FilterOperator.lessThan:
-        return compareTagValues(type, value, operandValue) < 0;
+        return cmp < 0;
       case FilterOperator.lessOrEqual:
-        return compareTagValues(type, value, operandValue) <= 0;
+        return cmp <= 0;
       case FilterOperator.greaterThan:
-        return compareTagValues(type, value, operandValue) > 0;
+        return cmp > 0;
       case FilterOperator.greaterOrEqual:
-        return compareTagValues(type, value, operandValue) >= 0;
+        return cmp >= 0;
     }
   }
 
@@ -147,6 +158,8 @@ class FilterCondition {
   @override
   int get hashCode => Object.hash(tagDefinitionId, operator, operand, exclude);
 }
+
+const _conditions = ListEquality<FilterCondition>();
 
 /// 순서 있는 조건 목록으로 파일을 걸러내는 필터.
 ///
@@ -200,8 +213,8 @@ class FileFilter {
   /// 값 동등성(조건의 순서까지 같아야 같다). 조건 프리셋의 활성 여부 판정에 쓴다.
   @override
   bool operator ==(Object other) =>
-      other is FileFilter && equalLists(other.conditions, conditions);
+      other is FileFilter && _conditions.equals(other.conditions, conditions);
 
   @override
-  int get hashCode => hashList(conditions);
+  int get hashCode => _conditions.hash(conditions);
 }

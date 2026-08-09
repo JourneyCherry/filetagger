@@ -27,14 +27,17 @@ Map<int, List<AssignedTag>> resolveLinkAssignments(
 ) {
   final result = <int, List<AssignedTag>>{};
   for (final entry in byFile.entries) {
-    var changed = false;
-    final resolved = <AssignedTag>[];
-    for (final a in entry.value) {
+    // 링크가 없는 노드(대개 대부분)는 목록을 그대로 물려준다 — 첫 링크를 만났을 때만
+    // 그때까지 지나온 부여를 옮겨 담아 새 목록을 시작한다.
+    final original = entry.value;
+    List<AssignedTag>? resolved;
+    for (var i = 0; i < original.length; i++) {
+      final a = original[i];
       if (a.definition.valueType != TagValueType.link) {
-        resolved.add(a);
+        resolved?.add(a);
         continue;
       }
-      changed = true;
+      resolved ??= original.sublist(0, i);
       final raw = a.value;
       final String? value;
       final bool unresolved;
@@ -64,7 +67,7 @@ Map<int, List<AssignedTag>> resolveLinkAssignments(
         ),
       );
     }
-    result[entry.key] = changed ? resolved : entry.value;
+    result[entry.key] = resolved ?? original;
   }
   return result;
 }

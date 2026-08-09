@@ -146,10 +146,14 @@ Map<int, List<AssignedTag>> _merge(
   for (final node in nodes) {
     final id = node.id;
     if (id == null) continue;
-    final u = user[id] ?? const <AssignedTag>[];
-    final s = system[id] ?? const <AssignedTag>[];
-    if (u.isEmpty && s.isEmpty) continue;
-    result[id] = [...u, ...s];
+    final u = user[id];
+    final s = system[id];
+    // 한쪽만 있으면 그 목록을 그대로 물려준다(이 맵은 읽기 전용으로만 쓰인다).
+    if (u == null || u.isEmpty) {
+      if (s != null && s.isNotEmpty) result[id] = s;
+      continue;
+    }
+    result[id] = s == null || s.isEmpty ? u : [...u, ...s];
   }
   return result;
 }

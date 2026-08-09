@@ -22,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
     : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -102,6 +102,15 @@ class AppDatabase extends _$AppDatabase {
         // 미해결 링크 표식 도입. 기존 부여는 모두 해결된 값(또는 링크가 아닌 값)이라
         // 컬럼 기본값(거짓)이 그대로 맞다.
         await m.addColumn(tagAssignments, tagAssignments.valueUnresolved);
+      }
+      if (from < 10) {
+        // 내용 해시를 손으로 짠 것에서 표준 구현으로 갈았다. 스캐너는 크기·수정시각이
+        // 그대로인 파일의 **저장된 해시를 그대로 재사용**하므로, 비워 두지 않으면 옛
+        // 형식의 값이 영영 남아 새로 계산한 값과 결코 맞지 않는다 — 그 파일들은 이동
+        // 추적이 조용히 끊긴다. 비우면 다음 스캔이 한 번 다시 읽어 채운다.
+        await customStatement(
+          'UPDATE file_nodes SET content_hash_prefix = NULL',
+        );
       }
     },
     beforeOpen: (details) async {

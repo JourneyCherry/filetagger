@@ -229,4 +229,5 @@ fabric.properties
 # AI Related Files
 .claude/*
 CLAUDE.md
+ARCHITECTURE.md
 TODO.md

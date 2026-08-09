@@ -1,7 +1,7 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:stream_transform/stream_transform.dart';
 import 'package:watcher/watcher.dart';
 
 import '../../core/constants.dart';
@@ -22,39 +22,18 @@ class CommandQueueWatcher implements WorkspaceWatcher {
 
   @override
   Stream<void> watch(String workspaceRoot) {
-    late final StreamController<void> controller;
-    StreamSubscription<WatchEvent>? sub;
-    Timer? debounce;
-
     final queuePath = p.join(
       workspaceRoot,
       filetaggerDirName,
       commandQueueDirName,
     );
-
-    void start() {
-      // 없는 폴더는 감시할 수 없다. 첫 패스가 만들기 전에 구독이 시작될 수 있어
-      // 여기서도 자리를 만들어 둔다(만들지 못하면 감시만 포기하고 앱은 계속 뜬다).
-      try {
-        Directory(queuePath).createSync(recursive: true);
-      } catch (_) {
-        return;
-      }
-      sub = DirectoryWatcher(queuePath).events.listen((_) {
-        debounce?.cancel();
-        debounce = Timer(_debounce, () {
-          if (!controller.isClosed) controller.add(null);
-        });
-      });
+    // 없는 폴더는 감시할 수 없다. 첫 패스가 만들기 전에 구독이 시작될 수 있어
+    // 여기서도 자리를 만들어 둔다(만들지 못하면 감시만 포기하고 앱은 계속 뜬다).
+    try {
+      Directory(queuePath).createSync(recursive: true);
+    } catch (_) {
+      return const Stream.empty();
     }
-
-    controller = StreamController<void>(
-      onListen: start,
-      onCancel: () async {
-        debounce?.cancel();
-        await sub?.cancel();
-      },
-    );
-    return controller.stream;
+    return DirectoryWatcher(queuePath).events.debounce(_debounce);
   }
 }

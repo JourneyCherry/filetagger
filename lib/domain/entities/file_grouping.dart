@@ -1,4 +1,5 @@
-import '../../core/collections.dart';
+import 'package:collection/collection.dart';
+
 import 'tag_definition.dart';
 import 'tag_value_type.dart';
 
@@ -66,6 +67,8 @@ GroupKey groupKeyFromId(int id) => id == kFolderHierarchyGroupId
     ? const FolderHierarchyGroupKey()
     : TagGroupKey(id);
 
+const _keys = ListEquality<GroupKey>();
+
 /// 순서 있는 그룹 단계 목록. 바깥→안쪽으로 중첩해 묶는다.
 ///
 /// 비어 있으면 그룹 없이 평면 목록이다. 각 단계의 순서가 중첩 순서이므로 재배치가
@@ -103,8 +106,8 @@ class FileGrouping {
   /// 값 동등성(중첩 순서까지 같아야 같다). 조건 프리셋의 활성 여부 판정에 쓴다.
   @override
   bool operator ==(Object other) =>
-      other is FileGrouping && equalLists(other.keys, keys);
+      other is FileGrouping && _keys.equals(other.keys, keys);
 
   @override
-  int get hashCode => hashList(keys);
+  int get hashCode => _keys.hash(keys);
 }

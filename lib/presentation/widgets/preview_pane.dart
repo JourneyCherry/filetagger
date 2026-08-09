@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
@@ -189,9 +190,7 @@ String _formatSize(int bytes) {
   return '$text ${units[unit]}';
 }
 
-/// 수정시각을 로컬 시각의 'yyyy-MM-dd HH:mm'으로 표기한다.
-String _formatDate(DateTime dt) {
-  final d = dt.toLocal();
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-}
+/// 날짜 태그값과 달리 파일 수정시각은 **그 순간**이라, OS 시간대의 시각으로 보인다.
+final DateFormat _timestamp = DateFormat('yyyy-MM-dd HH:mm');
+
+String _formatDate(DateTime dt) => _timestamp.format(dt.toLocal());

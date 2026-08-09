@@ -1,12 +1,11 @@
-import 'dart:async';
-
 import 'package:path/path.dart' as p;
+import 'package:stream_transform/stream_transform.dart';
 import 'package:watcher/watcher.dart';
 
 import '../../core/constants.dart';
 import '../../domain/repositories/workspace_watcher.dart';
 
-/// `package:watcher`(publisher `dart.dev`) 기반 [WorkspaceWatcher] 구현.
+/// `package:watcher` 기반 [WorkspaceWatcher] 구현.
 ///
 /// 파일 조작은 보통 여러 이벤트를 연달아 발생시키므로, 마지막 이벤트 이후
 /// 짧은 정지 구간이 지나면 한 번만 신호를 방출(디바운스)한다. `.filetagger/`
@@ -18,30 +17,10 @@ class DirectoryWorkspaceWatcher implements WorkspaceWatcher {
   static const Duration _debounce = Duration(milliseconds: 400);
 
   @override
-  Stream<void> watch(String workspaceRoot) {
-    late final StreamController<void> controller;
-    StreamSubscription<WatchEvent>? sub;
-    Timer? debounce;
-
-    void start() {
-      sub = DirectoryWatcher(workspaceRoot).events.listen((event) {
-        if (_isInsideFiletagger(workspaceRoot, event.path)) return;
-        debounce?.cancel();
-        debounce = Timer(_debounce, () {
-          if (!controller.isClosed) controller.add(null);
-        });
-      });
-    }
-
-    controller = StreamController<void>(
-      onListen: start,
-      onCancel: () async {
-        debounce?.cancel();
-        await sub?.cancel();
-      },
-    );
-    return controller.stream;
-  }
+  Stream<void> watch(String workspaceRoot) => DirectoryWatcher(workspaceRoot)
+      .events
+      .where((event) => !_isInsideFiletagger(workspaceRoot, event.path))
+      .debounce(_debounce);
 
   /// 변경 경로가 루트의 `.filetagger/` 폴더 안쪽인지.
   bool _isInsideFiletagger(String workspaceRoot, String changedPath) {

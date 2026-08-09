@@ -54,18 +54,21 @@ class DriftFileNodeRepository implements FileNodeRepository {
       final scannedPaths = {for (final n in scanned) n.path};
 
       // 같은 경로로 다시 나타난 노드는 upsert가 missingSince를 지워 되살린다.
-      for (final node in scanned) {
-        await _db
-            .into(_db.fileNodes)
-            .insert(
-              _toCompanion(node, seenAt),
-              onConflict: DoUpdate(
-                (_) => _toCompanion(node, seenAt),
-                // 유일성이 (종류, 경로)이므로 충돌 대상도 둘을 함께 지목한다.
-                target: [_db.fileNodes.kind, _db.fileNodes.path],
-              ),
-            );
-      }
+      // 스캔 규모가 수천 건이라 문장을 하나씩 왕복시키지 않고 배치로 묶어 보낸다.
+      await _db.batch((batch) {
+        for (final node in scanned) {
+          final companion = _toCompanion(node, seenAt);
+          batch.insert(
+            _db.fileNodes,
+            companion,
+            onConflict: DoUpdate(
+              (_) => companion,
+              // 유일성이 (종류, 경로)이므로 충돌 대상도 둘을 함께 지목한다.
+              target: [_db.fileNodes.kind, _db.fileNodes.path],
+            ),
+          );
+        }
+      });
 
       final disappeared = before
           .where((r) => !scannedPaths.contains(r.path))
@@ -156,12 +159,18 @@ class DriftFileNodeRepository implements FileNodeRepository {
       final rows = await (_db.select(
         _db.fileNodes,
       )..where((t) => t.kind.equalsValue(NodeKind.keyword).not())).get();
-      for (final row in rows) {
-        final updated = rewriteRenamedPath(row.path, oldPath, newPath);
-        if (updated == null || updated == row.path) continue;
-        await (_db.update(_db.fileNodes)..where((t) => t.id.equals(row.id)))
-            .write(FileNodesCompanion(path: Value(updated)));
-      }
+      // 폴더를 개명하면 하위 전체가 바뀌므로 갱신을 배치로 묶어 한 번에 보낸다.
+      await _db.batch((batch) {
+        for (final row in rows) {
+          final updated = rewriteRenamedPath(row.path, oldPath, newPath);
+          if (updated == null || updated == row.path) continue;
+          batch.update(
+            _db.fileNodes,
+            FileNodesCompanion(path: Value(updated)),
+            where: (t) => t.id.equals(row.id),
+          );
+        }
+      });
     });
   }
 
@@ -281,8 +290,9 @@ class DriftFileNodeRepository implements FileNodeRepository {
 
     final moves = const MoveTracker().match(tagged, appeared);
 
+    final rowByPath = {for (final r in candidates) r.path: r};
     for (final entry in moves.entries) {
-      final oldRow = candidates.firstWhere((r) => r.path == entry.key.path);
+      final oldRow = rowByPath[entry.key.path]!;
       final newId = await _idForPath(entry.value.path);
       if (newId == null) continue;
       await (_db.update(_db.tagAssignments)

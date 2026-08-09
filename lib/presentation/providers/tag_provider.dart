@@ -20,27 +20,32 @@ final tagDefinitionsProvider = StreamProvider<List<TagDefinition>>((ref) {
   return repo.watchDefinitions();
 });
 
-/// 파일 노드 id → 그 파일에 부여된 태그 목록. 목록 칩·다이얼로그가 구독한다.
-final assignmentsByFileProvider = StreamProvider<Map<int, List<AssignedTag>>>((
-  ref,
-) {
+/// 워크스페이스의 모든 태그 부여(정의를 조인한 것) 스트림.
+///
+/// 아래 두 파생 맵이 이 하나를 나눠 본다 — 각자 구독하면 같은 조인 질의가 두 번 돌고
+/// 부여 객체도 두 벌 만들어진다.
+final assignmentsProvider = StreamProvider<List<AssignedTag>>((ref) {
   final repo = ref.watch(tagRepositoryProvider);
-  if (repo == null) return Stream.value(const {});
-  return repo.watchAssignments().map((assignments) {
-    final grouped = <int, List<AssignedTag>>{};
-    for (final assigned in assignments) {
-      grouped.putIfAbsent(assigned.fileNodeId, () => []).add(assigned);
-    }
-    return grouped;
-  });
+  if (repo == null) return Stream.value(const []);
+  return repo.watchAssignments();
 });
+
+/// 파일 노드 id → 그 파일에 부여된 태그 목록. 목록 칩·다이얼로그가 구독한다.
+final assignmentsByFileProvider =
+    Provider<AsyncValue<Map<int, List<AssignedTag>>>>((ref) {
+      return ref.watch(assignmentsProvider).whenData((assignments) {
+        final grouped = <int, List<AssignedTag>>{};
+        for (final assigned in assignments) {
+          grouped.putIfAbsent(assigned.fileNodeId, () => []).add(assigned);
+        }
+        return grouped;
+      });
+    });
 
 /// 태그 정의 id → 그 태그가 부여된 (서로 다른) 파일 노드 수. 태그 삭제 시 영향
 /// 범위를 사용자에게 경고하는 데 쓴다. 부여가 없으면 맵에 키가 없다(0).
-final nodeCountByTagProvider = StreamProvider<Map<int, int>>((ref) {
-  final repo = ref.watch(tagRepositoryProvider);
-  if (repo == null) return Stream.value(const {});
-  return repo.watchAssignments().map((assignments) {
+final nodeCountByTagProvider = Provider<AsyncValue<Map<int, int>>>((ref) {
+  return ref.watch(assignmentsProvider).whenData((assignments) {
     final nodesByTag = <int, Set<int>>{};
     for (final assigned in assignments) {
       nodesByTag

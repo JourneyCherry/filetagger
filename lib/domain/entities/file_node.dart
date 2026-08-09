@@ -71,6 +71,10 @@ class FileNode {
   /// 파일이 사라져 태그만 보존 중인지(수동 재연결 대상).
   bool get isMissing => missingSince != null;
 
-  /// 목록 표시에 쓰는 마지막 경로 세그먼트.
-  String get name => path.split('/').last;
+  /// 목록 표시에 쓰는 마지막 경로 세그먼트. 정렬·표시가 노드마다 되풀이해 묻는
+  /// 자리라 조각 목록을 만들지 않고 마지막 구분자 뒤만 잘라 낸다.
+  String get name {
+    final slash = path.lastIndexOf('/');
+    return slash < 0 ? path : path.substring(slash + 1);
+  }
 }

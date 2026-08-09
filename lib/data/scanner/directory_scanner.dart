@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
+import 'package:pool/pool.dart';
 
 import '../../core/constants.dart';
 import '../../core/file_types.dart';
@@ -14,6 +16,15 @@ import '../../domain/usecases/folder_index_scope.dart';
 import 'hidden_entry.dart';
 import 'image_dimensions.dart';
 
+/// 순회가 찾아 두었으나 아직 열어 보지 않은 파일. 경로는 이미 루트 기준으로
+/// 정규화되어 있어, 인덱싱 단계는 파일시스템 I/O만 하면 된다.
+class _PendingFile {
+  const _PendingFile(this.file, this.relativePath);
+
+  final File file;
+  final String relativePath;
+}
+
 /// dart:io 기반 재귀 디렉토리 스캐너.
 class DirectoryScanner implements WorkspaceScanner {
   const DirectoryScanner();
@@ -22,11 +33,12 @@ class DirectoryScanner implements WorkspaceScanner {
   /// 큰 파일도 한 번의 짧은 읽기로 끝나도록 상한을 둔다.
   static const int _hashPrefixBytes = 64 * 1024;
 
-  /// FNV-1a(32비트) 상수. 암호학적 강도는 필요 없고, 같은 크기·수정시각을 가진
-  /// 후보들 사이에서 내용을 가려내기 위한 비암호 해시다.
-  static const int _fnvOffset = 0x811c9dc5;
-  static const int _fnvPrime = 0x01000193;
-  static const int _mask32 = 0xffffffff;
+  /// 파일 인덱싱 I/O(stat·앞부분 읽기)를 동시에 몇 개까지 띄울지. 하나씩 기다리면
+  /// 왕복 지연이 파일 수만큼 그대로 쌓이는데, 그 지연은 계산이 아니라 대기라
+  /// 기준은 코어 수가 아니라 **디스크·OS 큐에 얼마나 채워 두느냐**다. 특히 캐시에
+  /// 없는 첫 스캔에서 차이가 크다(따라오지 못할 만큼 올리면 이득 없이 다른 I/O만
+  /// 굶기므로 상한을 둔다).
+  static const int _fileIoConcurrency = 16;
 
   @override
   Future<ScanResult> scan(
@@ -36,6 +48,7 @@ class DirectoryScanner implements WorkspaceScanner {
   }) async {
     final nodes = <FileNode>[];
     final nested = <String>[];
+    final files = <_PendingFile>[];
     await _walk(
       dir: Directory(workspaceRoot),
       workspaceRoot: workspaceRoot,
@@ -43,15 +56,20 @@ class DirectoryScanner implements WorkspaceScanner {
       effectiveMode: rootManageMode,
       storedOverride: null,
       nodes: nodes,
+      pendingFiles: files,
       nestedFiletaggerDirs: nested,
       priorIndex: priorIndex,
     );
+    // 순회는 폴더 관리 방식을 부모에서 물려받아야 해 순서를 지켜야 하지만, 파일
+    // 인덱싱은 서로 독립이라 순회가 끝난 뒤 한꺼번에 동시에 돌린다.
+    nodes.addAll(await _indexFiles(files, priorIndex));
     return ScanResult(nodes: nodes, nestedFiletaggerDirs: nested);
   }
 
   /// [dir]을 인덱싱한다. 루트가 아니면 자기 자신을 폴더 노드로 추가(override는
   /// 그대로 보존)하고, effective 모드가 불투명이면 내부(자식 노드·재귀)를 건너뛴다.
-  /// override 없는 하위 폴더는 부모의 effective 모드에서 상속한다.
+  /// override 없는 하위 폴더는 부모의 effective 모드에서 상속한다. 만난 파일은
+  /// 여기서 열지 않고 [pendingFiles]에 모아 두었다가 나중에 함께 인덱싱한다.
   Future<void> _walk({
     required Directory dir,
     required String workspaceRoot,
@@ -59,6 +77,7 @@ class DirectoryScanner implements WorkspaceScanner {
     required FolderManageMode effectiveMode,
     required FolderManageMode? storedOverride,
     required List<FileNode> nodes,
+    required List<_PendingFile> pendingFiles,
     required List<String> nestedFiletaggerDirs,
     required Map<String, FileNode> priorIndex,
   }) async {
@@ -119,48 +138,70 @@ class DirectoryScanner implements WorkspaceScanner {
           effectiveMode: childEffective,
           storedOverride: childOverride,
           nodes: nodes,
+          pendingFiles: pendingFiles,
           nestedFiletaggerDirs: nestedFiletaggerDirs,
           priorIndex: priorIndex,
         );
       } else if (entity is File) {
-        final relativePath = _relativePosix(workspaceRoot, entity.path);
-        final stat = await entity.stat();
-        final prior = priorIndex[relativePath];
-        final isImage = isImagePath(relativePath);
-        // 직전 인덱스와 크기·수정시각이 그대로면 저장된 해시·이미지 크기를 재사용해
-        // 파일을 다시 열어 읽지 않는다. 단 이미지인데 크기가 아직 없으면(컬럼 신설
-        // 직후 등) 한 번은 읽어 채운다. 재사용 못 하면 앞부분을 읽어 새로 계산한다.
-        final unchanged = _isUnchanged(prior, stat);
-        final canReuse =
-            unchanged &&
-            prior!.contentHashPrefix != null &&
-            (!isImage || prior.imageDimensions != null);
-
-        String? hash;
-        String? dimensions;
-        if (canReuse) {
-          hash = prior.contentHashPrefix;
-          dimensions = prior.imageDimensions;
-        } else {
-          final bytes = await _readPrefix(entity, stat.size);
-          if (bytes != null) {
-            hash = _fnv1a(bytes);
-            if (isImage) dimensions = readImageDimensions(bytes);
-          }
-        }
-
-        nodes.add(
-          FileNode(
-            path: relativePath,
-            kind: NodeKind.file,
-            size: stat.size,
-            modifiedAt: stat.modified,
-            contentHashPrefix: hash,
-            imageDimensions: dimensions,
-          ),
+        pendingFiles.add(
+          _PendingFile(entity, _relativePosix(workspaceRoot, entity.path)),
         );
       }
     }
+  }
+
+  /// 모아 둔 파일들을 노드로 만든다. 한꺼번에 다 띄우지 않도록 [Pool]이 동시에
+  /// 도는 수를 잡아 주고, 하나가 디스크를 기다리는 동안 다음 파일이 그 자리를
+  /// 채운다. 결과 순서는 입력 순서 그대로다.
+  Future<List<FileNode>> _indexFiles(
+    List<_PendingFile> pending,
+    Map<String, FileNode> priorIndex,
+  ) {
+    final pool = Pool(_fileIoConcurrency);
+    return Future.wait<FileNode>([
+      for (final file in pending)
+        pool.withResource(() => _indexFile(file, priorIndex)),
+    ]).whenComplete(pool.close);
+  }
+
+  /// 파일 하나를 노드로 만든다. 직전 인덱스와 크기·수정시각이 그대로면 저장된
+  /// 해시·이미지 크기를 재사용해 파일을 다시 열어 읽지 않는다. 단 이미지인데 크기가
+  /// 아직 없으면(컬럼 신설 직후 등) 한 번은 읽어 채운다. 재사용 못 하면 앞부분을
+  /// 읽어 새로 계산한다.
+  Future<FileNode> _indexFile(
+    _PendingFile pending,
+    Map<String, FileNode> priorIndex,
+  ) async {
+    final stat = await pending.file.stat();
+    final prior = priorIndex[pending.relativePath];
+    final isImage = isImagePath(pending.relativePath);
+    final unchanged = _isUnchanged(prior, stat);
+    final canReuse =
+        unchanged &&
+        prior!.contentHashPrefix != null &&
+        (!isImage || prior.imageDimensions != null);
+
+    String? hash;
+    String? dimensions;
+    if (canReuse) {
+      hash = prior.contentHashPrefix;
+      dimensions = prior.imageDimensions;
+    } else {
+      final bytes = await _readPrefix(pending.file, stat.size);
+      if (bytes != null) {
+        hash = _contentHash(bytes);
+        if (isImage) dimensions = readImageDimensions(bytes);
+      }
+    }
+
+    return FileNode(
+      path: pending.relativePath,
+      kind: NodeKind.file,
+      size: stat.size,
+      modifiedAt: stat.modified,
+      contentHashPrefix: hash,
+      imageDimensions: dimensions,
+    );
   }
 
   /// 폴더의 직속 자식 구성으로 이동 추적용 시그니처를 만든다. 자식 이름(폴더는
@@ -176,7 +217,7 @@ class DirectoryScanner implements WorkspaceScanner {
     }
     if (names.isEmpty) return null;
     names.sort();
-    return _fnv1a(utf8.encode(names.join('\n')));
+    return _contentHash(utf8.encode(names.join('\n')));
   }
 
   /// 루트 기준 상대 경로를 플랫폼 무관하게 '/' 구분으로 정규화한다.
@@ -214,13 +255,8 @@ class DirectoryScanner implements WorkspaceScanner {
     }
   }
 
-  /// 바이트열의 FNV-1a(32비트) 해시를 16진 문자열로 반환한다.
-  String _fnv1a(List<int> bytes) {
-    var hash = _fnvOffset;
-    for (final byte in bytes) {
-      hash = (hash ^ byte) & _mask32;
-      hash = (hash * _fnvPrime) & _mask32;
-    }
-    return hash.toRadixString(16);
-  }
+  /// 바이트열의 내용 해시를 16진 문자열로. 이동 추적에서 **같은 크기·수정시각을
+  /// 가진 후보들 사이의 내용 판별자**로 쓴다 — 막을 상대가 없어 암호 강도가 필요한
+  /// 자리는 아니지만, 해시를 손으로 짜는 대신 표준 구현을 쓴다.
+  String _contentHash(List<int> bytes) => md5.convert(bytes).toString();
 }

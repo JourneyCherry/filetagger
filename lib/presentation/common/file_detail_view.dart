@@ -123,6 +123,11 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
   int? _cursorNodeId;
   int _cursorCol = 0;
 
+  /// 단축키 바인딩. 화면 상태에 매이지 않아 한 번만 만든다(그릴 때마다 콜백 열댓
+  /// 개를 새로 묶지 않는다).
+  late final Map<ShortcutActivator, VoidCallback> _shortcutBindings =
+      _shortcuts();
+
   /// 방향키를 받는 이 뷰의 포커스. 모드 진입 시·셀 탭 시 포커스를 가져온다. 셀을
   /// 편집할 땐 [_editFocus]가 포커스를 쥐어 방향키가 입력창의 캐럿 이동이 된다.
   final FocusNode _navFocus = FocusNode(debugLabel: 'FileDetailView');
@@ -180,7 +185,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
         _cursorCol = _cursorCol.clamp(0, columns.length - 1);
         final mq = MediaQuery.of(context);
         return CallbackShortcuts(
-          bindings: _shortcuts(),
+          bindings: _shortcutBindings,
           child: Focus(
             focusNode: _navFocus,
             autofocus: true,

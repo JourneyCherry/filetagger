@@ -175,4 +175,23 @@ void main() {
     // 파일1의 대표값은 최소인 1 → 3보다 앞.
     expect(asc.map((f) => f.id), [1, 2]);
   });
+
+  test('정의를 모르는 태그로 정렬하면 값 있는 노드만 앞으로 밀린다', () {
+    // 방금 지워진 태그를 참조하는 정렬 단계. 값을 견줄 규칙이 없어 값끼리는
+    // 동률이지만, 값이 있는 노드는 없는 노드보다 앞에 선다.
+    final files = [_file(1, 'a'), _file(2, 'b'), _file(3, 'c')];
+    final assignments = {
+      2: [_assign(2, 99, TagValueType.text, 'zzz')],
+      3: [_assign(3, 99, TagValueType.text, 'aaa')],
+    };
+    final result = query(
+      files: files,
+      assignmentsByFile: assignments,
+      filter: const FileFilter(),
+      sort: const FileSortOrder(keys: [SortKey(tagDefinitionId: 99)]),
+      definitionsById: const {},
+    );
+    // 2·3은 동률이라 이름으로 안정화되고, 값 없는 1이 뒤로 밀린다.
+    expect(result.map((f) => f.id), [2, 3, 1]);
+  });
 }

@@ -3,15 +3,46 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/settings/app_settings_store.dart';
 
-/// 머신 단위 전역 설정 저장소(OS 앱데이터 폴더의 JSON).
+/// 머신 단위 전역 설정 저장소(배포 형태별 위치의 JSON).
 final appSettingsStoreProvider = Provider<AppSettingsStore>(
   (ref) => AppSettingsStore(),
 );
 
+/// 전역 설정이 디스크에 남지 않고 인메모리로만 도는 중인지.
+///
+/// 저장소가 한 번 실패하면 재시도를 멈추므로 이 실행 동안 계속 참으로 남는다.
+/// 상태표시줄이 이것을 보고 사용자에게 알린다 — 조용히 삼키면 최근 폴더가 안 남는
+/// 이유를 알 수 없다.
+final settingsSaveFailedProvider =
+    NotifierProvider<SettingsSaveFailedNotifier, bool>(
+      SettingsSaveFailedNotifier.new,
+    );
+
+class SettingsSaveFailedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void markFailed() => state = true;
+}
+
+/// 저장된 설정 위에 변경을 얹어 다시 저장한다.
+///
+/// 저장 직전 현재 설정을 다시 읽는 것은 같은 파일을 나눠 쓰는 다른 설정(테마·최근
+/// 폴더)을 덮지 않기 위해서다. 실패는 예외로 번지지 않고 [settingsSaveFailedProvider]를
+/// 켠다.
+Future<void> _updateSettings(
+  Ref ref,
+  AppSettings Function(AppSettings) update,
+) async {
+  final store = ref.read(appSettingsStoreProvider);
+  final saved = await store.save(update(await store.load()));
+  if (!saved) ref.read(settingsSaveFailedProvider.notifier).markFailed();
+}
+
 /// 최근 연 관리 폴더 목록(최신이 앞).
 ///
-/// OS 앱데이터 폴더에 영속화된다(저장소는 [appSettingsStoreProvider]). 앱을 켜면
-/// 저장된 목록을 불러오고, 폴더를 열거나 지울 때마다 다시 저장한다.
+/// 배포 형태별 설정 위치에 영속화된다(저장소는 [appSettingsStoreProvider]). 앱을
+/// 켜면 저장된 목록을 불러오고, 폴더를 열거나 지울 때마다 다시 저장한다.
 final recentFoldersProvider =
     AsyncNotifierProvider<RecentFoldersNotifier, List<String>>(
       RecentFoldersNotifier.new,
@@ -45,11 +76,9 @@ class RecentFoldersNotifier extends AsyncNotifier<List<String>> {
   }
 
   Future<void> _persist(List<String> folders) async {
+    // 화면은 먼저 갱신한다 — 저장에 실패해도 이번 실행 동안은 목록이 살아 있다.
     state = AsyncData(folders);
-    // 저장 실패는 조용히 무시한다(다음 변경 때 다시 시도된다). 저장 직전 현재 설정을
-    // 다시 읽어 그 위에 얹는다 — 같은 파일을 나눠 쓰는 다른 설정(테마 등)을 덮지 않는다.
-    final current = await _store.load();
-    await _store.save(current.copyWith(recentFolders: folders));
+    await _updateSettings(ref, (s) => s.copyWith(recentFolders: folders));
   }
 }
 
@@ -68,7 +97,6 @@ class ThemeModeNotifier extends AsyncNotifier<ThemeMode> {
   /// 테마 모드를 바꾸고 저장한다. 다른 전역 설정을 덮지 않도록 현재 값 위에 얹는다.
   Future<void> set(ThemeMode mode) async {
     state = AsyncData(mode);
-    final current = await _store.load();
-    await _store.save(current.copyWith(themeMode: mode));
+    await _updateSettings(ref, (s) => s.copyWith(themeMode: mode));
   }
 }

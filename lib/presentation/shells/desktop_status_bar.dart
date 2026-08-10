@@ -7,6 +7,7 @@ import '../common/selection_controller.dart';
 import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_view_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/workspace_provider.dart';
 
 /// 데스크톱 셸 하단의 상태표시줄.
@@ -44,7 +45,13 @@ class DesktopStatusBar extends ConsumerWidget {
           ).textTheme.bodySmall!.copyWith(color: scheme.onSurfaceVariant),
           child: Row(
             children: root == null
-                ? const [Text('열린 폴더 없음')]
+                // 폴더를 열지 않았어도 설정 저장 실패는 알려야 한다(테마 변경이
+                // 그 상태에서도 저장된다).
+                ? [
+                    const Text('열린 폴더 없음'),
+                    const Spacer(),
+                    ..._settingsSaveStatus(ref, scheme),
+                  ]
                 : _workspaceStatus(context, ref, scheme),
           ),
         ),
@@ -90,6 +97,7 @@ class DesktopStatusBar extends ConsumerWidget {
         ),
       ],
       const Spacer(),
+      ..._settingsSaveStatus(ref, scheme),
       ..._externalCommandStatus(ref, scheme),
       if (!filter.isEmpty) ...[
         Text('필터 ${filter.conditions.length}'),
@@ -120,6 +128,29 @@ class DesktopStatusBar extends ConsumerWidget {
       ),
     ];
   }
+}
+
+/// 전역 설정(테마·최근 폴더)이 디스크에 남지 않는 중임을 알린다.
+///
+/// 읽기 전용 매체에서 포터블판을 돌리거나 설정 폴더에 쓸 권한이 없는 경우다. 조용히
+/// 삼키면 최근 폴더가 안 남는 이유를 사용자가 알 수 없다. 정상일 때는 자리를
+/// 차지하지 않는다.
+List<Widget> _settingsSaveStatus(WidgetRef ref, ColorScheme scheme) {
+  if (!ref.watch(settingsSaveFailedProvider)) return const [];
+  return [
+    Tooltip(
+      message: '설정 파일을 쓸 수 없어 테마와 최근 폴더 목록이 이번 실행 동안만 유지됩니다.',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.sync_problem, size: 14, color: scheme.error),
+          const SizedBox(width: 4),
+          Text('설정이 저장되지 않는 중', style: TextStyle(color: scheme.error)),
+        ],
+      ),
+    ),
+    const _Separator(),
+  ];
 }
 
 /// 외부 앱 연동(드롭인 큐)이 마지막으로 바꾼 건수. 성공을 다이얼로그로 알리지

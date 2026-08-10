@@ -1,0 +1,87 @@
+# 검증 워크플로. 게시는 하지 않는다.
+#
+# 검증과 게시를 한 파일에 섞으면 조건 분기가 늘어, 실수가 났을 때 릴리즈가 나간다.
+# 릴리즈 아티팩트를 내는 것은 release.yml 하나뿐이다.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# 검사만 하므로 읽기 권한이면 충분하다.
+permissions:
+  contents: read
+
+# 같은 브랜치·PR에 새 커밋이 오면 진행 중이던 실행을 취소한다(러너 시간 절약).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 로컬 개발 SDK와 같은 버전으로 못박는다. 흘러가는 채널을 쓰면 같은 커밋이 어제와
+  # 다르게 빌드된다.
+  FLUTTER_VERSION: 3.44.4
+
+jobs:
+  # 정적 분석·테스트·생성 파일 신선도. 플랫폼과 무관하므로 한 번만 돈다.
+  analyze:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # 생성 파일이 커밋되어 있으므로, 낡은 *.g.dart로 태그가 빌드되는 사고를 여기서
+      # 막는다. 다시 생성했을 때 작업 트리가 그대로여야 한다.
+      - name: codegen 신선도
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          # 고쳐진 파일뿐 아니라 새로 생긴 파일도 잡아야 하므로 상태 전체를 본다.
+          changed="$(git status --porcelain)"
+          if [ -n "$changed" ]; then
+            echo "$changed"
+            echo "::error::생성 파일이 소스와 어긋납니다. build_runner를 돌려 결과를 커밋하세요."
+            exit 1
+          fi
+
+      - run: flutter analyze
+      - run: flutter test
+
+  # 컴파일까지만 확인한다(실행 확인은 릴리즈 리허설 아티팩트로 한다).
+  build:
+    strategy:
+      # 한쪽이 깨져도 다른 쪽 결과는 보고 싶다.
+      fail-fast: false
+      matrix:
+        include:
+          # 러너 이미지 선택이 곧 최소 지원 배포판이다(glibc). 올릴 때는 릴리즈
+          # 노트에 명시한다. `ubuntu-latest`는 시간이 지나면 조용히 흘러간다.
+          - os: ubuntu-22.04
+            target: linux
+          - os: windows-2022
+            target: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Flutter Linux 데스크톱 빌드에 필요한 네이티브 도구·헤더. Windows 러너는
+      # Visual Studio가 이미 들어 있다.
+      - name: Linux 빌드 의존성
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - run: flutter pub get
+      - run: flutter build ${{ matrix.target }} --release

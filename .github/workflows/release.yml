@@ -1,0 +1,191 @@
+# 릴리즈 워크플로. 포터블 산출물을 만들어 GitHub 릴리즈로 게시한다.
+#
+# 검증(ci.yml)과 게시를 한 파일에 섞지 않는다 — 조건 분기가 늘면 실수가 났을 때
+# 릴리즈가 나간다.
+#
+# 두 가지로 돈다.
+#   - `v*` 태그 push: 게이트를 통과하면 패키징 후 릴리즈를 만든다.
+#   - 수동 실행: 게이트도 릴리즈도 없이 **아티팩트만** 올린다. 패키징이 이 파일 안에
+#     있어 로컬에서 재현할 수 없으므로, 산출물을 미리 받아 보는 유일한 수단이다.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 릴리즈가 겹쳐 도는 일이 없게 한다. 진행 중인 것을 취소하지는 않는다 — 게시 도중
+# 끊기는 편이 더 나쁘다.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: 3.44.4
+  # 게이트 A가 대조할 기준 브랜치. 나중에 릴리즈 브랜치로 분리하면 이 한 줄만 바꾼다.
+  BASE_BRANCH: master
+
+jobs:
+  # 태그가 릴리즈해도 되는 것인지 먼저 따진다. 여기서 막히면 빌드조차 돌지 않는다.
+  verify:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # 게이트 A가 조상 관계를 봐야 하므로 전체 이력이 필요하다.
+          fetch-depth: 0
+
+      - name: 버전 결정 · 게이트 A · 게이트 B
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          # pubspec의 버전이 단일 출처다. 빌드 번호(+N)는 떼고 쓴다.
+          pubspec_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml \
+            | head -n1 | tr -d '\r' | cut -d'+' -f1)"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # 리허설. 게이트를 걸지 않는다 — 태그 없이 도는 것이 목적이다.
+            echo "리허설 실행: 게이트를 건너뛰고 pubspec 버전으로 패키징합니다."
+            version="$pubspec_version"
+            prerelease=true
+          else
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+
+            # 게이트 A — 태그가 기준 브랜치에 포함된 커밋인지.
+            # 브랜치에 없는 커밋에 태그를 달아 릴리즈가 나가는 것을 막는다.
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" \
+                 "origin/${BASE_BRANCH}"; then
+              echo "::error::태그 $tag 가 ${BASE_BRANCH}에 포함된 커밋이 아닙니다."
+              exit 1
+            fi
+
+            # 게이트 B — 태그 이름과 pubspec 버전이 같은지.
+            # 버전 bump 커밋에만 태그가 붙게 강제해, 아무 중간 커밋에 태그를 다는
+            # 사고를 막는다(단일 브랜치 전략의 실질적 안전장치).
+            if [ "$version" != "$pubspec_version" ]; then
+              echo "::error::태그($version)와 pubspec 버전($pubspec_version)이 다릅니다."
+              exit 1
+            fi
+
+            # 버전에 접미사가 붙어 있으면(예: -beta.1) 프리릴리즈로 표시한다.
+            case "$version" in
+              *-*) prerelease=true ;;
+              *) prerelease=false ;;
+            esac
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "버전 $version (프리릴리즈: $prerelease)"
+
+  # 플랫폼별 포터블 산출물. 압축을 풀면 폴더 하나가 나온다.
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 러너 이미지 선택이 곧 최소 지원 배포판이다(glibc).
+          - os: ubuntu-22.04
+            target: linux
+            name: linux-x64
+          - os: windows-2022
+            target: windows
+            name: windows-x64
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+      STAGE_NAME: filetagger-${{ needs.verify.outputs.version }}-${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Linux 빌드 의존성
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - run: flutter pub get
+
+      # 버전과 배포 채널을 빌드에 못박는다. 키 이름의 단일 출처는
+      # lib/core/build_info.dart 이며, 여기 문자열이 그것과 같아야 한다.
+      - name: 빌드
+        run: >
+          flutter build ${{ matrix.target }} --release
+          --dart-define=FILETAGGER_VERSION=${{ env.VERSION }}
+          --dart-define=FILETAGGER_CHANNEL=portable
+
+      # LICENSE와 README를 함께 넣는다 — 외부 앱 연동(태그 요청함) 계약이 README에
+      # 있고, 포터블 사용자는 저장소를 보지 않을 수 있다.
+      - name: 스테이징 · 압축 (Linux)
+        if: matrix.target == 'linux'
+        run: |
+          set -euo pipefail
+          mkdir -p "dist/$STAGE_NAME"
+          cp -r build/linux/x64/release/bundle/. "dist/$STAGE_NAME/"
+          cp LICENSE README.md "dist/$STAGE_NAME/"
+          tar -C dist -czf "dist/$STAGE_NAME.tar.gz" "$STAGE_NAME"
+
+      - name: 스테이징 · 압축 (Windows)
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          $stage = "dist/$env:STAGE_NAME"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -Path build/windows/x64/runner/Release/* -Destination $stage -Recurse -Force
+          Copy-Item -Path LICENSE, README.md -Destination $stage -Force
+          # 폴더 자체를 담아야 풀었을 때 폴더 하나가 나온다(압축 폭탄 방지).
+          Compress-Archive -Path $stage -DestinationPath "dist/$env:STAGE_NAME.zip"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.STAGE_NAME }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  # 태그로 돌았을 때만 게시한다. 리허설은 여기까지 오지 않는다.
+  publish:
+    needs: [verify, package]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+
+      # 서명이 없으므로 이것이 유일한 무결성 수단이다.
+      - name: 체크섬
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum filetagger-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      # 러너에 기본 탑재된 GitHub CLI로 만든다(서드파티 액션을 하나 줄인다).
+      - name: 릴리즈 생성
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          args=(--generate-notes --title "${GITHUB_REF_NAME}")
+          if [ "$PRERELEASE" = "true" ]; then args+=(--prerelease); fi
+          gh release create "${GITHUB_REF_NAME}" "${args[@]}" dist/*

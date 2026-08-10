@@ -41,7 +41,13 @@ jobs:
       # 막는다. 다시 생성했을 때 작업 트리가 그대로여야 한다.
       - name: codegen 신선도
         run: |
+          set -euo pipefail
           dart run build_runner build --delete-conflicting-outputs
+          # 생성기가 품고 있는 포매터와 SDK의 `dart format`은 버전이 달라 같은 코드를
+          # 다르게 줄바꿈한다. 편집기의 저장 시 자동 포맷은 막을 수 없으므로 SDK 쪽을
+          # 정본으로 삼고, 비교 전에 생성 결과를 그 형태로 정규화한다.
+          find lib test -name '*.g.dart' -print0 \
+            | xargs -0 --no-run-if-empty dart format --output=write
           # 고쳐진 파일뿐 아니라 새로 생긴 파일도 잡아야 하므로 상태 전체를 본다.
           changed="$(git status --porcelain)"
           if [ -n "$changed" ]; then

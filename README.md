@@ -1,3 +1,5 @@
+<img src="assets/branding/app_icon.svg" alt="File Tagger 아이콘" width="112" height="112">
+
 # File Tagger
 
 특정 디렉토리의 모든 파일/서브디렉토리를 읽어, 사용자가 정의한 **태그 및 태그값**을

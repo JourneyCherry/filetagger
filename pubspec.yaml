@@ -1,5 +1,5 @@
 name: filetagger
-description: "A new Flutter project."
+description: "파일·폴더에 사용자 정의 태그와 태그값을 부여하고, 그 태그로 정렬·필터·탐색하는 데스크톱 앱."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

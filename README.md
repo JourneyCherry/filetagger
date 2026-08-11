@@ -36,7 +36,7 @@
 
 ## 기술 스택
 
-- **Flutter** (멀티플랫폼 GUI, 데스크톱 우선: Windows / macOS / Linux)
+- **Flutter** (멀티플랫폼 GUI, 데스크톱 우선: Windows / Linux)
 - **Drift** (SQLite) — 태그 영속화
 - **Riverpod** — 상태 관리
 
@@ -369,12 +369,94 @@ D:\만화\.filetagger\queue\a1b2c3.json     ← 다 쓴 뒤 이 이름으로 옮
   **대상을 함께 옮기지 않았어도 값이 남아**, 받는 쪽에서 '미해결 링크'로 기다립니다.
 - 시스템 태그는 담지 않습니다(자동 파생이라 요청함이 거부합니다).
 
-## 빌드 / 실행
+## 내려받기 / 빌드
+
+**Linux**는 릴리즈 페이지에서 포터블 tar.gz를 내려받아 압축만 풀면 됩니다.
+
+**Windows 실행 파일은 릴리즈에 싣지 않습니다.** 코드 서명이 없는 실행 파일을 웹에서
+내려받으면 Windows가 SmartScreen 경고를 띄우기 때문입니다. 직접 빌드하면 그 경고 없이
+릴리즈와 같은 포터블판을 얻을 수 있고, 아래 절차가 그 방법입니다. Microsoft Store
+배포는 준비 중이며, 나오면 그쪽이 더 간편한 길이 됩니다.
+
+> **Flutter SDK 없이 CMake만으로는 빌드할 수 없습니다.** `windows/flutter/CMakeLists.txt`가
+> Flutter 툴이 만들어 내는 설정 파일을 읽고, 빌드 도중 다시 Flutter 툴을 호출해 Dart
+> 코드를 컴파일하기 때문입니다. 다만 **Visual Studio는 전체 설치 없이 Build Tools만으로**
+> 됩니다.
+
+### Windows에서 빌드하기
+
+**1단계 — C++ 빌드 도구 설치**
+
+Visual Studio IDE 전체는 필요 없습니다. **관리자 권한 PowerShell**에서:
+
+```powershell
+winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --source winget --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.CMake.Project"
+```
+
+설치 관리자 화면에서 직접 고른다면 워크로드 하나와 그 안의 구성 요소 둘입니다. Build
+Tools 설치 관리자에서는 **"C++ 빌드 도구"**, Visual Studio IDE 설치 관리자에서는
+**"C++를 사용한 데스크톱 개발"** 워크로드이고, 오른쪽 구성 요소 목록에서 **MSVC 빌드
+도구**와 **Windows용 C++ CMake 도구**가 켜져 있어야 합니다(기본으로 켜져 있습니다).
+
+**2단계 — Flutter SDK 설치**
+
+[Flutter 공식 설치 안내](https://docs.flutter.dev/get-started/install/windows/desktop)에서
+SDK 압축 파일을 받아 원하는 위치에 풀고, 그 안의 `bin` 폴더를 환경 변수 `Path`에
+추가합니다. **새 PowerShell 창을 연 뒤** 아래로 확인합니다.
+
+```powershell
+flutter doctor
+```
+
+`Visual Studio - develop Windows apps` 줄에 체크가 뜨면 1단계가 제대로 된 것입니다.
+Android 관련 줄에 경고가 남아 있어도 이 앱을 빌드하는 데는 상관없습니다.
+
+**3단계 — 빌드**
+
+저장소를 받아 그 폴더에서:
+
+```powershell
+flutter pub get
+flutter build windows --release --dart-define=FILETAGGER_CHANNEL=portable
+```
+
+`--dart-define`을 빼면 **설치판으로 빌드되어 설정이 OS 애플리케이션 데이터 폴더에
+저장됩니다.** 위처럼 적어야 릴리즈와 같은 포터블판(설정을 실행 파일 옆에 두는 형태)이
+됩니다. 정보 창에 버전을 표시하고 싶으면 `--dart-define=FILETAGGER_VERSION=<버전>`을
+함께 주세요. 주지 않으면 "개발 빌드"로 표시될 뿐 동작에는 차이가 없습니다.
+
+**4단계 — 산출물**
+
+```
+build\windows\x64\runner\Release\
+```
+
+이 폴더가 통째로 한 벌입니다. `filetagger.exe` 하나만 떼어 내면 실행되지 않으므로
+**폴더째** 원하는 위치로 옮겨서 쓰세요.
+
+### Linux에서 빌드하기
+
+C++ 도구와 GTK 개발 헤더가 필요합니다(Debian·Ubuntu 계열 기준).
 
 ```bash
+sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
 flutter pub get
+flutter build linux --release --dart-define=FILETAGGER_CHANNEL=portable
+```
+
+산출물은 `build/linux/x64/release/bundle/`에 나옵니다.
+
+### 개발용 실행 · 코드 생성
+
+```bash
+flutter run -d windows        # 또는 -d linux
+```
+
+생성 파일(`*.g.dart`)은 저장소에 함께 커밋되어 있으므로 **빌드 전에 따로 돌릴 필요가
+없습니다.** DB 스키마 등 생성 대상을 고쳤을 때만 다시 만듭니다.
+
+```bash
 dart run build_runner build   # 코드 생성 (Drift)
-flutter run -d windows        # 데스크톱 실행
 ```
 
 ## 프로젝트 구조

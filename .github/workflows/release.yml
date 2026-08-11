@@ -86,24 +86,20 @@ jobs:
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "버전 $version (프리릴리즈: $prerelease)"
 
-  # 플랫폼별 포터블 산출물. 압축을 풀면 폴더 하나가 나온다.
+  # 포터블 산출물. 압축을 풀면 폴더 하나가 나온다.
+  #
+  # **Windows는 일부러 없다.** 서명 없는 산출물은 내려받는 순간 파일에 표식이 붙어
+  # SmartScreen 경고를 만나므로, Windows는 사용자가 직접 빌드하거나(README의 빌드 안내)
+  # 서명이 붙는 스토어 경로로만 낸다. 컴파일이 깨지는 것은 ci.yml이 계속 양 플랫폼으로
+  # 빌드해 잡는다.
   package:
     needs: verify
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # 러너 이미지 선택이 곧 최소 지원 배포판이다(glibc).
-          - os: ubuntu-22.04
-            target: linux
-            name: linux-x64
-          - os: windows-2022
-            target: windows
-            name: windows-x64
-    runs-on: ${{ matrix.os }}
+    # 러너 이미지 선택이 곧 최소 지원 배포판이다(glibc). `ubuntu-latest`는 시간이
+    # 지나면 조용히 흘러간다.
+    runs-on: ubuntu-22.04
     env:
       VERSION: ${{ needs.verify.outputs.version }}
-      STAGE_NAME: filetagger-${{ needs.verify.outputs.version }}-${{ matrix.name }}
+      STAGE_NAME: filetagger-${{ needs.verify.outputs.version }}-linux-x64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -113,7 +109,6 @@ jobs:
           cache: true
 
       - name: Linux 빌드 의존성
-        if: matrix.target == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
@@ -124,14 +119,13 @@ jobs:
       # lib/core/build_info.dart 이며, 여기 문자열이 그것과 같아야 한다.
       - name: 빌드
         run: >
-          flutter build ${{ matrix.target }} --release
+          flutter build linux --release
           --dart-define=FILETAGGER_VERSION=${{ env.VERSION }}
           --dart-define=FILETAGGER_CHANNEL=portable
 
       # LICENSE와 README를 함께 넣는다 — 외부 앱 연동(태그 요청함) 계약이 README에
       # 있고, 포터블 사용자는 저장소를 보지 않을 수 있다.
-      - name: 스테이징 · 압축 (Linux)
-        if: matrix.target == 'linux'
+      - name: 스테이징 · 압축
         run: |
           set -euo pipefail
           mkdir -p "dist/$STAGE_NAME"
@@ -139,23 +133,10 @@ jobs:
           cp LICENSE README.md "dist/$STAGE_NAME/"
           tar -C dist -czf "dist/$STAGE_NAME.tar.gz" "$STAGE_NAME"
 
-      - name: 스테이징 · 압축 (Windows)
-        if: matrix.target == 'windows'
-        shell: pwsh
-        run: |
-          $stage = "dist/$env:STAGE_NAME"
-          New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          Copy-Item -Path build/windows/x64/runner/Release/* -Destination $stage -Recurse -Force
-          Copy-Item -Path LICENSE, README.md -Destination $stage -Force
-          # 폴더 자체를 담아야 풀었을 때 폴더 하나가 나온다(압축 폭탄 방지).
-          Compress-Archive -Path $stage -DestinationPath "dist/$env:STAGE_NAME.zip"
-
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.STAGE_NAME }}
-          path: |
-            dist/*.zip
-            dist/*.tar.gz
+          path: dist/*.tar.gz
           if-no-files-found: error
 
   # 태그로 돌았을 때만 게시한다. 리허설은 여기까지 오지 않는다.

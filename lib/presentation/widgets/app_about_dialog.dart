@@ -18,15 +18,17 @@ Future<void> showAppAboutDialog(BuildContext context) =>
 
 /// 정보 다이얼로그·라이선스 화면에 함께 쓰는 버전 한 줄.
 ///
-/// 패키징을 거치지 않은 실행은 버전 자리에 개발 빌드임을 밝힌다 — 버전이 주입되지
-/// 않았다고 빈칸으로 두면 사용자가 어떤 빌드를 보고 있는지 알 수 없다.
+/// **직접 빌드한 실행도 버전을 보인다** — pubspec에서 읽어 채우기 때문이다. 다만
+/// 릴리즈 산출물이 아니라는 사실은 배포 형태 자리에 밝힌다(직접 빌드에 "설치판"·
+/// "포터블"이라고 적으면 사실과 다르다). 버전을 끝내 읽지 못했으면 그 자리를 비운다.
 String get _versionLine {
-  if (isDevelopmentBuild) return '개발 빌드';
-  final channel = switch (distributionChannel) {
-    DistributionChannel.portable => '포터블',
-    DistributionChannel.package => '설치판',
-  };
-  return '버전 $appVersion · $channel';
+  final kind = isDevelopmentBuild
+      ? '개발 빌드'
+      : switch (distributionChannel) {
+          DistributionChannel.portable => '포터블',
+          DistributionChannel.package => '설치판',
+        };
+  return appVersion.isEmpty ? kind : '버전 $appVersion · $kind';
 }
 
 class _AboutDialog extends StatelessWidget {

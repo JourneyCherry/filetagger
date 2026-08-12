@@ -14,14 +14,33 @@ const String versionDefineKey = 'FILETAGGER_VERSION';
 /// 배포 채널을 주입하는 `--dart-define` 키. 값은 [DistributionChannel]의 이름이다.
 const String channelDefineKey = 'FILETAGGER_CHANNEL';
 
-/// 주입된 앱 버전. 주입이 없으면 빈 문자열이다([isDevelopmentBuild]).
-const String appVersion = String.fromEnvironment(versionDefineKey);
+/// 빌드가 새긴 앱 버전. 릴리즈 패키징만 주입하므로 그 밖의 빌드에서는 빈 문자열이다.
+const String injectedVersion = String.fromEnvironment(versionDefineKey);
 
-/// 패키징을 거치지 않은 실행인지(`flutter run`·IDE 실행).
+/// 릴리즈 패키징을 거치지 않은 실행인지(`flutter run`·직접 빌드).
 ///
-/// 버전이 주입되지 않았다는 사실 하나로 판별한다 — 릴리즈 산출물은 반드시 버전을
-/// 달고 나오므로, 버전이 없다는 것은 정식 배포본이 아니라는 뜻이다.
-const bool isDevelopmentBuild = appVersion == '';
+/// **버전이 주입되었는지**로 판별한다 — 릴리즈 산출물은 반드시 버전을 달고 나오므로,
+/// 새겨지지 않았다는 것은 정식 배포본이 아니라는 뜻이다. 버전 **값**은 직접 빌드에도
+/// 있으므로([appVersion]) 값의 유무로는 가를 수 없다.
+const bool isDevelopmentBuild = injectedVersion == '';
+
+String _appVersion = injectedVersion;
+
+/// 이 실행의 앱 버전.
+///
+/// 릴리즈 산출물은 빌드가 새긴 값을 쓰고, 직접 빌드는 함께 실린 `pubspec.yaml`에서
+/// 읽어 채운다([resolveAppVersion]). **양쪽 다 원본이 같은 파일이라 어긋날 수 없다.**
+/// 아직 채워지지 않았거나 읽지 못했으면 빈 문자열이다.
+String get appVersion => _appVersion;
+
+/// 주입되지 않은 실행의 버전을 채운다(앱 시작 시 한 번).
+///
+/// 주입된 값이 있으면 그것을 이긴다 — 릴리즈 워크플로의 게이트가 태그와 대조해
+/// 검증한 값이므로, 나중에 읽은 값이 그것을 덮어서는 안 된다.
+void resolveAppVersion(String version) {
+  if (injectedVersion.isNotEmpty) return;
+  _appVersion = version;
+}
 
 /// 이 빌드가 어떤 형태로 배포되는지.
 ///

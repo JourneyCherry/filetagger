@@ -166,6 +166,27 @@ void main() {
       expect(_filePaths(a.children), ['a/sub', 'a/z.txt']);
     });
 
+    test('폴더 계층 안에서도 형제는 태그값 기준으로 정렬된다', () {
+      final files = [
+        _node(1, 'a', dir: true),
+        _node(2, 'a/big.txt'),
+        _node(3, 'a/small.txt'),
+      ];
+      final assignments = {
+        2: [_assign(2, _rating, '10')],
+        3: [_assign(3, _rating, '2')],
+      };
+      final tree = _run(
+        files,
+        assignments,
+        const FileGrouping(keys: [FolderHierarchyGroupKey()]),
+        sort: const FileSortOrder(keys: [SortKey(tagDefinitionId: 2)]),
+      );
+      // 숫자 오름차순이면 small(2) < big(10) — 이름순이면 반대가 된다.
+      final a = tree.single as FileTreeNode;
+      expect(_filePaths(a.children), ['a/small.txt', 'a/big.txt']);
+    });
+
     test('값 키 뒤 폴더 키: 각 값 버킷 안에서 폴더 계층으로 조상을 보존한다', () {
       final files = [
         _node(1, 'a', dir: true),

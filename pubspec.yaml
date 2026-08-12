@@ -2,7 +2,7 @@ name: filetagger
 description: "파일·폴더에 사용자 정의 태그와 태그값을 부여하고, 그 태그로 정렬·필터·탐색하는 데스크톱 앱."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.0+1
+version: 0.1.1+1
 
 environment:
   sdk: ^3.12.2
@@ -55,6 +55,18 @@ dependencies:
   intl: ^0.20.3
   # 내용 해시(md5). Dart 팀 공식(publisher dart.dev).
   crypto: ^3.0.7
+  # 업데이트 확인의 릴리즈 조회(HTTP). Dart 팀 공식(publisher dart.dev).
+  # `package:http/testing.dart`의 MockClient로 응답 해석을 유닛테스트한다.
+  http: ^1.6.0
+  # 버전 비교. pub과 동일한 semver 해석(프리릴리즈 순서 포함)을 쓰려고 직접 짜지
+  # 않는다. Dart 팀 공식(publisher tools.dart.dev).
+  pub_semver: ^2.2.0
+  # 릴리즈·스토어 페이지를 기본 브라우저로 연다. Flutter 팀 공식(publisher
+  # flutter.dev)이며 Windows·Linux를 모두 지원한다.
+  url_launcher: ^6.3.2
+  # 플랫폼이 들고 있는 앱 버전을 읽는다(빌드가 버전을 새겨 주지 않는 직접 빌드용).
+  # 서드파티(publisher fluttercommunity.dev) — 채택 근거는 ARCHITECTURE.md 의존성 메모.
+  package_info_plus: ^10.2.1
 
 dev_dependencies:
   flutter_test:
@@ -74,7 +86,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

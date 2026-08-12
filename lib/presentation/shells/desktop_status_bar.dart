@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/platform/link_opener.dart';
+import '../../domain/entities/update_check_outcome.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../common/selection_controller.dart';
@@ -8,6 +10,7 @@ import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/update_provider.dart';
 import '../providers/workspace_provider.dart';
 
 /// 데스크톱 셸 하단의 상태표시줄.
@@ -51,6 +54,8 @@ class DesktopStatusBar extends ConsumerWidget {
                     const Text('열린 폴더 없음'),
                     const Spacer(),
                     ..._settingsSaveStatus(ref, scheme),
+                    // 오른쪽 끝이라 뒤에 올 것이 없다(구분자를 달지 않는다).
+                    ..._updateStatus(ref, scheme, trailingSeparator: false),
                   ]
                 : _workspaceStatus(context, ref, scheme),
           ),
@@ -97,6 +102,7 @@ class DesktopStatusBar extends ConsumerWidget {
         ),
       ],
       const Spacer(),
+      ..._updateStatus(ref, scheme),
       ..._settingsSaveStatus(ref, scheme),
       ..._externalCommandStatus(ref, scheme),
       if (!filter.isEmpty) ...[
@@ -128,6 +134,39 @@ class DesktopStatusBar extends ConsumerWidget {
       ),
     ];
   }
+}
+
+/// 배포처에 새 버전이 올라와 있음을 알리는 한 줄.
+///
+/// 앱을 켤 때 도는 **자동 확인의 유일한 표시 경로**다. 다이얼로그로 가로막지 않고
+/// 상태표시줄에만 얹어, 눈에 띄되 하던 일이 끊기지 않게 한다(사용자가 직접 누른
+/// 확인은 반대로 다이얼로그로 답한다). 새 버전이 없거나 확인하지 못했으면 자리를
+/// 차지하지 않는다.
+List<Widget> _updateStatus(
+  WidgetRef ref,
+  ColorScheme scheme, {
+  bool trailingSeparator = true,
+}) {
+  final outcome = ref.watch(updateCheckProvider).valueOrNull;
+  if (outcome is! UpdateAvailable) return const [];
+  return [
+    Tooltip(
+      message: '눌러 릴리즈 페이지를 엽니다.',
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+          minimumSize: Size.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: scheme.primary,
+          textStyle: const TextStyle(fontWeight: FontWeight.normal),
+        ),
+        onPressed: () => const LinkOpener().open(outcome.release.pageUrl),
+        icon: const Icon(Icons.system_update_alt, size: 14),
+        label: Text('새 버전 ${outcome.release.version}'),
+      ),
+    ),
+    if (trailingSeparator) const _Separator(),
+  ];
 }
 
 /// 전역 설정(테마·최근 폴더)이 디스크에 남지 않는 중임을 알린다.

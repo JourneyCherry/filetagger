@@ -210,7 +210,11 @@ const List<HelpCommandGroup> helpCommandGroups = [
         '목록 보기에서, 목록에 포커스가 있을 때 듣습니다. 아이콘·자세히 보기는 '
         '각자의 방향키 이동을 따로 씁니다.',
   ),
-  HelpCommandGroup('도움말', [AppCommandId.help, AppCommandId.about]),
+  HelpCommandGroup('도움말', [
+    AppCommandId.help,
+    AppCommandId.checkForUpdates,
+    AppCommandId.about,
+  ]),
 ];
 
 /// 시스템 태그 하나의 설명. 값이 없을 수 있는 조건이나 값을 고쳤을 때 무슨 일이

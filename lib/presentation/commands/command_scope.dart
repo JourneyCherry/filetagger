@@ -24,6 +24,7 @@ class CommandHandlers {
     this.editKeyword,
     this.deleteKeyword,
     this.help,
+    this.checkForUpdates,
     this.about,
     this.exitApp,
     this.toggleFilterBar,
@@ -67,6 +68,7 @@ class CommandHandlers {
   final VoidCallback? editKeyword;
   final VoidCallback? deleteKeyword;
   final VoidCallback? help;
+  final VoidCallback? checkForUpdates;
   final VoidCallback? about;
   final VoidCallback? exitApp;
   final VoidCallback? toggleFilterBar;
@@ -111,6 +113,7 @@ class CommandHandlers {
     AppCommandId.editKeyword => editKeyword,
     AppCommandId.deleteKeyword => deleteKeyword,
     AppCommandId.help => help,
+    AppCommandId.checkForUpdates => checkForUpdates,
     AppCommandId.about => about,
     AppCommandId.exitApp => exitApp,
     AppCommandId.toggleFilterBar => toggleFilterBar,

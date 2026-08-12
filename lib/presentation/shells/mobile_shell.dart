@@ -51,6 +51,7 @@ class MobileShell extends StatelessWidget {
     MenuCommand(AppCommandId.manageTags),
     MenuDivider(),
     MenuCommand(AppCommandId.help),
+    MenuCommand(AppCommandId.checkForUpdates),
     MenuCommand(AppCommandId.about),
   ];
 

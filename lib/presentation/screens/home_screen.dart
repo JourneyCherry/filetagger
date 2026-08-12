@@ -63,6 +63,7 @@ import '../widgets/tag_manage_dialog.dart';
 import '../widgets/tag_order_dialog.dart';
 import '../widgets/tag_value_prompt.dart';
 import '../widgets/thumbnail_tag_dialog.dart';
+import '../widgets/update_check_dialog.dart';
 import 'tag_management_screen.dart';
 
 /// 커서 세로 이동이 선택을 어떻게 함께 바꾸는지: single=그 항목만, range=앵커에서
@@ -1188,8 +1189,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       createKeyword: hasWorkspace ? _createKeyword : null,
       editKeyword: _singleSelectedKeyword == null ? null : _editKeyword,
       deleteKeyword: _singleSelectedKeyword == null ? null : _deleteKeyword,
-      // 도움말·정보는 폴더를 열기 전에도 봐야 하므로 워크스페이스에 매이지 않는다.
+      // 도움말·정보·업데이트 확인은 폴더를 열기 전에도 써야 하므로 워크스페이스에
+      // 매이지 않는다.
       help: () => showHelpDialog(context),
+      checkForUpdates: () => showUpdateCheckDialog(context, ref),
       about: () => showAppAboutDialog(context),
       // 도구모음·목록 수정 토글은 데스크톱 셸의 크롬에만 있다.
       toggleFilterBar: (hasWorkspace && isDesktopPlatform)

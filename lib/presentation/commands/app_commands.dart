@@ -32,6 +32,7 @@ enum AppCommandId {
   editKeyword,
   deleteKeyword,
   help,
+  checkForUpdates,
   about,
   exitApp,
   toggleFilterBar,
@@ -223,6 +224,14 @@ final List<AppCommand> appCommands = [
     icon: Icons.help_outline,
     // 도움말의 관용 키. 워크스페이스가 없어도 볼 수 있어야 하므로 늘 활성이다.
     shortcut: SingleActivator(LogicalKeyboardKey.f1),
+  ),
+  const AppCommand(
+    id: AppCommandId.checkForUpdates,
+    label: '업데이트 확인',
+    intent: CheckForUpdatesIntent(),
+    icon: Icons.system_update_alt,
+    // 단축키 없음: 앱을 켤 때 자동으로 한 번 도는 일을 사용자가 다시 시키는
+    // 자리라, 키를 차지할 만큼 자주 쓰이지 않는다.
   ),
   const AppCommand(
     id: AppCommandId.about,

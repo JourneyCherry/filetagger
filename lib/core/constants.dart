@@ -13,6 +13,28 @@ const String appDisplayName = 'File Tagger';
 /// 파일을 에셋으로 싣고 라이선스 목록에 직접 등록한다(원문은 그 파일이 단일 출처).
 const String appLicenseAssetPath = 'LICENSE';
 
+/// 릴리즈를 게시하는 GitHub 저장소(`소유자/이름`). 업데이트 확인이 이 저장소의
+/// 최신 릴리즈를 조회하고, 새 버전이 있으면 그 릴리즈 페이지를 연다.
+const String releaseRepositorySlug = 'JourneyCherry/filetagger';
+
+/// 릴리즈 태그에 붙는 접두사. 조회한 태그에서 이걸 떼면 버전 문자열이 된다.
+/// 태그를 만드는 릴리즈 워크플로가 같은 접두사를 쓴다.
+const String releaseTagPrefix = 'v';
+
+/// GitHub REST API의 응답 형식과 버전 핀. 버전을 고정해 두면 API가 바뀌어도
+/// 이 앱의 조회 코드가 조용히 깨지지 않는다.
+const String githubApiMediaType = 'application/vnd.github+json';
+const String githubApiVersion = '2022-11-28';
+
+/// Microsoft Store 제품 ID(스토어가 발급하는 Store ID).
+///
+/// **아직 등록 전이라 비어 있다.** 비어 있으면 스토어 링크를 내지 않고 안내만 한다.
+/// 등록되면 이 한 줄만 채우면 된다.
+const String microsoftStoreProductId = '';
+
+/// Google Play 애플리케이션 ID. Microsoft Store 쪽과 같은 이유로 비어 있다.
+const String googlePlayApplicationId = '';
+
 /// 관리 폴더 루트에 생성되는 태그 메타데이터 폴더 이름.
 ///
 /// 폴더 이동·복사 시 태그 DB가 함께 따라오도록 관리 폴더 안에 둔다.

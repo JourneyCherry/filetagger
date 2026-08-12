@@ -146,6 +146,7 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.help),
         MenuSubmenu('항목별 보기', _helpTabItems()),
         const MenuDivider(),
+        const MenuCommand(AppCommandId.checkForUpdates),
         const MenuCommand(AppCommandId.about),
       ]),
     ];

@@ -122,6 +122,11 @@ class HelpIntent extends Intent {
   const HelpIntent();
 }
 
+/// 배포처에 새 버전이 있는지 지금 확인한다.
+class CheckForUpdatesIntent extends Intent {
+  const CheckForUpdatesIntent();
+}
+
 /// 앱 정보(오픈소스 라이선스 등)를 보인다.
 class AboutIntent extends Intent {
   const AboutIntent();

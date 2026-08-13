@@ -1813,10 +1813,7 @@ final class $$TagDefinitionsTableReferences
   static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignmentRow>>
   _tagAssignmentsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.tagAssignments,
-    aliasName: $_aliasNameGenerator(
-      db.tagDefinitions.id,
-      db.tagAssignments.tagDefinitionId,
-    ),
+    aliasName: 'tag_definitions__id__tag_assignments__tag_definition_id',
   );
 
   $$TagAssignmentsTableProcessedTableManager get tagAssignmentsRefs {
@@ -2132,10 +2129,7 @@ final class $$FileNodesTableReferences
   static MultiTypedResultKey<$TagAssignmentsTable, List<TagAssignmentRow>>
   _tagAssignmentsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.tagAssignments,
-    aliasName: $_aliasNameGenerator(
-      db.fileNodes.id,
-      db.tagAssignments.fileNodeId,
-    ),
+    aliasName: 'file_nodes__id__tag_assignments__file_node_id',
   );
 
   $$TagAssignmentsTableProcessedTableManager get tagAssignmentsRefs {
@@ -2554,9 +2548,7 @@ final class $$TagAssignmentsTableReferences
   );
 
   static $FileNodesTable _fileNodeIdTable(_$AppDatabase db) =>
-      db.fileNodes.createAlias(
-        $_aliasNameGenerator(db.tagAssignments.fileNodeId, db.fileNodes.id),
-      );
+      db.fileNodes.createAlias('tag_assignments__file_node_id__file_nodes__id');
 
   $$FileNodesTableProcessedTableManager get fileNodeId {
     final $_column = $_itemColumn<int>('file_node_id')!;
@@ -2572,13 +2564,9 @@ final class $$TagAssignmentsTableReferences
     );
   }
 
-  static $TagDefinitionsTable _tagDefinitionIdTable(_$AppDatabase db) =>
-      db.tagDefinitions.createAlias(
-        $_aliasNameGenerator(
-          db.tagAssignments.tagDefinitionId,
-          db.tagDefinitions.id,
-        ),
-      );
+  static $TagDefinitionsTable _tagDefinitionIdTable(_$AppDatabase db) => db
+      .tagDefinitions
+      .createAlias('tag_assignments__tag_definition_id__tag_definitions__id');
 
   $$TagDefinitionsTableProcessedTableManager get tagDefinitionId {
     final $_column = $_itemColumn<int>('tag_definition_id')!;

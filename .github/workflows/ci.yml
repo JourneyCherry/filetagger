@@ -27,6 +27,9 @@ jobs:
   # 정적 분석·테스트·생성 파일 신선도. 플랫폼과 무관하므로 한 번만 돈다.
   analyze:
     runs-on: ubuntu-22.04
+    # 코드 생성기가 멈춰 서면(툴체인 불일치 등) 기본값인 러너 최대 실행 시간까지
+    # 붙잡고 있는다. 정상 소요보다 넉넉하되 그보다 훨씬 짧게 끊어 빨리 실패시킨다.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -42,7 +45,7 @@ jobs:
       - name: codegen 신선도
         run: |
           set -euo pipefail
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           # 생성기가 품고 있는 포매터와 SDK의 `dart format`은 버전이 달라 같은 코드를
           # 다르게 줄바꿈한다. 편집기의 저장 시 자동 포맷은 막을 수 없으므로 SDK 쪽을
           # 정본으로 삼고, 비교 전에 생성 결과를 그 형태로 정규화한다.
@@ -73,6 +76,7 @@ jobs:
           - os: windows-2022
             target: windows
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0

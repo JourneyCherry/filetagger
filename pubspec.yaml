@@ -35,7 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
-  drift: ^2.28.0
+  drift: ^2.34.3
   sqlite3_flutter_libs: ^0.5.42
   path_provider: ^2.1.5
   path: ^1.9.0
@@ -78,8 +78,11 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  build_runner: ^2.4.0
-  drift_dev: ^2.28.0
+  # 코드 생성기가 쓰는 애널라이저는 SDK가 이해하는 문법을 함께 이해해야 한다. 뒤처지면
+  # 새 문법으로 쓰인 의존성을 요약(summary)으로 옮기다 실패하고, 빌드가 오류로 끝나는
+  # 대신 **멈춰 선 채 끝나지 않는다**. 그래서 하한을 올려 잡는다.
+  build_runner: ^2.15.1
+  drift_dev: ^2.34.5
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

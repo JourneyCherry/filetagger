@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -50,6 +51,7 @@ class FileListView extends ConsumerStatefulWidget {
   const FileListView({
     super.key,
     required this.onTapNode,
+    required this.onOpenNode,
     required this.onEditAssignment,
     this.onLongPressNode,
     this.onSecondaryTapNode,
@@ -64,6 +66,11 @@ class FileListView extends ConsumerStatefulWidget {
   /// 행을 탭했을 때. 표시 순서의 노드 목록과 그 안의 인덱스를 함께 넘겨
   /// 셸이 범위 선택 등을 해석할 수 있게 한다.
   final void Function(List<FileNode> items, int index) onTapNode;
+
+  /// 행을 더블클릭(활성)했을 때. **펼칠 수 있는 행은 여기로 오지 않는다** — 그룹
+  /// 헤더와, 폴더 계층으로 묶인 폴더는 열리는 대신 이 뷰가 여닫기로 처리한다
+  /// (그룹화가 노드 종류보다 앞선다 — 아이콘 뷰의 활성과 같은 규칙).
+  final ValueChanged<FileNode> onOpenNode;
 
   /// 값 태그 칩을 눌렀을 때 그 부여 기록을 편집하는 콜백.
   final ValueChanged<AssignedTag> onEditAssignment;
@@ -111,8 +118,41 @@ class _FileListViewState extends ConsumerState<FileListView> {
   /// 이번 build의 표시 행(커서 대상 행 인덱스를 찾을 때 쓴다).
   List<TreeRow> _rows = const [];
 
-  /// 마지막으로 반응한 커서 노드(같은 노드에 반복 반영하지 않기 위함).
-  int? _lastCursorNode;
+  /// 마지막으로 반응한 커서 자리(같은 자리에 반복 반영하지 않기 위함). 노드 행이면
+  /// 노드 id, 그룹 헤더 행이면 그 행의 펼침 키다.
+  Object? _lastCursorAnchor;
+
+  /// 마지막 탭의 시각·대상. 아이콘 뷰와 같이 더블탭을 손수 판정한다 —
+  /// `GestureDetector`의 더블탭을 쓰면 단일 탭이 판정 시간만큼 늦어져 선택이 굼떠진다.
+  DateTime? _lastTapAt;
+  String? _lastTapKey;
+
+  /// 이번 탭이 같은 행에 대한 더블탭의 **두 번째**인지. 판정과 동시에 상태를 갱신한다.
+  bool _isSecondTap(String rowKey) {
+    final now = DateTime.now();
+    final isDouble =
+        _lastTapKey == rowKey &&
+        _lastTapAt != null &&
+        now.difference(_lastTapAt!) < kDoubleTapTimeout;
+    _lastTapAt = isDouble ? null : now;
+    _lastTapKey = isDouble ? null : rowKey;
+    return isDouble;
+  }
+
+  void _toggleExpandKey(String key) =>
+      ref.read(viewSettingsProvider.notifier).toggleExpandedFolder(key);
+
+  /// 행 활성(더블클릭). **그룹화가 노드 종류보다 앞선다** — 펼칠 수 있는 행이면
+  /// (그룹 헤더와, 폴더 계층으로 묶였을 때의 폴더) 여닫기 토글이고, 아니면 셸에
+  /// 열기를 위임한다. 아이콘 뷰의 활성·목록 보기의 Enter와 같은 규칙이다.
+  /// [node]는 그룹 헤더 행이면 null(열 것이 없다).
+  void _activateRow(TreeRow row, FileNode? node) {
+    if (row.expandable) {
+      _toggleExpandKey(row.expandKey);
+      return;
+    }
+    if (node != null) widget.onOpenNode(node);
+  }
 
   @override
   void dispose() {
@@ -123,12 +163,15 @@ class _FileListViewState extends ConsumerState<FileListView> {
   /// 커서 행이 화면·캐시 밖(실체화 전)이면 대략 위치로 점프해 실체화시킨다. 그러면
   /// 그 행의 [EnsureVisibleOnFocus]가 정확한 위치로 마저 맞춘다. 실체화 범위 안이면
   /// 아무것도 하지 않고 [EnsureVisibleOnFocus]에 맡긴다(가까운 이동의 부드러움 유지).
-  void _ensureCursorVisible(int nodeId) {
+  void _ensureCursorVisible(Object anchor) {
     if (!mounted || !_scroll.hasClients) return;
     final rows = _rows;
     final idx = rows.indexWhere((r) {
+      if (anchor is String) {
+        return r.nodeIndex == null && r.expandKey == anchor;
+      }
       final it = r.item;
-      return it is FileTreeNode && it.node.id == nodeId;
+      return it is FileTreeNode && it.node.id == anchor;
     });
     if (idx < 0) return;
     final pos = _scroll.position;
@@ -171,12 +214,12 @@ class _FileListViewState extends ConsumerState<FileListView> {
         _rows = rows;
         // 커서가 새 노드로 바뀌면(특히 화면 밖 먼 항목으로 점프한 경우) 스크롤을
         // 끌어와 드러낸다. 실체화된 근처 이동은 EnsureVisibleOnFocus가 알아서 한다.
-        if (cursor.nodeId != _lastCursorNode) {
-          _lastCursorNode = cursor.nodeId;
-          final target = cursor.nodeId;
-          if (target != null) {
+        final Object? anchor = cursor.headerKey ?? cursor.nodeId;
+        if (anchor != _lastCursorAnchor) {
+          _lastCursorAnchor = anchor;
+          if (anchor != null) {
             WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _ensureCursorVisible(target),
+              (_) => _ensureCursorVisible(anchor),
             );
           }
         }
@@ -200,18 +243,32 @@ class _FileListViewState extends ConsumerState<FileListView> {
               final row = rows[index];
               final item = row.item;
               if (item is GroupHeaderNode) {
-                return _GroupHeaderTile(
-                  header: item,
-                  depth: row.depth,
-                  expandable: row.expandable,
-                  expanded: row.expanded,
-                  scale: scale,
-                  definition: definitionsById[item.tagDefinitionId],
-                  onToggleExpand: row.expandable
-                      ? () => ref
-                            .read(viewSettingsProvider.notifier)
-                            .toggleExpandedFolder(row.expandKey)
-                      : null,
+                final cursored = cursor.headerKey == row.expandKey;
+                return EnsureVisibleOnFocus(
+                  active: cursored,
+                  child: _GroupHeaderTile(
+                    header: item,
+                    depth: row.depth,
+                    expandable: row.expandable,
+                    expanded: row.expanded,
+                    cursored: cursored,
+                    scale: scale,
+                    definition: definitionsById[item.tagDefinitionId],
+                    onToggleExpand: row.expandable
+                        ? () => _toggleExpandKey(row.expandKey)
+                        : null,
+                    // 노드 행과 같은 결: 단일 탭은 커서를 그 행으로 옮기고(헤더는
+                    // 선택 대상이 아니라 커서가 "지금 이 행"을 대신한다), 두 번째
+                    // 탭이면 활성까지 잇는다. 선택 상태는 건드리지 않는다.
+                    onTapRow: () {
+                      ref
+                          .read(navigationCursorProvider.notifier)
+                          .moveToHeader(row.expandKey);
+                      if (_isSecondTap(row.expandKey)) {
+                        _activateRow(row, null);
+                      }
+                    },
+                  ),
                 );
               }
               final node = (item as FileTreeNode).node;
@@ -229,9 +286,7 @@ class _FileListViewState extends ConsumerState<FileListView> {
                 expandable: row.expandable,
                 expanded: row.expanded,
                 onToggleExpand: row.expandable
-                    ? () => ref
-                          .read(viewSettingsProvider.notifier)
-                          .toggleExpandedFolder(node.path)
+                    ? () => _toggleExpandKey(node.path)
                     : null,
                 selected: node.id != null && selection.contains(node.id!),
                 cursored: cursored,
@@ -241,7 +296,11 @@ class _FileListViewState extends ConsumerState<FileListView> {
                   tagDisplayOrder,
                 ),
                 isTagVisible: isTagVisible,
-                onTap: () => widget.onTapNode(items, nodeIndex),
+                // 선택은 매 탭 반영하고, 같은 행의 두 번째 탭이면 활성까지 잇는다.
+                onTap: () {
+                  widget.onTapNode(items, nodeIndex);
+                  if (_isSecondTap(row.expandKey)) _activateRow(row, node);
+                },
                 onLongPress: widget.onLongPressNode == null
                     ? null
                     : () => widget.onLongPressNode!(items, nodeIndex),
@@ -598,7 +657,8 @@ class FileNodeTile extends StatelessWidget {
 }
 
 /// 태그값 버킷의 헤더 행. 폴더(뼈대)보다 종속돼 보이도록 썸네일 없이 연한 배경의
-/// 얕은 행으로 그린다. 캐럿·행 전체를 눌러 버킷을 접었다 편다. 파일 노드 타일과
+/// 얕은 행으로 그린다. 캐럿을 누르거나 행을 더블클릭해 버킷을 접었다 편다(행의 단일
+/// 클릭은 노드 행과 같이 커서를 옮긴다). 파일 노드 타일과
 /// 캐럿 자리 폭·들여쓰기·가이드 라인을 맞춰 같은 계층 눈금에 놓인다.
 class _GroupHeaderTile extends StatelessWidget {
   const _GroupHeaderTile({
@@ -607,7 +667,9 @@ class _GroupHeaderTile extends StatelessWidget {
     required this.expandable,
     required this.expanded,
     required this.definition,
+    this.cursored = false,
     this.onToggleExpand,
+    this.onTapRow,
     this.scale = 1.0,
   });
 
@@ -616,11 +678,17 @@ class _GroupHeaderTile extends StatelessWidget {
   final bool expandable;
   final bool expanded;
 
+  /// 키보드 커서가 이 행에 있는지(파일 타일과 같은 링을 두른다).
+  final bool cursored;
+
   /// 이 버킷을 만든 태그 정의. 삭제 직후 등 참조가 아직 걷히기 전이면 null.
   final TagDefinition? definition;
 
-  /// 캐럿·행을 눌러 펼침/접힘을 토글하는 콜백. 자식이 없으면 null.
+  /// 캐럿(버튼)을 눌러 펼침/접힘을 토글하는 콜백. 자식이 없으면 null.
   final VoidCallback? onToggleExpand;
+
+  /// 캐럿 버튼 밖의 행을 눌렀을 때. 커서 이동·활성 판정은 뷰가 한다.
+  final VoidCallback? onTapRow;
 
   /// 크기 배율(Ctrl/⌘+휠 zoom). 파일 타일과 캐럿 자리를 맞추려 같은 값을 곱한다.
   final double scale;
@@ -640,48 +708,59 @@ class _GroupHeaderTile extends StatelessWidget {
           top: 1,
           bottom: 1,
         ),
-        child: Material(
-          color: scheme.surfaceContainerHighest,
-          animationDuration: stateChangeDuration,
-          borderRadius: BorderRadius.circular(8),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onToggleExpand,
-            hoverColor: Colors.transparent,
-            mouseCursor: SystemMouseCursors.basic,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  // 캐럿 자리는 자식 없는 헤더도 비워 파일 타일과 세로줄을 맞춘다.
-                  SizedBox(
-                    width: FileNodeTile._caretSlot * scale,
-                    child: expandable
-                        ? IconButton(
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            iconSize: FileNodeTile._caretIcon * scale,
-                            tooltip: expanded ? '접기' : '펼치기',
-                            icon: Icon(
-                              expanded
-                                  ? Icons.expand_more
-                                  : Icons.chevron_right,
-                            ),
-                            onPressed: onToggleExpand,
-                          )
-                        : null,
-                  ),
-                  Flexible(child: _label(context, scheme)),
-                  const SizedBox(width: 8),
-                  // 버킷에 속한 파일(비디렉토리) 수. 다중값 중복 소속을 그대로 센다.
-                  Text(
-                    '${header.fileCount}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+        // 커서 링. 파일 타일과 같이 자리를 늘 비워 두어(투명 테두리) 커서가 오갈 때
+        // 행 높이가 흔들리지 않는다.
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: cursored ? scheme.primary : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Material(
+            color: scheme.surfaceContainerHighest,
+            animationDuration: stateChangeDuration,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTapRow,
+              hoverColor: Colors.transparent,
+              mouseCursor: SystemMouseCursors.basic,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    // 캐럿 자리는 자식 없는 헤더도 비워 파일 타일과 세로줄을 맞춘다.
+                    SizedBox(
+                      width: FileNodeTile._caretSlot * scale,
+                      child: expandable
+                          ? IconButton(
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              iconSize: FileNodeTile._caretIcon * scale,
+                              tooltip: expanded ? '접기' : '펼치기',
+                              icon: Icon(
+                                expanded
+                                    ? Icons.expand_more
+                                    : Icons.chevron_right,
+                              ),
+                              onPressed: onToggleExpand,
+                            )
+                          : null,
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
+                    Flexible(child: _label(context, scheme)),
+                    const SizedBox(width: 8),
+                    // 버킷에 속한 파일(비디렉토리) 수. 다중값 중복 소속을 그대로 센다.
+                    Text(
+                      '${header.fileCount}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                ),
               ),
             ),
           ),

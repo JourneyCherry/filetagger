@@ -115,6 +115,9 @@ class AppMenuBar extends ConsumerWidget {
         const MenuDivider(),
         const MenuCommand(AppCommandId.assignTags),
         const MenuCommand(AppCommandId.reconnect),
+        const MenuDivider(),
+        const MenuCommand(AppCommandId.openNode),
+        const MenuCommand(AppCommandId.toggleExpand),
         const MenuCommand(AppCommandId.revealInFileManager),
         const MenuDivider(),
         const MenuSubmenu('키워드', [

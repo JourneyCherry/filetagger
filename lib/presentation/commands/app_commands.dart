@@ -19,7 +19,8 @@ enum AppCommandId {
   rescan,
   selectAll,
   clearSelection,
-  activateNode,
+  openNode,
+  toggleExpand,
   assignTags,
   reconnect,
   revealInFileManager,
@@ -47,8 +48,9 @@ enum AppCommandId {
   extendSelectionDown,
   moveCursorUpNoSelect,
   moveCursorDownNoSelect,
-  moveTagLeft,
-  moveTagRight,
+  cursorLeft,
+  cursorRight,
+  toggleTagFocus,
   confirmCursor,
   toggleCursorSelection,
   deleteFocusedTag,
@@ -135,12 +137,21 @@ final List<AppCommand> appCommands = [
     intent: ClearSelectionIntent(),
     shortcut: SingleActivator(LogicalKeyboardKey.escape),
   ),
+  // 열기는 OS에 넘기는 조작이다(파일=확장자에 연결된 앱, 폴더=파일 관리자). 앱 안에서
+  // 계층을 여닫는 펼치기와 성격이 달라 명령을 가른다. 단축키는 두지 않는다 — 행 레벨
+  // Enter가 곧 열기이고, 그 Enter는 커서·선택 상태를 함께 해석하는 confirmCursor가 쥔다.
+  const AppCommand(
+    id: AppCommandId.openNode,
+    label: '열기',
+    intent: OpenNodeIntent(),
+    icon: Icons.launch,
+  ),
   AppCommand(
-    id: AppCommandId.activateNode,
-    label: '열기 / 펼치기',
-    intent: const ActivateNodeIntent(),
-    // Enter는 커서·선택 상태를 함께 해석하는 confirmCursor가 쥐므로, 조건 없이 늘
-    // 선택 항목을 토글(폴더 펼침·접힘, 파일 열기)하는 전용키를 따로 둔다.
+    id: AppCommandId.toggleExpand,
+    label: '펼치기 / 접기',
+    intent: const ToggleExpandIntent(),
+    icon: Icons.unfold_more,
+    // 방향이 정해진 좌우 방향키와 별개로, 커서 위치와 무관하게 늘 뒤집는 전용키다.
     shortcut: _primary(LogicalKeyboardKey.keyM),
     requiresScopeFocus: true,
   ),
@@ -342,18 +353,31 @@ final List<AppCommand> appCommands = [
     shortcut: SingleActivator(LogicalKeyboardKey.arrowDown, control: true),
     requiresScopeFocus: true,
   ),
+  // 좌우는 Enter처럼 커서 위치로 뜻이 갈린다: 행 레벨이면 트리 관용의 접기/펼치기,
+  // 태그 칸에 들어가 있으면 칸 이동. 같은 키에 두 명령을 걸 수 없어 한 명령이 갈래를
+  // 정한다. 그룹 헤더는 커서가 닿지 못해(선택 대상이 아니다) 폴더 행에만 걸린다.
   const AppCommand(
-    id: AppCommandId.moveTagLeft,
-    label: '태그 왼쪽',
-    intent: MoveTagLeftIntent(),
+    id: AppCommandId.cursorLeft,
+    label: '접기 / 태그 왼쪽',
+    intent: CursorLeftIntent(),
     shortcut: SingleActivator(LogicalKeyboardKey.arrowLeft),
     requiresScopeFocus: true,
   ),
   const AppCommand(
-    id: AppCommandId.moveTagRight,
-    label: '태그 오른쪽',
-    intent: MoveTagRightIntent(),
+    id: AppCommandId.cursorRight,
+    label: '펼치기 / 태그 오른쪽',
+    intent: CursorRightIntent(),
     shortcut: SingleActivator(LogicalKeyboardKey.arrowRight),
+    requiresScopeFocus: true,
+  ),
+  // 좌우가 펼침을 맡으므로 태그 칸으로 들어가는 문을 따로 낸다. '목록에서 수정'이
+  // 켜져 있고 고른 것이 여럿이 아닐 때만 활성이라, 그 밖에는 단축키를 소비하지 않아
+  // Tab의 평소 포커스 이동이 그대로 산다.
+  const AppCommand(
+    id: AppCommandId.toggleTagFocus,
+    label: '태그 칸 드나들기',
+    intent: ToggleTagFocusIntent(),
+    shortcut: SingleActivator(LogicalKeyboardKey.tab),
     requiresScopeFocus: true,
   ),
   const AppCommand(

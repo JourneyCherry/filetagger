@@ -52,9 +52,14 @@ class RevealInFileManagerIntent extends Intent {
   const RevealInFileManagerIntent();
 }
 
-/// 선택한 항목을 활성화한다(폴더=펼침/접힘, 파일=프리뷰).
-class ActivateNodeIntent extends Intent {
-  const ActivateNodeIntent();
+/// 선택한 항목을 OS로 연다(파일=기본 앱으로 실행, 폴더=파일 관리자).
+class OpenNodeIntent extends Intent {
+  const OpenNodeIntent();
+}
+
+/// 선택한 폴더의 펼침/접힘을 뒤집는다.
+class ToggleExpandIntent extends Intent {
+  const ToggleExpandIntent();
 }
 
 /// 도구모음의 필터 조건 줄을 보이거나 숨긴다.
@@ -169,17 +174,24 @@ class MoveCursorDownNoSelectIntent extends Intent {
   const MoveCursorDownNoSelectIntent();
 }
 
-/// 커서 행 안에서 태그 칸을 좌/우로 옮긴다(방향키 좌우).
-class MoveTagLeftIntent extends Intent {
-  const MoveTagLeftIntent();
+/// 커서를 좌/우로 옮긴다(방향키 좌우). 행 레벨이면 폴더 접기·펼치기(트리 관용),
+/// 태그 칸에 있으면 칸 이동이다. 방향이 뜻을 가지며, 펼침 토글은
+/// [ToggleExpandIntent]가 따로 맡는다.
+class CursorLeftIntent extends Intent {
+  const CursorLeftIntent();
 }
 
-class MoveTagRightIntent extends Intent {
-  const MoveTagRightIntent();
+class CursorRightIntent extends Intent {
+  const CursorRightIntent();
+}
+
+/// 커서 행의 태그 칸을 드나든다(Tab). 행 레벨↔첫 태그 칸.
+class ToggleTagFocusIntent extends Intent {
+  const ToggleTagFocusIntent();
 }
 
 /// 커서 자리를 확정한다(Enter). 태그 칸이면 값 수정('+'이면 태그 추가), 행 레벨이면
-/// 커서=선택일 때 활성(폴더 펼침/프리뷰), 아니면 그 항목을 선택으로 확정한다.
+/// 커서=선택일 때 열기, 아니면 그 항목을 선택으로 확정한다.
 class ConfirmCursorIntent extends Intent {
   const ConfirmCursorIntent();
 }

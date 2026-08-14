@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
+import 'workspace_path.dart';
 
 /// 파일/폴더 이름을 디스크에서 실제로 바꾸는 dart:io 어댑터. '파일 이름' 시스템
 /// 태그(수정 가능)의 값 편집이 이 rename으로 반영된다. 인덱스(DB)의 경로 재기록은
@@ -16,8 +16,8 @@ class NodeRenamer {
     required String newRelPath,
     required bool isDirectory,
   }) async {
-    final oldAbs = _absolute(workspaceRoot, oldRelPath);
-    final newAbs = _absolute(workspaceRoot, newRelPath);
+    final oldAbs = workspaceAbsolutePath(workspaceRoot, oldRelPath);
+    final newAbs = workspaceAbsolutePath(workspaceRoot, newRelPath);
     if (oldAbs == newAbs) return;
     if (await FileSystemEntity.type(newAbs) != FileSystemEntityType.notFound) {
       throw FileSystemException('같은 이름의 항목이 이미 있습니다.', newAbs);
@@ -28,9 +28,6 @@ class NodeRenamer {
       await File(oldAbs).rename(newAbs);
     }
   }
-
-  String _absolute(String workspaceRoot, String relPath) =>
-      p.joinAll([workspaceRoot, ...relPath.split('/')]);
 }
 
 /// [oldPath]의 형제 자리에 이름만 [newName]으로 바꾼 '/' 상대 경로를 만든다.

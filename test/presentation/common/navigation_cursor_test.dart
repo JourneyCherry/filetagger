@@ -2,6 +2,30 @@ import 'package:filetagger/presentation/common/navigation_cursor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('stepRowCursor', () {
+    // 목록의 세로 이동은 노드가 아니라 표시 **행** 단위라, 선택 대상이 아닌 그룹
+    // 헤더 행도 커서가 지나간다. 여기서는 그 인덱스 셈만 본다.
+    test('커서 없음(-1): 아래로면 처음, 위로면 끝', () {
+      expect(stepRowCursor(-1, 4, 1), 0);
+      expect(stepRowCursor(-1, 4, -1), 3);
+    });
+
+    test('현재 위치에서 한 칸 이동', () {
+      expect(stepRowCursor(1, 4, 1), 2);
+      expect(stepRowCursor(1, 4, -1), 0);
+    });
+
+    test('끝에서 더 가려 하면 제자리', () {
+      expect(stepRowCursor(3, 4, 1), 3);
+      expect(stepRowCursor(0, 4, -1), 0);
+    });
+
+    test('빈 목록은 -1', () {
+      expect(stepRowCursor(-1, 0, 1), -1);
+      expect(stepRowCursor(0, 0, -1), -1);
+    });
+  });
+
   group('stepNodeCursor', () {
     final ids = [10, 20, 30];
 

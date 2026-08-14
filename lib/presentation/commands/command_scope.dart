@@ -11,7 +11,8 @@ class CommandHandlers {
     this.rescan,
     this.selectAll,
     this.clearSelection,
-    this.activateNode,
+    this.openNode,
+    this.toggleExpand,
     this.assignTags,
     this.reconnect,
     this.revealInFileManager,
@@ -39,8 +40,9 @@ class CommandHandlers {
     this.extendSelectionDown,
     this.moveCursorUpNoSelect,
     this.moveCursorDownNoSelect,
-    this.moveTagLeft,
-    this.moveTagRight,
+    this.cursorLeft,
+    this.cursorRight,
+    this.toggleTagFocus,
     this.confirmCursor,
     this.toggleCursorSelection,
     this.deleteFocusedTag,
@@ -55,7 +57,8 @@ class CommandHandlers {
   final VoidCallback? rescan;
   final VoidCallback? selectAll;
   final VoidCallback? clearSelection;
-  final VoidCallback? activateNode;
+  final VoidCallback? openNode;
+  final VoidCallback? toggleExpand;
   final VoidCallback? assignTags;
   final VoidCallback? reconnect;
   final VoidCallback? revealInFileManager;
@@ -83,8 +86,9 @@ class CommandHandlers {
   final VoidCallback? extendSelectionDown;
   final VoidCallback? moveCursorUpNoSelect;
   final VoidCallback? moveCursorDownNoSelect;
-  final VoidCallback? moveTagLeft;
-  final VoidCallback? moveTagRight;
+  final VoidCallback? cursorLeft;
+  final VoidCallback? cursorRight;
+  final VoidCallback? toggleTagFocus;
   final VoidCallback? confirmCursor;
   final VoidCallback? toggleCursorSelection;
   final VoidCallback? deleteFocusedTag;
@@ -100,7 +104,8 @@ class CommandHandlers {
     AppCommandId.rescan => rescan,
     AppCommandId.selectAll => selectAll,
     AppCommandId.clearSelection => clearSelection,
-    AppCommandId.activateNode => activateNode,
+    AppCommandId.openNode => openNode,
+    AppCommandId.toggleExpand => toggleExpand,
     AppCommandId.assignTags => assignTags,
     AppCommandId.reconnect => reconnect,
     AppCommandId.revealInFileManager => revealInFileManager,
@@ -128,8 +133,9 @@ class CommandHandlers {
     AppCommandId.extendSelectionDown => extendSelectionDown,
     AppCommandId.moveCursorUpNoSelect => moveCursorUpNoSelect,
     AppCommandId.moveCursorDownNoSelect => moveCursorDownNoSelect,
-    AppCommandId.moveTagLeft => moveTagLeft,
-    AppCommandId.moveTagRight => moveTagRight,
+    AppCommandId.cursorLeft => cursorLeft,
+    AppCommandId.cursorRight => cursorRight,
+    AppCommandId.toggleTagFocus => toggleTagFocus,
     AppCommandId.confirmCursor => confirmCursor,
     AppCommandId.toggleCursorSelection => toggleCursorSelection,
     AppCommandId.deleteFocusedTag => deleteFocusedTag,

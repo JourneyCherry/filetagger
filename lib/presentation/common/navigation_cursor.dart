@@ -4,18 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 분리된 별개 상태다 — Ctrl+상하로 선택을 건드리지 않고 커서만 옮기고, 좌우로 그 행
 /// 안의 태그 칸을 오가기 위함이다.
 ///
-/// [nodeId]는 커서가 놓인 행(세로 위치, 선택의 앵커 해석과 같은 방식으로 표시 순서의
-/// 이웃을 찾는다). [tagColumn]은 그 행 안의 가로 위치:
+/// 커서가 놓인 행은 [nodeId](파일·폴더 노드) **또는** [headerKey](그룹 헤더) 하나로
+/// 가리킨다 — 헤더는 실재하지 않는 합성 노드라 선택 대상이 아니고, 그래서 노드 id로는
+/// 가리킬 수 없다. 대신 그 행의 펼침 키를 쓴다. 둘은 동시에 차지 않는다.
+///
+/// [tagColumn]은 노드 행 안의 가로 위치다(헤더 행에는 태그 칸이 없다):
 ///   - null      = 행 레벨(태그 미선택)
 ///   - 0..n-1    = 보이는 태그 칩(n = 그 행의 보이는 태그 수)
 ///   - n         = '+' 추가 슬롯(추가 어포던스가 있을 때만 닿는다)
 class NavigationCursor {
-  const NavigationCursor({this.nodeId, this.tagColumn});
+  const NavigationCursor({this.nodeId, this.headerKey, this.tagColumn});
 
   final int? nodeId;
+
+  /// 커서가 그룹 헤더 행에 있을 때 그 행의 펼침 키. 노드 행이면 null.
+  final String? headerKey;
+
   final int? tagColumn;
 
-  bool get isEmpty => nodeId == null;
+  bool get isEmpty => nodeId == null && headerKey == null;
 }
 
 /// 표시 순서 id 목록에서 [current] 기준 [delta](+1 아래 / -1 위) 위치의 id.
@@ -52,6 +59,12 @@ int? stepTagColumn(int? current, int tagCount, bool hasAdd, int delta) {
   return current - 1;
 }
 
+/// 목록의 표시 **행**을 [delta]칸 옮긴다(진입점 고르기·끝에서 머무르기 규칙은
+/// [stepGridCursor]의 가로 이동과 같다). 세로 이동이 노드가 아니라 행 단위라야
+/// 선택 대상이 아닌 그룹 헤더 행도 커서가 지나갈 수 있다.
+int stepRowCursor(int current, int count, int delta) =>
+    stepGridCursor(current, count, 1, delta, horizontal: true);
+
 /// 격자(아이콘 보기)에서 커서를 옮긴다. [count]는 현재 계층의 표시 항목 수(헤더 포함),
 /// [columns]는 한 줄의 칸 수. [horizontal]이면 ±1(row-major 연속), 아니면 ±[columns]
 /// (한 줄 위/아래). [delta]는 +1(오른쪽/아래)·-1(왼쪽/위).
@@ -86,6 +99,11 @@ class NavigationCursorController extends Notifier<NavigationCursor> {
 
   /// 커서를 [nodeId] 행으로 옮긴다. 세로 이동은 늘 태그 칸을 행 레벨로 되돌린다.
   void moveTo(int nodeId) => state = NavigationCursor(nodeId: nodeId);
+
+  /// 커서를 [headerKey]가 가리키는 그룹 헤더 행으로 옮긴다. 헤더는 선택 대상이
+  /// 아니라 커서만 놓이고, 태그 칸도 없어 행 레벨뿐이다.
+  void moveToHeader(String headerKey) =>
+      state = NavigationCursor(headerKey: headerKey);
 
   /// 현재 행 안에서 태그 칸만 바꾼다.
   void setTagColumn(int? column) =>

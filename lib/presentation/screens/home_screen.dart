@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/platform.dart';
 import '../../data/db/schema_probe.dart';
+import '../../data/fs/default_app_opener.dart';
 import '../../data/fs/node_renamer.dart';
 import '../../data/fs/reveal_in_file_manager.dart';
 import '../../data/queue/command_export.dart';
@@ -247,16 +248,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  /// 선택한 단일 항목을 활성화한다(Enter·컨텍스트 메뉴). 폴더는 펼침/접힘을
-  /// 토글하고, 파일은 프리뷰를 띄운다(이미 보이면 그대로 둔다).
-  void _activateSelected() {
-    final node = _singleSelectedNode;
-    if (node == null) return;
-    if (node.isDirectory && !node.isMissing) {
-      _toggleExpand(node.path);
-    } else {
-      _showPreview(node);
+  /// [node]를 OS로 연다. 파일은 확장자에 OS가 연결해 둔 앱으로 실행하고, 폴더는 파일
+  /// 관리자에서 그 폴더를 드러낸다('탐색기에서 열기'와 같다). 키워드·연결 끊긴 노드는
+  /// 디스크에 자리가 없어 열 것이 없다(무동작 — 명령도 비활성이다).
+  Future<void> _openNode(FileNode node) async {
+    if (node.isMissing || node.isKeyword) return;
+    final root = ref.read(workspaceRootProvider);
+    if (root == null) return;
+    if (node.isDirectory) {
+      await _reveal(root, node);
+      return;
     }
+    final opened = await const DefaultAppOpener().open(
+      workspaceRoot: root,
+      relPath: node.path,
+    );
+    if (!opened) _showSnack('이 파일을 열 앱이 없습니다: ${node.name}');
+  }
+
+  /// 선택한 단일 항목을 연다(Enter·메뉴).
+  Future<void> _openSelected() async {
+    final node = _singleExistingSelected;
+    if (node != null) await _openNode(node);
+  }
+
+  /// 선택한 폴더의 펼침/접힘을 뒤집는다(메뉴·전용 단축키). 방향이 정해진 펼치기·접기는
+  /// [_setRowExpanded]가 맡는다.
+  void _toggleExpandSelected() {
+    final node = _expandableSelected;
+    if (node != null) _toggleExpand(node.path);
+  }
+
+  /// 커서(없으면 단일 선택)가 놓인 행의 펼침 키. 그룹 헤더면 합성 키, 폴더면 경로다.
+  /// 펼칠 것이 없는 행(파일·자식 없는 폴더·빈 헤더)이면 null.
+  String? _expandKeyAtCursor() {
+    final flat = _currentFlat();
+    if (flat == null) return null;
+    final i = _cursorRowIndex(flat);
+    if (i < 0 || i >= flat.rows.length) return null;
+    final row = flat.rows[i];
+    return row.expandable ? row.expandKey : null;
+  }
+
+  /// 좌우 방향키가 부르는 펼치기·접기. 이미 그 상태면 아무 일도 하지 않는다 —
+  /// 토글이 아니라 방향이 뜻을 갖는 트리 관용이다.
+  void _setRowExpanded(bool expand) {
+    final key = _expandKeyAtCursor();
+    if (key == null) return;
+    final expanded = ref.read(expandedFoldersProvider).contains(key);
+    if (expanded != expand) _toggleExpand(key);
   }
 
   /// [node]의 프리뷰를 드러낸다. 분할이 가능한 폭이면 분할 창을 켜고, 좁으면
@@ -379,28 +419,85 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   FileNode? _nodeById(int id) => ref.read(fileNodesByIdProvider)[id];
 
+  /// 커서가 놓인 표시 행의 인덱스. 커서가 없으면 단일 선택 행을 기준으로 삼고, 그것도
+  /// 없으면 -1. 노드는 **첫 등장**을 기준으로 한다(다중값 그룹에선 같은 노드가 여러
+  /// 버킷에 나온다 — 선택의 앵커 해석과 같은 근사).
+  int _cursorRowIndex(FlatTree flat) {
+    final cursor = ref.read(navigationCursorProvider);
+    final headerKey = cursor.headerKey;
+    if (headerKey != null) {
+      return flat.rows.indexWhere(
+        (r) => r.nodeIndex == null && r.expandKey == headerKey,
+      );
+    }
+    final id =
+        cursor.nodeId ?? ref.read(selectionControllerProvider).singleOrNull;
+    if (id == null) return -1;
+    return flat.rows.indexWhere((r) {
+      final i = r.nodeIndex;
+      return i != null && flat.nodes[i].id == id;
+    });
+  }
+
   /// 커서를 세로로 [delta]칸(위 -1/아래 +1) 옮긴다. [mode]에 따라 선택도 함께
   /// 바꾼다: single=그 항목만 선택, range=앵커에서 범위 선택, cursorOnly=선택 불변.
+  ///
+  /// 이동 단위는 노드가 아니라 **표시 행**이라 그룹 헤더도 지나간다. 헤더는 선택
+  /// 대상이 아니므로 거기 서면 [mode]와 무관하게 **커서만** 옮긴다.
   void _moveCursor(int delta, _CursorMove mode) {
-    final ids = _orderedNodeIds();
-    if (ids.isEmpty) return;
-    final cursor = ref.read(navigationCursorProvider);
-    final sel = ref.read(selectionControllerProvider);
-    final current = cursor.nodeId ?? sel.singleOrNull;
-    final next = stepNodeCursor(ids, current, delta);
-    if (next == null) return;
+    final flat = _currentFlat();
+    if (flat == null || flat.rows.isEmpty) return;
+    final next = stepRowCursor(_cursorRowIndex(flat), flat.rows.length, delta);
+    if (next < 0 || next >= flat.rows.length) return;
+    final row = flat.rows[next];
     final cursorCtl = ref.read(navigationCursorProvider.notifier);
+    final nodeIndex = row.nodeIndex;
+    if (nodeIndex == null) {
+      cursorCtl.moveToHeader(row.expandKey);
+      return;
+    }
+    final id = flat.nodes[nodeIndex].id;
+    if (id == null) return;
+    cursorCtl.moveTo(id);
     final selCtl = ref.read(selectionControllerProvider.notifier);
     switch (mode) {
       case _CursorMove.single:
-        selCtl.selectSingle(next);
-        cursorCtl.moveTo(next);
+        selCtl.selectSingle(id);
       case _CursorMove.range:
-        selCtl.selectRange(ids, next);
-        cursorCtl.moveTo(next);
+        selCtl.selectRange(flat.nodeIds, id);
       case _CursorMove.cursorOnly:
-        cursorCtl.moveTo(next);
+        break;
     }
+  }
+
+  /// 좌우 방향키. Enter처럼 커서 위치로 뜻이 갈린다 — 행 레벨이면 그 행을 접거나
+  /// 펼치고(그룹 헤더든 폴더든 그 행의 펼침 키로), 태그 칸에 들어가 있으면 칸을
+  /// 옮긴다. 첫 칸에서 왼쪽은 행 레벨로 돌아오므로 한 번 더 누르면 접기가 된다.
+  void _moveCursorHorizontal(int delta) {
+    if (ref.read(navigationCursorProvider).tagColumn == null) {
+      _setRowExpanded(delta > 0);
+      return;
+    }
+    _moveTag(delta);
+  }
+
+  /// Tab. 커서 행의 태그 칸을 드나든다(행 레벨↔첫 칸). 좌우가 펼침을 맡으므로 태그
+  /// 칸으로 들어가는 문은 이 키가 낸다.
+  void _toggleTagFocus() {
+    final cursor = ref.read(navigationCursorProvider);
+    if (cursor.headerKey != null) return; // 헤더 행에는 태그 칸이 없다.
+    final nodeId =
+        cursor.nodeId ?? ref.read(selectionControllerProvider).singleOrNull;
+    if (nodeId == null) return;
+    final ctl = ref.read(navigationCursorProvider.notifier);
+    if (cursor.nodeId == nodeId && cursor.tagColumn != null) {
+      ctl.setTagColumn(null);
+      return;
+    }
+    if (cursor.nodeId != nodeId) ctl.moveTo(nodeId);
+    final tags = _visibleTagsOf(nodeId);
+    final hasAdd = isDesktopPlatform && _listEditEnabled;
+    ctl.setTagColumn(stepTagColumn(null, tags.length, hasAdd, 1));
   }
 
   /// 커서 행 안에서 태그 칸을 좌우로 [delta]칸 옮긴다. '+' 추가 슬롯은 목록 수정이
@@ -420,20 +517,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ctl.setTagColumn(next);
   }
 
+  /// 행 레벨 활성(Enter). **그룹화가 노드 종류보다 앞선다** — 펼칠 수 있는 행이면
+  /// (그룹 헤더와, 폴더 계층으로 묶였을 때의 폴더) 여닫기 토글이고, 아니면 그 노드를
+  /// 연다. 목록 보기의 더블클릭·아이콘 보기의 활성과 같은 규칙이다.
+  void _activateCursorRow() {
+    final key = _expandKeyAtCursor();
+    if (key != null) {
+      _toggleExpand(key);
+      return;
+    }
+    _openSelected();
+  }
+
   /// Enter. 태그 칸이면 값 수정('+'이면 태그 추가), 행 레벨이면 커서==단일선택일 때
-  /// 활성(폴더 펼침/프리뷰), 아니면 그 항목을 선택으로 확정한다. 목록 보기가 아니거나
-  /// 커서가 없으면 기존 활성 동작으로 떨어진다.
+  /// 활성, 아니면 그 항목을 선택으로 확정한다. 목록 보기가 아니면 곧바로 열기로
+  /// 떨어진다(그 뷰들은 펼침이라는 개념이 없거나 자기 활성을 따로 갖는다).
   void _onConfirmCursor() {
     final cursor = ref.read(navigationCursorProvider);
+    if (ref.read(viewModeProvider) != ViewMode.list) {
+      _openSelected();
+      return;
+    }
+    // 그룹 헤더 행에는 선택도 태그 칸도 없어 여닫기만 뜻이 있다. 커서가 아예 없으면
+    // 단일 선택 행을 기준으로 삼는다(_expandKeyAtCursor가 그 폴백을 쥔다).
     final nodeId = cursor.nodeId;
-    if (ref.read(viewModeProvider) != ViewMode.list || nodeId == null) {
-      _activateSelected();
+    if (cursor.headerKey != null || nodeId == null) {
+      _activateCursorRow();
       return;
     }
     final col = cursor.tagColumn;
     if (col == null) {
       if (ref.read(selectionControllerProvider).singleOrNull == nodeId) {
-        _activateSelected();
+        _activateCursorRow();
       } else {
         ref.read(selectionControllerProvider.notifier).selectSingle(nodeId);
       }
@@ -526,7 +641,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       globalPosition: globalPosition,
       handlers: handlers,
       items: [
-        const MenuCommand(AppCommandId.activateNode),
+        const MenuCommand(AppCommandId.openNode),
+        const MenuCommand(AppCommandId.toggleExpand),
         const MenuDivider(),
         // 연결 끊긴 노드 하나면 태그 부여 대신 원본 찾기로 안내한다.
         if (missing)
@@ -578,6 +694,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   FileNode? get _singleExistingSelected {
     final node = _singleSelectedNode;
     return node != null && !node.isMissing && !node.isKeyword ? node : null;
+  }
+
+  /// 선택이 정확히 펼칠 수 있는 폴더 하나면 그 폴더. 펼치기/접기 명령의 활성 조건이다.
+  /// 그룹 헤더는 선택 대상이 아니라 여기 들지 않는다(헤더는 마우스로만 여닫는다).
+  FileNode? get _expandableSelected {
+    final node = _singleSelectedNode;
+    return node != null && node.isDirectory && !node.isMissing ? node : null;
   }
 
   /// 선택이 정확히 키워드 하나면 그 키워드. 키워드 편집·삭제의 활성 조건이다.
@@ -643,9 +766,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final node = _singleExistingSelected;
     final root = ref.read(workspaceRootProvider);
     if (node == null || root == null) return;
+    await _reveal(root, node);
+  }
+
+  Future<void> _reveal(String workspaceRoot, FileNode node) async {
     try {
       await const FileManagerRevealer().reveal(
-        workspaceRoot: root,
+        workspaceRoot: workspaceRoot,
         relPath: node.path,
       );
     } catch (e) {
@@ -1160,7 +1287,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       rescan: (!hasWorkspace || _busy) ? null : _scan,
       selectAll: hasWorkspace ? _selectAll : null,
       clearSelection: selection.isEmpty ? null : _clearSelection,
-      activateNode: selection.singleOrNull == null ? null : _activateSelected,
+      openNode: _singleExistingSelected == null ? null : _openSelected,
+      toggleExpand: _expandableSelected == null ? null : _toggleExpandSelected,
       assignTags: selection.isEmpty ? null : _assignToSelection,
       reconnect: _singleMissingSelected == null ? null : _reconnectSelected,
       revealInFileManager: _singleExistingSelected == null
@@ -1232,11 +1360,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       moveCursorDownNoSelect: navigable
           ? () => _moveCursor(1, _CursorMove.cursorOnly)
           : null,
-      moveTagLeft: navigable ? () => _moveTag(-1) : null,
-      moveTagRight: navigable ? () => _moveTag(1) : null,
-      // Enter는 목록 밖(아이콘·자세히)에서도 선택 항목을 활성하도록 커서·선택 어느
+      cursorLeft: navigable ? () => _moveCursorHorizontal(-1) : null,
+      cursorRight: navigable ? () => _moveCursorHorizontal(1) : null,
+      // 태그 칸은 '목록에서 수정'이 켜져 있을 때만 키보드로 드나든다. 고른 것이
+      // 여럿이면 어느 행의 태그를 말하는지가 정해지지 않아 함께 막는다. 비활성이면
+      // Tab이 소비되지 않아 평소의 포커스 이동이 그대로 산다.
+      toggleTagFocus: (navigable && _listEditEnabled && selection.length <= 1)
+          ? _toggleTagFocus
+          : null,
+      // Enter는 목록 밖(아이콘·자세히)에서도 선택 항목을 열도록 커서·선택 어느
       // 하나라도 있으면 활성화한다(핸들러가 보기 모드를 보고 갈래를 정한다).
-      confirmCursor: (cursor.nodeId != null || selection.singleOrNull != null)
+      confirmCursor: (!cursor.isEmpty || selection.singleOrNull != null)
           ? _onConfirmCursor
           : null,
       toggleCursorSelection: (navigable && cursor.nodeId != null)
@@ -1413,6 +1547,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildListMode(SelectionState selection, bool desktop) {
     return FileListView(
       onTapNode: _onTapNode,
+      // 행 더블클릭은 그 항목을 골라 연다(펼칠 수 있는 행은 뷰가 여닫는다).
+      onOpenNode: _openNodeFromView,
       onLongPressNode: desktop ? null : _onLongPressNode,
       // 우클릭은 정밀 포인터가 있을 때만 연다(마우스를 붙인 모바일도 포함).
       onSecondaryTapNode: ref.watch(pointerPresenceProvider)
@@ -1436,8 +1572,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildIconMode(bool desktop) {
     return FileIconView(
       onTapNode: _onTapNode,
-      // 파일 더블클릭은 그 파일을 골라 프리뷰를 연다(폴더·그룹은 뷰가 파고든다).
-      onActivateFile: _activateFilePreview,
+      // 파일 더블클릭/Enter는 그 파일을 골라 연다(폴더·그룹은 뷰가 파고든다).
+      onOpenNode: _openNodeFromView,
       onLongPressNode: desktop ? null : _onLongPressNode,
       onSecondaryTapNode: ref.watch(pointerPresenceProvider)
           ? _onSecondaryTapNode
@@ -1449,7 +1585,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildDetailMode(bool desktop) {
     return FileDetailView(
       onTapNode: _onTapNode,
-      onActivateFile: _activateFilePreview,
+      onOpenNode: _openNodeFromView,
       onLongPressNode: desktop ? null : _onLongPressNode,
       onSecondaryTapNode: ref.watch(pointerPresenceProvider)
           ? _onSecondaryTapNode
@@ -1458,12 +1594,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// 아이콘·자세히 뷰에서 파일을 더블클릭했을 때: 그 파일을 단일 선택하고 프리뷰를 연다.
-  void _activateFilePreview(FileNode node) {
+  /// 아이콘·자세히 뷰에서 항목을 더블클릭/Enter 했을 때: 그 항목을 단일 선택하고
+  /// 연다(목록 보기의 Enter와 같은 동작).
+  void _openNodeFromView(FileNode node) {
     final id = node.id;
     if (id == null) return;
     ref.read(selectionControllerProvider.notifier).selectSingle(id);
-    _showPreview(node);
+    _openNode(node);
   }
 
   /// 링크 캡슐이 요청한 노드로 이동한다: 조상 폴더를 모두 펼쳐 목록에 드러내고, 그

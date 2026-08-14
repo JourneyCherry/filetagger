@@ -79,19 +79,21 @@ class _Col {
 /// 더해지고(클릭 순서 = 우선순위), 다시 클릭하면 방향만 뒤집는다. 컬럼 경계를 끌어
 /// 폭을 바꾸고, 헤더를 끌어 컬럼 순서를 바꾼다.
 ///
-/// 선택·프리뷰는 목록 뷰와 같은 계약을 쓴다([onTapNode]·[onActivateFile]).
+/// 선택·열기는 목록 뷰와 같은 계약을 쓴다([onTapNode]·[onOpenNode]).
 class FileDetailView extends ConsumerStatefulWidget {
   const FileDetailView({
     super.key,
     required this.onTapNode,
-    required this.onActivateFile,
+    required this.onOpenNode,
     this.onLongPressNode,
     this.onSecondaryTapNode,
     this.padding = EdgeInsets.zero,
   });
 
   final void Function(List<FileNode> items, int index) onTapNode;
-  final ValueChanged<FileNode> onActivateFile;
+
+  /// 행을 더블클릭/Enter 했을 때(열기). 평면 테이블이라 폴더도 그대로 넘어간다.
+  final ValueChanged<FileNode> onOpenNode;
   final void Function(List<FileNode> items, int index)? onLongPressNode;
   final void Function(List<FileNode> items, int index, Offset globalPosition)?
   onSecondaryTapNode;
@@ -347,7 +349,8 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
       return;
     }
     if (ref.read(selectionControllerProvider).singleOrNull == rowId) {
-      if (!node.isDirectory) widget.onActivateFile(node);
+      // 평면 목록이라 폴더에 파고들기가 없다 — 폴더도 그대로 셸의 열기로 넘긴다.
+      widget.onOpenNode(node);
     } else {
       ref.read(selectionControllerProvider.notifier).selectSingle(rowId);
     }
@@ -1032,9 +1035,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     ref.read(viewSettingsProvider.notifier).updateTagDisplayOrder(order);
   }
 
-  /// 더블클릭(활성): 파일이면 셸에 프리뷰를 위임한다. 폴더는 계층이 없는 평면
-  /// 테이블이라 아무 것도 하지 않는다.
-  void _onDoubleTap(FileNode node) {
-    if (!node.isDirectory) widget.onActivateFile(node);
-  }
+  /// 더블클릭(활성): 셸에 열기를 위임한다. 계층이 없는 평면 테이블이라 폴더도
+  /// 파고들지 않고 그대로 넘긴다.
+  void _onDoubleTap(FileNode node) => widget.onOpenNode(node);
 }

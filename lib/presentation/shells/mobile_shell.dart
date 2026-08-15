@@ -20,6 +20,7 @@ class MobileShell extends StatelessWidget {
     required this.selectionCount,
     required this.scanning,
     required this.onOpenFilterSheet,
+    required this.onCharacter,
     required this.body,
   });
 
@@ -35,6 +36,10 @@ class MobileShell extends StatelessWidget {
 
   /// 필터·정렬 시트를 여는 콜백.
   final VoidCallback onOpenFilterSheet;
+
+  /// 본문에 포커스가 있을 때 친 글자(목록의 빠른 탐색). 하드웨어 키보드를 붙였을 때만
+  /// 불린다. 자세한 계약은 [CommandScope.onCharacter].
+  final ValueChanged<String>? onCharacter;
 
   /// 목록·프리뷰(워크스페이스 있음) 또는 최근 폴더 목록(빈 상태).
   final Widget body;
@@ -62,6 +67,7 @@ class MobileShell extends StatelessWidget {
     return PointerPresenceDetector(
       child: CommandScope(
         handlers: handlers,
+        onCharacter: onCharacter,
         child: Scaffold(
           appBar: _selecting ? _selectionAppBar(context) : _normalAppBar(),
           floatingActionButton: _floatingAction(),

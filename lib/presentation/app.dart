@@ -1,17 +1,60 @@
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
+import 'providers/database_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/update_provider.dart';
 import 'screens/home_screen.dart';
 import 'theme.dart';
 
-class FileTaggerApp extends ConsumerWidget {
+/// 종료 전 정리를 기다려 주는 한계. 이 안에 끝나지 않으면 그대로 종료한다.
+const Duration _shutdownTimeout = Duration(seconds: 2);
+
+class FileTaggerApp extends ConsumerStatefulWidget {
   const FileTaggerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FileTaggerApp> createState() => _FileTaggerAppState();
+}
+
+class _FileTaggerAppState extends ConsumerState<FileTaggerApp> {
+  /// 창 닫기·종료 명령이 들어왔을 때 정리할 틈을 얻는 통로(데스크톱 전용 신호다).
+  AppLifecycleListener? _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onExitRequested: _onExitRequested);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle?.dispose();
+    super.dispose();
+  }
+
+  /// 종료 전에 태그 DB를 닫는다.
+  ///
+  /// 닫지 않고 프로세스가 사라지면 sqlite의 WAL이 본 DB 파일로 합쳐지지 않은 채
+  /// 남는다. **폴더를 통째로 복사·이동하면 태그가 따라간다**는 것이 이 앱의 전제라,
+  /// 그 상태로 옮긴 폴더는 마지막 변경을 잃을 수 있다 — 종료는 그 정리를 할 수 있는
+  /// 마지막 자리다(워크스페이스를 바꿀 때는 provider가 이미 닫는다).
+  ///
+  /// 정리가 늦거나 실패해도 **종료를 막지 않는다** — 창이 닫히지 않는 쪽이 훨씬 나쁘다.
+  Future<AppExitResponse> _onExitRequested() async {
+    try {
+      await ref.read(databaseProvider)?.close().timeout(_shutdownTimeout);
+    } catch (_) {
+      // 종료 중이라 알릴 자리도, 되돌릴 것도 없다.
+    }
+    return AppExitResponse.exit;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // 저장된 선택을 읽는 동안(첫 프레임)엔 시스템 밝기를 따른다.
     final themeMode =
         ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system;

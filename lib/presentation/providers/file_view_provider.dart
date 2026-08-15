@@ -225,6 +225,17 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     _set(state.copyWith(expandedFolders: next));
   }
 
+  /// [keys]의 자리들을 한꺼번에 펼치고 저장한다(이미 펼쳐진 것은 그대로). 숨어 있는
+  /// 노드를 드러내는 쪽(빠른 탐색·링크 이동)이 조상 사슬을 통째로 넘긴다 — 하나씩
+  /// 토글하면 사슬 길이만큼 저장이 되풀이되고, 뒤집기라 이미 펼쳐진 자리를 도로 접는다.
+  void expandFolders(Iterable<String> keys) {
+    final next = {...state.expandedFolders};
+    final before = next.length;
+    next.addAll(keys);
+    if (next.length == before) return; // 이미 다 펼쳐져 있어 저장할 것이 없다
+    _set(state.copyWith(expandedFolders: next));
+  }
+
   /// 그룹 단계를 통째로 갈아끼우고 저장한다(그룹 줄 편집이 호출).
   void updateGrouping(FileGrouping grouping) =>
       _set(state.copyWith(grouping: grouping));

@@ -20,6 +20,7 @@ class DesktopShell extends StatelessWidget {
     required this.onOpenRecent,
     required this.onSetRootRecursive,
     required this.onOpenHelpTab,
+    required this.onCharacter,
     required this.scanning,
     required this.previewVisible,
     required this.presetBarVisible,
@@ -44,6 +45,10 @@ class DesktopShell extends StatelessWidget {
   /// 메뉴바 '도움말'의 탭 항목이 부르는 콜백. null이면 탭 항목이 비활성.
   final ValueChanged<HelpTab>? onOpenHelpTab;
 
+  /// 본문에 포커스가 있을 때 친 글자(목록의 빠른 탐색). 자세한 계약은
+  /// [CommandScope.onCharacter].
+  final ValueChanged<String>? onCharacter;
+
   final bool scanning;
   final bool previewVisible;
 
@@ -67,6 +72,7 @@ class DesktopShell extends StatelessWidget {
       body: SafeArea(
         child: CommandScope(
           handlers: handlers,
+          onCharacter: onCharacter,
           child: AppMenuBar(
             handlers: handlers,
             onOpenRecent: onOpenRecent,

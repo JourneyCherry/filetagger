@@ -103,6 +103,39 @@ FlatTree flattenTree(
   return FlatTree(rows: rows, nodes: nodes);
 }
 
+/// [rows]에서 [index] 행이 속한 **바로 위 행**의 위치(자기보다 얕은, 가장 가까운 앞
+/// 행). 최상위 행이거나 범위 밖이면 -1.
+///
+/// 편 목록은 계층을 깊이로만 들고 있어(부모 포인터가 없다) 앞으로 훑어 찾는다. 폴더든
+/// 그룹 헤더든 가리지 않는다 — 그 행을 담고 있는 구조가 곧 부모다.
+int parentRowIndex(List<TreeRow> rows, int index) {
+  if (index < 0 || index >= rows.length) return -1;
+  final depth = rows[index].depth;
+  if (depth == 0) return -1;
+  for (var i = index - 1; i >= 0; i--) {
+    if (rows[i].depth < depth) return i;
+  }
+  return -1;
+}
+
+/// [rows]의 [index] 행이 목록에 보이려면 펼쳐져 있어야 하는 **조상 행들의 펼침 키**
+/// (바깥에서 안쪽 순서). 접힘을 무시하고 편 결과([flattenTree]의 `expandAll`)에서만
+/// 뜻이 있다 — 거기서는 조상이 접혀 있어도 행이 있어 사슬을 끝까지 거슬러 오를 수 있다.
+///
+/// 폴더든 그룹 헤더든 가리지 않는다(둘 다 자기 펼침 키로 여닫힌다). 숨어 있는 노드를
+/// 드러내는 쪽이 이 키들을 펼침 집합에 더한다.
+List<String> ancestorExpandKeys(List<TreeRow> rows, int index) {
+  final keys = <String>[];
+  for (
+    var i = parentRowIndex(rows, index);
+    i >= 0;
+    i = parentRowIndex(rows, i)
+  ) {
+    keys.add(rows[i].expandKey);
+  }
+  return keys.reversed.toList();
+}
+
 /// 헤더 펼침 키에서 각 조각을 시작하는 표식. 경로에 들어갈 수 없는 제어문자라 합성
 /// 키가 실제 폴더 경로와 겹치지 않는다(소스에서도 보이도록 이스케이프로 적는다).
 const String _headerKeyMark = '\u0000';

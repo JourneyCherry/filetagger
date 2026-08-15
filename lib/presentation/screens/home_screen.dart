@@ -1,4 +1,5 @@
 import 'dart:io' show FileSystemException;
+import 'dart:ui' show AppExitType;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import '../../data/fs/reveal_in_file_manager.dart';
 import '../../data/queue/command_export.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
+import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_merge_resolution.dart';
 import '../../domain/entities/system_tag.dart';
@@ -35,6 +37,7 @@ import '../common/navigation_cursor.dart';
 import '../common/pointer_presence.dart';
 import '../common/preview_split.dart';
 import '../common/selection_controller.dart';
+import '../common/type_ahead.dart';
 import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_node_provider.dart';
@@ -64,6 +67,7 @@ import '../widgets/tag_manage_dialog.dart';
 import '../widgets/tag_order_dialog.dart';
 import '../widgets/tag_value_prompt.dart';
 import '../widgets/thumbnail_tag_dialog.dart';
+import '../widgets/type_ahead_overlay.dart';
 import '../widgets/update_check_dialog.dart';
 import 'tag_management_screen.dart';
 
@@ -290,13 +294,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return row.expandable ? row.expandKey : null;
   }
 
-  /// 좌우 방향키가 부르는 펼치기·접기. 이미 그 상태면 아무 일도 하지 않는다 —
+  /// 오른쪽 방향키가 부르는 펼치기. 이미 펼쳐져 있으면 아무 일도 하지 않는다 —
   /// 토글이 아니라 방향이 뜻을 갖는 트리 관용이다.
-  void _setRowExpanded(bool expand) {
+  void _expandCursorRow() {
     final key = _expandKeyAtCursor();
     if (key == null) return;
-    final expanded = ref.read(expandedFoldersProvider).contains(key);
-    if (expanded != expand) _toggleExpand(key);
+    if (!ref.read(expandedFoldersProvider).contains(key)) _toggleExpand(key);
+  }
+
+  /// 왼쪽 방향키의 첫 뜻인 접기. 커서 행이 지금 펼쳐져 보이면 접고 true를 낸다.
+  /// 접을 것이 없으면 false라 부르는 쪽이 상위로 올라간다.
+  ///
+  /// 필터가 걸려 목록이 통째로 펴진 동안에는 접지 않는다 — 접어 봐야 화면이 그대로라
+  /// 왼쪽 키가 죽은 것처럼 보이므로, 그 상태에서는 상위 이동에 자리를 내준다.
+  bool _collapseCursorRow() {
+    final flat = _currentFlat();
+    if (flat == null) return false;
+    final i = _cursorRowIndex(flat);
+    if (i < 0) return false;
+    final row = flat.rows[i];
+    if (!row.expandable || !row.expanded) return false;
+    if (!ref.read(fileFilterProvider).isEmpty) return false;
+    _toggleExpand(row.expandKey);
+    return true;
+  }
+
+  /// 왼쪽 방향키의 두 번째 뜻: 커서를 그 행이 속한 **상위 행**(그룹 헤더, 폴더 계층을
+  /// 쓸 때는 폴더)으로 올린다. 최상위 행이라 올라갈 자리가 없으면 아무 일도 하지 않는다.
+  ///
+  /// 도착한 곳이 노드 행이면 세로 이동과 같이 그것만 선택하고, 그룹 헤더면 선택을
+  /// 건드리지 않는다(헤더는 선택 대상이 아니다).
+  void _moveCursorToParentRow() {
+    final flat = _currentFlat();
+    if (flat == null) return;
+    final parent = parentRowIndex(flat.rows, _cursorRowIndex(flat));
+    if (parent < 0) return;
+    final row = flat.rows[parent];
+    final nodeIndex = row.nodeIndex;
+    final cursorCtl = ref.read(navigationCursorProvider.notifier);
+    if (nodeIndex == null) {
+      cursorCtl.moveToHeader(row.expandKey);
+      return;
+    }
+    final id = flat.nodes[nodeIndex].id;
+    if (id == null) return;
+    cursorCtl.moveTo(id);
+    ref.read(selectionControllerProvider.notifier).selectSingle(id);
   }
 
   /// [node]의 프리뷰를 드러낸다. 분할이 가능한 폭이면 분할 창을 켜고, 좁으면
@@ -470,15 +513,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  /// 좌우 방향키. Enter처럼 커서 위치로 뜻이 갈린다 — 행 레벨이면 그 행을 접거나
-  /// 펼치고(그룹 헤더든 폴더든 그 행의 펼침 키로), 태그 칸에 들어가 있으면 칸을
-  /// 옮긴다. 첫 칸에서 왼쪽은 행 레벨로 돌아오므로 한 번 더 누르면 접기가 된다.
+  /// 좌우 방향키. Enter처럼 커서 위치로 뜻이 갈린다 — 태그 칸에 들어가 있으면 칸을
+  /// 옮기고, 행 레벨이면 트리 관용대로 펼치기·접기다. 첫 칸에서 왼쪽은 행 레벨로
+  /// 돌아오므로 한 번 더 누르면 접기가 된다.
+  ///
+  /// 왼쪽은 두 뜻을 사다리처럼 잇는다: 펼쳐진 행이면 접고, **접힌 행이나 펼칠 것이 없는
+  /// 행이면 그 행이 속한 상위 행으로 올라간다**. 눌러 나가면 접기와 올라가기가 번갈아
+  /// 일어나 그룹 계층을 거슬러 오르고, 최상위에 닿으면 반응이 없다.
   void _moveCursorHorizontal(int delta) {
-    if (ref.read(navigationCursorProvider).tagColumn == null) {
-      _setRowExpanded(delta > 0);
+    if (ref.read(navigationCursorProvider).tagColumn != null) {
+      _moveTag(delta);
       return;
     }
-    _moveTag(delta);
+    if (delta > 0) {
+      _expandCursorRow();
+      return;
+    }
+    if (_collapseCursorRow()) return;
+    _moveCursorToParentRow();
   }
 
   /// Tab. 커서 행의 태그 칸을 드나든다(행 레벨↔첫 칸). 좌우가 펼침을 맡으므로 태그
@@ -562,6 +614,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     final node = _nodeById(nodeId);
     if (node != null) _addTagToNode(node);
+  }
+
+  /// 빠른 탐색(글자를 이어 쳐 그 글자로 시작하는 항목으로 건너뛰기). 커서를 옮기고
+  /// 방향키와 같이 그 항목만 선택한다 — 표시 이름 기준이라 이름 태그로 갈아 낀 이름이
+  /// 있으면 화면에 보이는 그 글자로 찾는다.
+  ///
+  /// **접혀 있어 지금 안 보이는 항목도 찾는다** — 대상은 "필터를 통과한 것"이지 "지금
+  /// 화면에 있는 것"이 아니다. 그래서 접힘을 무시하고 편 순서로 훑고, 맞은 항목이
+  /// 숨어 있으면 그 자리에 이르는 조상(그룹 헤더·폴더)만 펼쳐 드러낸다.
+  ///
+  /// 목록 보기 전용이다. 아이콘·자세히 보기는 자기 포커스를 쥐고 각자 처리한다(그
+  /// 보기가 떠 있는 동안 이 통로로는 글자가 오지 않지만, 포커스가 본문으로 돌아온
+  /// 사이에 엉뚱한 목록의 커서를 움직이지 않도록 함께 막는다).
+  void _typeAhead(String character) {
+    if (ref.read(viewModeProvider) != ViewMode.list) return;
+    final roots = ref.read(fileTreeProvider).valueOrNull;
+    if (roots == null) return;
+    final full = flattenTree(roots, expandedFolders: const {}, expandAll: true);
+    if (full.rows.isEmpty) return;
+    final displayNames = ref.read(displayNameByIdProvider);
+    // 그룹 헤더는 빈 이름으로 넘겨 후보에서 빠지되 자리는 지킨다(인덱스가 행 순서다).
+    final names = [
+      for (final row in full.rows)
+        if (row.item case FileTreeNode(:final node))
+          displayNames[node.id] ?? node.name
+        else
+          '',
+    ];
+    final target = ref
+        .read(typeAheadProvider.notifier)
+        .type(character, names: names, current: _typeAheadOrigin(full.rows));
+    if (target == null) return;
+    final nodeIndex = full.rows[target].nodeIndex;
+    if (nodeIndex == null) return; // 헤더는 빈 이름이라 맞을 수 없다.
+    final id = full.nodes[nodeIndex].id;
+    if (id == null) return;
+    _revealRow(full.rows, target, id);
+    ref.read(navigationCursorProvider.notifier).moveTo(id);
+    ref.read(selectionControllerProvider.notifier).selectSingle(id);
+  }
+
+  /// 빠른 탐색이 훑기 시작할 자리: 커서가 놓인 행(그룹 헤더도 포함)의 위치. 커서가
+  /// 없으면 단일 선택 행을, 그것도 없으면 -1이라 목록 처음부터 훑는다.
+  int _typeAheadOrigin(List<TreeRow> rows) {
+    final cursor = ref.read(navigationCursorProvider);
+    final headerKey = cursor.headerKey;
+    if (headerKey != null) {
+      return rows.indexWhere(
+        (r) => r.nodeIndex == null && r.expandKey == headerKey,
+      );
+    }
+    final id =
+        cursor.nodeId ?? ref.read(selectionControllerProvider).singleOrNull;
+    if (id == null) return -1;
+    return rows.indexWhere((r) {
+      final item = r.item;
+      return item is FileTreeNode && item.node.id == id;
+    });
+  }
+
+  /// 찾은 행이 접힌 조상 아래 숨어 있으면 그 조상들만 펼쳐 드러낸다. 이미 보이는
+  /// 행이면(펼쳐 뒀거나 필터가 전부를 펴 둔 상태) 펼침 상태를 건드리지 않는다 —
+  /// 필터를 걸었을 때까지 저장된 펼침 집합이 불어나지 않게 하기 위함이다.
+  void _revealRow(List<TreeRow> rows, int index, int nodeId) {
+    final visible = _currentFlat();
+    if (visible != null && visible.nodes.any((n) => n.id == nodeId)) return;
+    final keys = ancestorExpandKeys(rows, index);
+    if (keys.isEmpty) return;
+    ref.read(viewSettingsProvider.notifier).expandFolders(keys);
   }
 
   /// Ctrl+Enter. 커서 항목을 다중 선택에 넣거나 뺀다(이미 선택돼 있으면 해제). 커서를
@@ -1392,8 +1513,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _setViewMode(ViewMode mode) =>
       ref.read(viewSettingsProvider.notifier).updateViewMode(mode);
 
-  /// 앱을 종료한다. 데스크톱에서 창을 닫는 표준 경로(프레임워크가 플랫폼 종료로 잇는다).
-  void _exitApp() => SystemNavigator.pop();
+  /// 앱을 종료한다. **창의 X와 같은 경로**로 요청해(`System.exitApplication`) 종료 전
+  /// 정리를 함께 거친다 — 두 길의 뜻이 갈리면 한쪽으로 끝냈을 때만 DB가 닫힌다.
+  ///
+  /// `SystemNavigator.pop()`은 쓰지 않는다: 그 명령은 Android·iOS의 화면 스택을
+  /// 걷어내는 것이라 데스크톱 임베더가 처리하지 않아 **아무 일도 일어나지 않는다**.
+  Future<void> _exitApp() async {
+    await ServicesBinding.instance.exitApplication(AppExitType.cancelable);
+  }
 
   /// 태그 관리를 연다. 데스크톱은 화면 전환 없이 다이얼로그로(생성·편집·삭제·표시
   /// 순서를 한 자리에서), 모바일은 전용 화면으로 간다.
@@ -1457,6 +1584,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         selectionCount: selection.length,
         scanning: _scanning,
         onOpenFilterSheet: () => showFilterSortSheet(context),
+        onCharacter: _typeAhead,
         // 빈 상태(최근 폴더)만 여백을 준다. 목록은 화면 끝까지 채운다.
         body: workspaceRoot != null
             ? body
@@ -1473,6 +1601,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onOpenRecent: _busy ? null : _openWorkspace,
       onSetRootRecursive: workspaceRoot == null ? null : _setRootRecursive,
       onOpenHelpTab: (tab) => showHelpDialog(context, initial: tab),
+      onCharacter: _typeAhead,
       scanning: _scanning,
       previewVisible: _previewVisible,
       presetBarVisible: _presetBarVisible,
@@ -1538,10 +1667,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case ViewMode.detail:
         content = _buildDetailMode(desktop);
     }
-    if (desktop) return content;
     // 당겨서 재스캔(모바일에는 상시 '다시 스캔' 버튼이 없다). 스캔이 시작되면
     // 목록이 스피너로 바뀌므로 RefreshIndicator를 그 바깥에 두어 살려 둔다.
-    return RefreshIndicator(onRefresh: _scan, child: content);
+    // 빠른 탐색 표시는 세 모드가 나눠 쓰는 자리라 가장 바깥에 한 번만 덧댄다.
+    return TypeAheadOverlay(
+      child: desktop
+          ? content
+          : RefreshIndicator(onRefresh: _scan, child: content),
+    );
   }
 
   Widget _buildListMode(SelectionState selection, bool desktop) {
@@ -1611,13 +1744,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (node == null) return;
     // 대상의 모든 조상 폴더 경로를 펼침 집합에 더한다(경로는 '/'로 구분).
     final parts = node.path.split('/');
-    final notifier = ref.read(viewSettingsProvider.notifier);
-    final expanded = ref.read(expandedFoldersProvider);
+    final keys = <String>[];
     var acc = '';
     for (var i = 0; i < parts.length - 1; i++) {
       acc = acc.isEmpty ? parts[i] : '$acc/${parts[i]}';
-      if (!expanded.contains(acc)) notifier.toggleExpandedFolder(acc);
+      keys.add(acc);
     }
+    ref.read(viewSettingsProvider.notifier).expandFolders(keys);
     ref.read(selectionControllerProvider.notifier).selectSingle(id);
     if (!node.isDirectory && !node.isMissing) _showPreview(node);
   }

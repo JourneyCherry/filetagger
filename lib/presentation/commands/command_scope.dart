@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../common/type_ahead.dart';
 import 'app_commands.dart';
 
 /// 명령별 실행 함수. null이면 그 명령은 비활성 — 단축키를 눌러도 아무 일이
@@ -159,10 +160,16 @@ class CommandScope extends StatefulWidget {
     super.key,
     required this.handlers,
     required this.child,
+    this.onCharacter,
     this.autofocus = true,
   });
 
   final CommandHandlers handlers;
+
+  /// 본문 스코프가 포커스를 쥔 채로 친 **글자**(단축키가 아닌 문자 입력)를 받는다.
+  /// 목록의 빠른 탐색이 이 통로를 쓴다 — 텍스트 입력이나 버튼이 포커스를 쥐고 있으면
+  /// 불리지 않아, 필터 줄에 친 글자가 목록으로 새지 않는다.
+  final ValueChanged<String>? onCharacter;
 
   /// 단축키가 곧바로 먹도록 스코프에 포커스를 준다.
   final bool autofocus;
@@ -203,6 +210,18 @@ class _CommandScopeState extends State<CommandScope> {
     return actions;
   }
 
+  /// 글자 입력만 [CommandScope.onCharacter]로 넘기고 나머지는 그대로 흘려보낸다.
+  /// 이 핸들러는 포커스 노드에 달려 있어 위(`Shortcuts`)보다 **먼저** 불리므로,
+  /// 단축키 조합을 삼키지 않도록 [typeAheadCharacter]의 판정에 전부 맡긴다.
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    final onCharacter = widget.onCharacter;
+    if (onCharacter == null) return KeyEventResult.ignored;
+    final character = typeAheadCharacter(node, event);
+    if (character == null) return KeyEventResult.ignored;
+    onCharacter(character);
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
@@ -212,6 +231,7 @@ class _CommandScopeState extends State<CommandScope> {
         child: Focus(
           focusNode: _scopeFocus,
           autofocus: widget.autofocus,
+          onKeyEvent: _onKeyEvent,
           child: widget.child,
         ),
       ),

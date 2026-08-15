@@ -27,10 +27,6 @@ const int kMaxIndentDepth = 6;
 /// 트리 깊이를 실제로 들여쓸 단계로 가둔다.
 int visualIndentDepth(int depth) => depth.clamp(0, kMaxIndentDepth);
 
-/// 커서 점프 판정에서 "실체화 범위"로 보는 뷰포트 밖 여유. ListView 기본 캐시 범위와
-/// 맞춰, 이 안의 행은 이미 그려져 EnsureVisibleOnFocus가 처리한다고 본다.
-const double _kListCacheExtent = 250;
-
 /// 한 노드의 부여 태그를 **행에 보이는 순서**로 낸다: 표시 순서로 정렬한 뒤 표시
 /// 술어를 통과한 칩만. 목록 행 렌더와 키보드 태그 내비게이션이 같은 목록을 쓰도록
 /// 순수 함수로 둔다(둘의 태그 순서·개수가 어긋나면 좌우 이동이 엉킨다).
@@ -160,11 +156,10 @@ class _FileListViewState extends ConsumerState<FileListView> {
     super.dispose();
   }
 
-  /// 커서 행이 화면·캐시 밖(실체화 전)이면 대략 위치로 점프해 실체화시킨다. 그러면
-  /// 그 행의 [EnsureVisibleOnFocus]가 정확한 위치로 마저 맞춘다. 실체화 범위 안이면
-  /// 아무것도 하지 않고 [EnsureVisibleOnFocus]에 맡긴다(가까운 이동의 부드러움 유지).
+  /// 커서 행이 화면·캐시 밖(실체화 전)이면 대략 위치로 점프해 실체화시킨다
+  /// ([jumpToRowIfOffscreen]). 여기서는 커서가 가리키는 행이 몇 번째인지만 찾는다.
   void _ensureCursorVisible(Object anchor) {
-    if (!mounted || !_scroll.hasClients) return;
+    if (!mounted) return;
     final rows = _rows;
     final idx = rows.indexWhere((r) {
       if (anchor is String) {
@@ -173,22 +168,7 @@ class _FileListViewState extends ConsumerState<FileListView> {
       final it = r.item;
       return it is FileTreeNode && it.node.id == anchor;
     });
-    if (idx < 0) return;
-    final pos = _scroll.position;
-    final viewport = pos.viewportDimension;
-    // 평균 행 높이로 대상의 대략 위치를 어림한다(행 높이가 태그 줄로 변하지만 근사면
-    // 충분하다 — 실체화 후 정확한 위치는 EnsureVisibleOnFocus가 맞춘다).
-    final avg = (pos.maxScrollExtent + viewport) / rows.length;
-    final targetTop = idx * avg;
-    final viewTop = pos.pixels;
-    final viewBottom = viewTop + viewport;
-    // 대상이 뷰포트 + 캐시 범위 밖이면(실체화 전) 대략 위치로 점프한다.
-    if (targetTop + avg >= viewTop - _kListCacheExtent &&
-        targetTop <= viewBottom + _kListCacheExtent) {
-      return; // 실체화 범위 안 → EnsureVisibleOnFocus가 처리
-    }
-    final target = (targetTop - viewport / 2).clamp(0.0, pos.maxScrollExtent);
-    _scroll.jumpTo(target);
+    jumpToRowIfOffscreen(_scroll, idx, rows.length);
   }
 
   @override

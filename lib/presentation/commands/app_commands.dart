@@ -355,10 +355,10 @@ final List<AppCommand> appCommands = [
   ),
   // 좌우는 Enter처럼 커서 위치로 뜻이 갈린다: 행 레벨이면 트리 관용의 접기/펼치기,
   // 태그 칸에 들어가 있으면 칸 이동. 같은 키에 두 명령을 걸 수 없어 한 명령이 갈래를
-  // 정한다. 그룹 헤더는 커서가 닿지 못해(선택 대상이 아니다) 폴더 행에만 걸린다.
+  // 정한다. 왼쪽은 접을 것이 없으면 상위 행으로 올라가 계층을 거슬러 오른다.
   const AppCommand(
     id: AppCommandId.cursorLeft,
-    label: '접기 / 태그 왼쪽',
+    label: '접기 · 상위로 / 태그 왼쪽',
     intent: CursorLeftIntent(),
     shortcut: SingleActivator(LogicalKeyboardKey.arrowLeft),
     requiresScopeFocus: true,

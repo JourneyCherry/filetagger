@@ -128,6 +128,94 @@ void main() {
     expect(flat.nodeIds, isEmpty);
   });
 
+  group('parentRowIndex', () {
+    test('자기보다 얕은 가장 가까운 앞 행을 낸다', () {
+      final rows = flattenTree(
+        _sample(),
+        expandedFolders: const {},
+        expandAll: true,
+      ).rows;
+      // ['a', 'a/b', 'a/b/deep.txt', 'a/leaf.txt', 'top.txt']
+      expect(parentRowIndex(rows, 1), 0); // a/b → a
+      expect(parentRowIndex(rows, 2), 1); // deep.txt → a/b
+      expect(parentRowIndex(rows, 3), 0); // leaf.txt → a (a/b를 건너뛴다)
+    });
+
+    test('최상위 행과 범위 밖은 -1', () {
+      final rows = flattenTree(
+        _sample(),
+        expandedFolders: const {},
+        expandAll: true,
+      ).rows;
+      expect(parentRowIndex(rows, 0), -1);
+      expect(parentRowIndex(rows, 4), -1);
+      expect(parentRowIndex(rows, -1), -1);
+      expect(parentRowIndex(rows, rows.length), -1);
+    });
+
+    test('그룹 헤더도 부모가 된다', () {
+      final flat = flattenTree(
+        [
+          _group(1, 'red', <TreeItem>[_file('x.txt')]),
+        ],
+        expandedFolders: const {},
+        expandAll: true,
+      );
+      expect(parentRowIndex(flat.rows, 1), 0);
+      expect(flat.rows[0].item, isA<GroupHeaderNode>());
+    });
+  });
+
+  group('ancestorExpandKeys', () {
+    test('접혀 있어도 다 편 순서에서 조상 사슬을 바깥→안쪽으로 낸다', () {
+      final rows = flattenTree(
+        _sample(),
+        expandedFolders: const {},
+        expandAll: true,
+      ).rows;
+      // ['a', 'a/b', 'a/b/deep.txt', 'a/leaf.txt', 'top.txt']
+      expect(ancestorExpandKeys(rows, 2), ['a', 'a/b']);
+      expect(ancestorExpandKeys(rows, 3), ['a']);
+    });
+
+    test('최상위 행은 펼칠 조상이 없다', () {
+      final rows = flattenTree(
+        _sample(),
+        expandedFolders: const {},
+        expandAll: true,
+      ).rows;
+      expect(ancestorExpandKeys(rows, 0), isEmpty);
+      expect(ancestorExpandKeys(rows, 4), isEmpty);
+    });
+
+    test('그룹 헤더도 조상으로 함께 낸다(폴더와 가리지 않는다)', () {
+      final flat = flattenTree(
+        [
+          _group(1, 'red', <TreeItem>[
+            _dir('a', [_file('a/x.txt')]),
+          ]),
+        ],
+        expandedFolders: const {},
+        expandAll: true,
+      );
+      // 헤더 → 폴더 → 파일.
+      final keys = ancestorExpandKeys(flat.rows, 2);
+      expect(keys, hasLength(2));
+      expect(keys.first, flat.rows.first.expandKey); // 헤더가 바깥
+      expect(keys.last, 'a');
+    });
+
+    test('범위 밖 인덱스는 빈 목록', () {
+      final rows = flattenTree(
+        _sample(),
+        expandedFolders: const {},
+        expandAll: true,
+      ).rows;
+      expect(ancestorExpandKeys(rows, -1), isEmpty);
+      expect(ancestorExpandKeys(rows, rows.length), isEmpty);
+    });
+  });
+
   test('같은 값 버킷이라도 조상 맥락이 다르면 펼침 키가 갈린다', () {
     GroupHeaderNode bucket() => _group(1, 'red', <TreeItem>[_file('x.txt')]);
     final flat = flattenTree(

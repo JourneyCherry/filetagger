@@ -73,3 +73,35 @@ class _EnsureVisibleOnFocusState extends State<EnsureVisibleOnFocus> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
+
+/// 커서 점프 판정에서 "실체화 범위"로 보는 뷰포트 밖 여유. 가상화 목록의 기본 캐시
+/// 범위와 맞춰, 이 안의 행은 이미 그려져 [EnsureVisibleOnFocus]가 처리한다고 본다.
+const double kListCacheExtent = 250;
+
+/// 가상화된 목록에서 [index] 행이 **실체화 범위 밖**이면 대략 위치로 먼저 점프해 그
+/// 행을 실체화시킨다. 그러면 그 행의 [EnsureVisibleOnFocus]가 정확한 위치로 마저
+/// 맞춘다. 범위 안이면 아무것도 하지 않고 그쪽에 맡긴다(가까운 이동의 부드러움 유지).
+///
+/// 한 칸씩 옮기는 방향키에는 필요 없지만 **멀리 건너뛰는** 이동(빠른 탐색)은 대상 행에
+/// 위젯이 없어 자기-노출이 먹지 않는다. 격자(아이콘 보기)는 항목이 아니라 **줄**을
+/// 단위로 넘긴다.
+void jumpToRowIfOffscreen(
+  ScrollController controller,
+  int index,
+  int rowCount,
+) {
+  if (!controller.hasClients || index < 0 || index >= rowCount) return;
+  final pos = controller.position;
+  final viewport = pos.viewportDimension;
+  // 평균 행 높이로 대상의 대략 위치를 어림한다(행 높이가 태그 줄 등으로 조금씩
+  // 달라져도 근사면 충분하다 — 실체화 후 정확한 위치는 자기-노출이 맞춘다).
+  final avg = (pos.maxScrollExtent + viewport) / rowCount;
+  final targetTop = index * avg;
+  final viewTop = pos.pixels;
+  final viewBottom = viewTop + viewport;
+  if (targetTop + avg >= viewTop - kListCacheExtent &&
+      targetTop <= viewBottom + kListCacheExtent) {
+    return; // 실체화 범위 안 → EnsureVisibleOnFocus가 처리
+  }
+  controller.jumpTo((targetTop - viewport / 2).clamp(0.0, pos.maxScrollExtent));
+}

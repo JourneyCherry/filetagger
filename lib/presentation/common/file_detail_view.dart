@@ -22,6 +22,7 @@ import '../widgets/tag_assign_dialog.dart';
 import 'focus_reveal.dart';
 import 'navigation_cursor.dart';
 import 'selection_controller.dart';
+import 'type_ahead.dart';
 
 /// 배율 1.0일 때 이름 셀 썸네일 한 변. zoom 배율을 곱한다(Ctrl/⌘+휠).
 const double _baseThumb = 20;
@@ -106,6 +107,9 @@ class FileDetailView extends ConsumerStatefulWidget {
 class _FileDetailViewState extends ConsumerState<FileDetailView> {
   final ScrollController _horizontal = ScrollController();
 
+  /// 빠른 탐색이 멀리 떨어진 행으로 건너뛰었을 때 표를 그리로 끌어오기 위한 컨트롤러.
+  final ScrollController _vertical = ScrollController();
+
   /// 조절 중인 컬럼의 임시 폭(놓는 순간 저장하고 지운다).
   final Map<int, double> _resizing = {};
 
@@ -150,6 +154,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
   @override
   void dispose() {
     _horizontal.dispose();
+    _vertical.dispose();
     _editController.dispose();
     _editFocus.dispose();
     _navFocus.dispose();
@@ -191,6 +196,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
           child: Focus(
             focusNode: _navFocus,
             autofocus: true,
+            onKeyEvent: _onKeyEvent,
             child: MediaQuery(
               data: mq.copyWith(textScaler: TextScaler.linear(scale)),
               child: Scrollbar(
@@ -210,6 +216,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
                           child: list.isEmpty
                               ? _empty(context)
                               : ListView.builder(
+                                  controller: _vertical,
                                   padding: widget.padding,
                                   itemCount: list.length,
                                   itemBuilder: (context, index) => _dataRow(
@@ -281,6 +288,43 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
         _toggleCursorSelection,
     const SingleActivator(LogicalKeyboardKey.delete): _clearCell,
   };
+
+  /// 글자 입력은 빠른 탐색으로 보내고 나머지 키는 그대로 흘려보낸다. 셀 편집 중엔
+  /// 안쪽 입력창이 포커스를 쥐어 [typeAheadCharacter]가 걸러 낸다(친 글자가 표의
+  /// 커서를 움직이지 않는다).
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    final character = typeAheadCharacter(node, event);
+    if (character == null) return KeyEventResult.ignored;
+    _typeAhead(character);
+    return KeyEventResult.handled;
+  }
+
+  /// 빠른 탐색: 친 글자로 시작하는 행으로 커서를 옮기고 그 행만 선택한다. 열 커서는
+  /// 그대로 둔다(찾는 것은 행이지 셀이 아니다).
+  void _typeAhead(String character) {
+    final list = ref.read(detailRowsProvider).valueOrNull;
+    if (list == null || list.isEmpty) return;
+    final displayNames = ref.read(displayNameByIdProvider);
+    final names = [for (final node in list) displayNames[node.id] ?? node.name];
+    final current =
+        _cursorNodeId ?? ref.read(selectionControllerProvider).singleOrNull;
+    final target = ref
+        .read(typeAheadProvider.notifier)
+        .type(
+          character,
+          names: names,
+          current: current == null
+              ? -1
+              : list.indexWhere((n) => n.id == current),
+        );
+    if (target == null) return;
+    final id = list[target].id;
+    if (id == null) return;
+    setState(() => _cursorNodeId = id);
+    ref.read(selectionControllerProvider.notifier).selectSingle(id);
+    // 멀리 건너뛰면 그 행의 자기-노출이 먹지 않는다(위젯이 아직 없다).
+    jumpToRowIfOffscreen(_vertical, target, list.length);
+  }
 
   /// Ctrl+Enter: 커서 행을 다중 선택에 넣거나 뺀다(이미 선택돼 있으면 해제).
   void _toggleCursorSelection() {

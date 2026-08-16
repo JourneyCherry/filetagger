@@ -417,17 +417,13 @@ Android 관련 줄에 경고가 남아 있어도 이 앱을 빌드하는 데는 
 
 ```powershell
 flutter pub get
-flutter build windows --release --dart-define=FILETAGGER_CHANNEL=portable
+flutter build windows --release
 ```
 
-`--dart-define`을 빼면 **설치판으로 빌드되어 설정이 OS 애플리케이션 데이터 폴더에
-저장됩니다.** 위처럼 적어야 릴리즈와 같은 포터블판(설정을 실행 파일 옆에 두는 형태)이
-됩니다.
-
-**버전은 따로 지정할 필요가 없습니다.** Flutter 빌드가 `pubspec.yaml`의 버전을 실행
-파일에 새기고 앱이 그것을 되읽어, 정보 창에 보이고 업데이트 확인도 그 값으로 최신
-릴리즈와 견줍니다. 정보 창의 배포 형태 자리에는 릴리즈 산출물이 아니라는 뜻으로
-"개발 빌드"라고 표시됩니다.
+**추가 인자는 필요 없습니다.** 이렇게 빌드하면 릴리즈와 같은 포터블판(설정을 실행 파일
+옆에 두는 형태)이 나옵니다. 버전도 따로 지정할 필요가 없습니다 — Flutter 빌드가
+`pubspec.yaml`의 버전을 실행 파일에 새기고 앱이 그것을 되읽어, 정보 창에 보이고
+업데이트 확인도 그 값으로 최신 릴리즈와 견줍니다.
 
 **4단계 — 산출물**
 
@@ -445,7 +441,7 @@ C++ 도구와 GTK 개발 헤더가 필요합니다(Debian·Ubuntu 계열 기준)
 ```bash
 sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
 flutter pub get
-flutter build linux --release --dart-define=FILETAGGER_CHANNEL=portable
+flutter build linux --release
 ```
 
 산출물은 `build/linux/x64/release/bundle/`에 나옵니다.
@@ -455,6 +451,9 @@ flutter build linux --release --dart-define=FILETAGGER_CHANNEL=portable
 ```bash
 flutter run -d windows        # 또는 -d linux
 ```
+
+개발 실행도 포터블로 잡히므로 **전역 설정이 빌드 폴더 안에 남고, 빌드를 지우면 함께
+사라집니다.** 첫 실행 상태를 다시 보고 싶을 때 그 파일만 지우면 됩니다.
 
 생성 파일(`*.g.dart`)은 저장소에 함께 커밋되어 있으므로 **빌드 전에 따로 돌릴 필요가
 없습니다.** DB 스키마 등 생성 대상을 고쳤을 때만 다시 만듭니다.

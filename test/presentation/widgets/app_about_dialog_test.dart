@@ -31,6 +31,17 @@ void main() {
     expect(find.text(appDisplayName), findsOneWidget);
   });
 
+  testWidgets('버전 줄에 배포 형태를 함께 보인다', (tester) async {
+    // 테스트는 주입 없이 도는 실행이라 직접 빌드와 같은 상태다 — 채널이 포터블로
+    // 눕고, 그 실행은 정말로 설정을 실행 파일 옆에 두므로 그대로 적어도 맞다.
+    await pumpAbout(tester);
+
+    expect(find.textContaining('포터블'), findsOneWidget);
+    expect(find.textContaining('설치판'), findsNothing);
+    // 빌드 종류(개발 빌드 등)는 어느 빌드에서도 적지 않는다.
+    expect(find.textContaining('개발'), findsNothing);
+  });
+
   testWidgets('라이선스 화면으로 넘어간다', (tester) async {
     // 라이선스 원문은 프레임워크 내장 화면이 맡는다. 여기선 그 입구가 살아 있는지만
     // 본다(목록 내용은 빌드가 모으는 것이라 테스트 환경에 없다).

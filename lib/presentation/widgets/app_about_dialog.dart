@@ -18,17 +18,22 @@ Future<void> showAppAboutDialog(BuildContext context) =>
 
 /// 정보 다이얼로그·라이선스 화면에 함께 쓰는 버전 한 줄.
 ///
-/// **직접 빌드한 실행도 버전을 보인다** — pubspec에서 읽어 채우기 때문이다. 다만
-/// 릴리즈 산출물이 아니라는 사실은 배포 형태 자리에 밝힌다(직접 빌드에 "설치판"·
-/// "포터블"이라고 적으면 사실과 다르다). 버전을 끝내 읽지 못했으면 그 자리를 비운다.
+/// **직접 빌드한 실행도 버전과 배포 형태를 함께 보인다.** 버전은 pubspec에서 읽어
+/// 채우고, 배포 형태는 **채널을 그대로 적어도 사실과 어긋나지 않는다** — 주입이 없는
+/// 빌드는 정말로 설정을 실행 파일 옆에 두는 포터블이고, 설치판은 패키징이 채널을
+/// 명시했을 때만 나온다. 그래서 이 줄은 릴리즈 산출물인지를 묻지 않는다.
+///
+/// 그 자리에 빌드 종류를 적지도 않는다 — 사용자가 이 줄에서 알아야 하는 것은 자기가
+/// 쓰는 버전과 그것이 어떤 형태인지이지, 어떻게 컴파일되었는지가 아니다. 버전을 끝내
+/// 읽지 못했을 때만 그 사실을 밝히고, 배포 형태는 그때도 그대로 붙인다(둘은 서로
+/// 모르는 값이라, 하나를 몰랐다고 아는 쪽까지 감출 이유가 없다).
 String get _versionLine {
-  final kind = isDevelopmentBuild
-      ? '개발 빌드'
-      : switch (distributionChannel) {
-          DistributionChannel.portable => '포터블',
-          DistributionChannel.package => '설치판',
-        };
-  return appVersion.isEmpty ? kind : '버전 $appVersion · $kind';
+  final kind = switch (distributionChannel) {
+    DistributionChannel.portable => '포터블',
+    DistributionChannel.package => '설치판',
+  };
+  final version = appVersion.isEmpty ? '버전을 알 수 없음' : '버전 $appVersion';
+  return '$version · $kind';
 }
 
 class _AboutDialog extends StatelessWidget {

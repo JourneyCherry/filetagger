@@ -9,25 +9,32 @@ void main() {
       }
     });
 
-    test('주입이 없으면 설치판으로 눕는다', () {
-      expect(DistributionChannel.parse(''), DistributionChannel.package);
+    test('주입이 없으면 포터블로 눕는다', () {
+      // 주입이 없는 실행은 직접 빌드한 산출물이고, 그것은 폴더째 들고 다니는
+      // 형태다. 설치판은 패키징이 채널을 명시해 갈아탄다.
+      expect(DistributionChannel.parse(''), DistributionChannel.portable);
     });
 
-    test('모르는 값도 설치판으로 눕는다 — 포터블로 오인하지 않는다', () {
-      expect(DistributionChannel.parse('store'), DistributionChannel.package);
+    test('모르는 값도 포터블로 눕는다 — 비슷한 이름을 주워 담지 않는다', () {
+      expect(DistributionChannel.parse('store'), DistributionChannel.portable);
+      // 대소문자가 다른 이름은 그 채널로 쳐 주지 않는다.
       expect(
         DistributionChannel.parse(
-          DistributionChannel.portable.name.toUpperCase(),
+          DistributionChannel.package.name.toUpperCase(),
         ),
-        DistributionChannel.package,
+        DistributionChannel.portable,
       );
     });
   });
 
-  test('주입 없이 돌린 테스트는 개발 빌드로 잡힌다', () {
+  test('주입이 없으면 릴리즈 산출물이 아니다', () {
+    // 채널이 포터블로 눕는다고 해서 포터블 배포본인 것은 아니다 — 눕는 것은 안전한
+    // 기본값을 고르는 일이지 배포 형태를 아는 일이 아니다. 배포 형태를 묻는 자리는
+    // 눕은 값이 아니라 주입 여부를 봐야 한다(직접 빌드를 정식 배포본으로 오인하지
+    // 않기 위함).
     expect(injectedVersion, isEmpty);
-    expect(isDevelopmentBuild, isTrue);
-    expect(distributionChannel, DistributionChannel.package);
+    expect(isReleaseArtifact, isFalse);
+    expect(distributionChannel, DistributionChannel.portable);
   });
 
   test('주입이 없으면 나중에 읽은 버전이 채워진다', () {

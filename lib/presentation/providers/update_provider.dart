@@ -15,8 +15,13 @@ final releaseRepositoryProvider = Provider<ReleaseRepository>(
 ///
 /// 설치판은 스토어를 거쳐 나가는 형태다 — 그쪽은 갱신을 스토어가 관장하고 앱이
 /// 스스로 받아 까는 것을 지원하지 않으므로, 배포처를 조회할 이유가 없다.
+///
+/// **릴리즈 산출물인지를 먼저 묻는다.** 채널은 주입이 없어도 설치판으로 눕는데(설정
+/// 저장 위치를 위한 안전판이다), 채널만 보면 직접 빌드한 실행까지 스토어 배포본으로
+/// 잡혀 배포처를 조회하지 못한다 — 스토어가 갱신해 줄 리 없는 실행이 "스토어가
+/// 관리한다"는 답만 받고 릴리즈 페이지로 갈 길이 막힌다.
 bool get storeManagedBuild =>
-    distributionChannel == DistributionChannel.package;
+    isReleaseArtifact && distributionChannel == DistributionChannel.package;
 
 /// 업데이트 확인 결과.
 ///

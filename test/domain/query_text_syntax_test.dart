@@ -107,8 +107,13 @@ void main() {
     });
 
     test('예약 접두사로 시작하는 이름만 인용한다', () {
-      expect(quoteQueryToken('-급', reservedPrefix: '-'), '"-급"');
-      expect(quoteQueryToken('급-', reservedPrefix: '-'), '급-');
+      expect(quoteQueryToken('-급', reservedPrefixes: {'-'}), '"-급"');
+      expect(quoteQueryToken('급-', reservedPrefixes: {'-'}), '급-');
+    });
+
+    test('예약 접두사가 여럿이면 그중 하나로 시작해도 인용한다', () {
+      expect(quoteQueryToken('?급', reservedPrefixes: {'-', '?'}), '"?급"');
+      expect(quoteQueryToken('급', reservedPrefixes: {'-', '?'}), '급');
     });
 
     test('인용한 이름을 다시 읽으면 원래 이름이 나온다', () {

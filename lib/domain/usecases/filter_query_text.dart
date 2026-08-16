@@ -266,7 +266,7 @@ String formatFilterQuery(
 String filterTagToken(TagDefinition def) => quoteQueryToken(
   def.name,
   reserved: _operatorStartChars,
-  reservedPrefix: kFilterExcludePrefix,
+  reservedPrefixes: {kFilterExcludePrefix},
 );
 
 // ── 자동완성 ──

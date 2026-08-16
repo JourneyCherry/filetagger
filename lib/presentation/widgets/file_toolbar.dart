@@ -389,14 +389,14 @@ class FileToolbar extends ConsumerWidget {
           index: index,
           sortKey: key,
           definition: def,
-          // label·image는 존재 여부로만 정렬하므로 방향 토글이 의미 없다.
+          // label·image는 존재 여부로만 정렬하므로 정렬 방법을 바꿔도 결과가 같다.
           onToggle:
               (def?.valueType == TagValueType.label ||
                   def?.valueType == TagValueType.image)
               ? null
               : () => ref
                     .read(viewSettingsProvider.notifier)
-                    .updateSort(sort.toggleAt(index)),
+                    .updateSort(sort.cycleAt(index)),
           onDelete: () => ref
               .read(viewSettingsProvider.notifier)
               .updateSort(sort.removeAt(index)),
@@ -634,7 +634,7 @@ class _FilterChip extends StatelessWidget {
 
 /// 도구모음에 놓인 정렬 단계 칩. 겉모습은 텍스트 입력의 캡슐과 공유하고
 /// ([SortKeyChip]), 여기선 순서 변경 손잡이와 삭제 버튼을 켜 동작까지 붙인다.
-/// 탭하면 방향 토글, x로 즉시 제거한다.
+/// 탭하면 정렬 방법이 다음 것으로 넘어가고, x로 즉시 제거한다.
 class _SortChip extends StatelessWidget {
   const _SortChip({
     super.key,
@@ -649,7 +649,7 @@ class _SortChip extends StatelessWidget {
   final SortKey sortKey;
   final TagDefinition? definition;
 
-  /// null이면 방향 토글이 없는 정렬(label).
+  /// null이면 정렬 방법을 고를 수 없는 정렬(label).
   final VoidCallback? onToggle;
   final VoidCallback onDelete;
 
@@ -927,8 +927,8 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
   }
 }
 
-/// 정렬 기준(태그 + 방향)을 추가하는 다이얼로그. label 태그는 존재 여부로만
-/// 정렬해 방향 선택을 숨긴다.
+/// 정렬 기준(태그 + 정렬 방법)을 추가하는 다이얼로그. label 태그는 존재 여부로만
+/// 정렬해 방법 선택을 숨긴다.
 class _SortKeyEditor extends StatefulWidget {
   const _SortKeyEditor({required this.candidates});
 
@@ -942,7 +942,7 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
   int? _tagId;
   SortDirection _direction = SortDirection.ascending;
 
-  /// label·image는 존재 여부로만 정렬해 방향 선택이 의미 없다(방향 UI를 감춘다).
+  /// label·image는 존재 여부로만 정렬해 방법 선택이 의미 없다(선택 UI를 감춘다).
   bool get _isLabel {
     final def = _tagId == null ? null : _defOf(_tagId!);
     return def?.valueType == TagValueType.label ||
@@ -954,6 +954,17 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
       if (d.id == id) return d;
     }
     return null;
+  }
+
+  /// 고른 것으로 만든 정렬 단계. label은 방법이 무의미하므로 오름차순으로 고정하고,
+  /// 무작위는 새 씨앗을 뽑아 이 단계만의 섞는 방법을 갖는다.
+  SortKey get _result {
+    final id = _tagId!;
+    if (_isLabel) return SortKey(tagDefinitionId: id);
+    if (_direction == SortDirection.random) {
+      return SortKey.shuffled(tagDefinitionId: id);
+    }
+    return SortKey(tagDefinitionId: id, direction: _direction);
   }
 
   @override
@@ -978,10 +989,10 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
                 const SizedBox(height: 16),
                 if (_isLabel)
                   Text(
-                    '라벨 태그는 방향과 무관하게 부여된 항목을 위로 정렬합니다.',
+                    '라벨 태그는 정렬 방법과 무관하게 부여된 항목을 위로 정렬합니다.',
                     style: Theme.of(context).textTheme.bodySmall,
                   )
-                else
+                else ...[
                   SegmentedButton<SortDirection>(
                     showSelectedIcon: false,
                     segments: const [
@@ -995,11 +1006,25 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
                         label: Text('내림차순'),
                         icon: Icon(Icons.arrow_downward, size: 16),
                       ),
+                      ButtonSegment(
+                        value: SortDirection.random,
+                        label: Text('무작위'),
+                        icon: Icon(Icons.shuffle, size: 16),
+                      ),
                     ],
                     selected: {_direction},
                     onSelectionChanged: (s) =>
                         setState(() => _direction = s.first),
                   ),
+                  if (_direction == SortDirection.random) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '값의 순서 대신 무작위로 섞습니다. 값이 같은 항목끼리는 흐트러지지 않아 '
+                      '뒤 단계의 정렬이 그대로 적용됩니다.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ],
               ],
             ],
           ),
@@ -1012,15 +1037,7 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
           FilledButton(
             onPressed: _tagId == null
                 ? null
-                : () => Navigator.of(context).pop(
-                    SortKey(
-                      tagDefinitionId: _tagId!,
-                      // label은 방향이 무의미하므로 오름차순으로 고정.
-                      direction: _isLabel
-                          ? SortDirection.ascending
-                          : _direction,
-                    ),
-                  ),
+                : () => Navigator.of(context).pop(_result),
             child: const Text('추가'),
           ),
         ],

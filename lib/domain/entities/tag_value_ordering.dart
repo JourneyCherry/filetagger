@@ -56,6 +56,18 @@ class TagValueKey implements Comparable<TagValueKey> {
   }
 }
 
+/// 무작위 정렬에서 값 하나가 갖는 자리.
+///
+/// 씨앗과 값에서만 나오는 **순수 함수**다. 그래서 (1) 같은 씨앗이면 목록을 다시
+/// 세워도 같은 순서가 나오고 — 값을 만나는 차례에 따라 자리를 나눠 주면 재스캔·태그
+/// 수정 때마다 화면이 흐트러진다 —, (2) 같은 값이면 자리도 같아 무작위 단계에서도
+/// 동률이 성립한다(그래서 다음 정렬 단계로 넘어간다).
+///
+/// 사전순 비교와 같은 [TagValueKey.lowerValue]에서 뽑아, 대소문자만 다른 값이
+/// 오름차순에서 동률이던 것이 여기서도 동률로 남는다.
+int randomOrderRank(int seed, TagValueKey key) =>
+    Object.hash(seed, key.lowerValue);
+
 /// 태그값 두 개를 유형에 맞게 비교한다([TagValueKey]의 규칙 그대로).
 ///
 /// 두 값 모두 존재(비어있지 않음)한다고 가정한다. 한 값을 여러 번 견주는 자리라면

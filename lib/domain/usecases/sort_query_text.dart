@@ -19,14 +19,46 @@ import 'query_text_syntax.dart';
 
 // ── 문법 토큰 (단일 출처) ──
 
-/// 내림차순을 뜻하는, 태그 이름 앞의 접두사. 붙이지 않으면 오름차순이다.
+/// 내림차순을 뜻하는, 태그 이름 앞의 접두사. 아무 접두사도 붙이지 않으면 오름차순이다.
 ///
 /// 필터의 제외 접두사와 글자가 같지만 다른 언어의 다른 토큰이다. 두 줄이 한
 /// 화면에 붙어 있으므로 뜻을 섞지 않도록 정의를 따로 둔다.
 const String kSortDescendingPrefix = '-';
 
-/// 방향을 가리는 태그인지. label은 값이 없어 존재 여부로만 정렬하므로 방향이 없다.
+/// 무작위 정렬을 뜻하는, 태그 이름 앞의 접두사.
+const String kSortRandomPrefix = '?';
+
+/// 접두사로 쓰이는 글자 전부(이 글자로 시작하는 태그 이름은 인용해야 갈린다).
+const Set<String> kSortDirectionPrefixes = {
+  kSortDescendingPrefix,
+  kSortRandomPrefix,
+};
+
+/// 정렬 방법을 가리는 태그인지. label은 값이 없어 존재 여부로만 정렬하므로 오름·내림·
+/// 무작위가 모두 같은 결과가 된다.
 bool sortDirectionApplies(TagValueType type) => type != TagValueType.label;
+
+/// 조각 앞에 붙은 접두사가 가리키는 정렬 방법과 그 접두사의 길이. 접두사가 없으면
+/// 오름차순이고 길이는 0이다.
+({SortDirection direction, int length}) _readDirectionPrefix(String raw) {
+  if (raw.startsWith(kSortDescendingPrefix)) {
+    return (
+      direction: SortDirection.descending,
+      length: kSortDescendingPrefix.length,
+    );
+  }
+  if (raw.startsWith(kSortRandomPrefix)) {
+    return (direction: SortDirection.random, length: kSortRandomPrefix.length);
+  }
+  return (direction: SortDirection.ascending, length: 0);
+}
+
+/// 정렬 방법을 되펼칠 때 이름 앞에 붙일 접두사(오름차순은 없다).
+String _directionPrefix(SortDirection direction) => switch (direction) {
+  SortDirection.ascending => '',
+  SortDirection.descending => kSortDescendingPrefix,
+  SortDirection.random => kSortRandomPrefix,
+};
 
 // ── 파싱 결과 ──
 
@@ -35,7 +67,7 @@ enum SortQueryError {
   /// 그 이름의 태그 정의가 없다(오타이거나 삭제된 태그).
   unknownTag,
 
-  /// 방향이 없는 태그(label)에 방향 접두사를 붙였다.
+  /// 정렬 방법을 가리지 않는 태그(label)에 접두사를 붙였다.
   directionNotAllowed,
 
   /// 인용부호가 닫히지 않았다(대개 입력 중인 미완성 조각).
@@ -102,14 +134,9 @@ FileSortOrder sortFromKeys(Iterable<SortKey> keys) {
 }
 
 SortQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
-  var cursor = 0;
-  var descending = false;
-  if (raw.startsWith(kSortDescendingPrefix)) {
-    descending = true;
-    cursor = kSortDescendingPrefix.length;
-  }
+  final prefix = _readDirectionPrefix(raw);
 
-  final name = readClosedQueryField(raw, cursor);
+  final name = readClosedQueryField(raw, prefix.length);
   if (name == null) {
     return SortQueryFragment(raw, SortQueryError.unterminatedQuote);
   }
@@ -120,17 +147,15 @@ SortQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
   final def = name.value.isEmpty ? null : byName[name.value];
   if (def == null) return SortQueryFragment(raw, SortQueryError.unknownTag);
 
-  if (descending && !sortDirectionApplies(def.valueType)) {
+  if (prefix.length > 0 && !sortDirectionApplies(def.valueType)) {
     return SortQueryFragment(raw, SortQueryError.directionNotAllowed);
   }
+  // 무작위 조각은 읽을 때마다 새로 섞는다 — 고쳐 넣는 것이 곧 "다시 섞기"다.
   return SortQueryKey(
     raw,
-    SortKey(
-      tagDefinitionId: def.id!,
-      direction: descending
-          ? SortDirection.descending
-          : SortDirection.ascending,
-    ),
+    prefix.direction == SortDirection.random
+        ? SortKey.shuffled(tagDefinitionId: def.id!)
+        : SortKey(tagDefinitionId: def.id!, direction: prefix.direction),
   );
 }
 
@@ -139,12 +164,12 @@ SortQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
 /// 정렬 단계 하나를 텍스트 조각으로 되돌린다. 캡슐을 되펼칠 때 쓰는 형태이며,
 /// 그대로 다시 파싱하면 같은 단계가 나온다.
 String formatSortKey(SortKey key, TagDefinition def) {
-  // 방향이 없는 태그에 접두사를 붙이면 되읽을 때 무효 조각이 된다. 저장된 값이
-  // 어떻든 왕복이 깨지지 않도록 여기서 방향을 지운다.
-  final descending =
-      key.direction == SortDirection.descending &&
-      sortDirectionApplies(def.valueType);
-  return '${descending ? kSortDescendingPrefix : ''}${sortTagToken(def)}';
+  // 정렬 방법을 가리지 않는 태그에 접두사를 붙이면 되읽을 때 무효 조각이 된다.
+  // 저장된 값이 어떻든 왕복이 깨지지 않도록 여기서 접두사를 지운다.
+  final direction = sortDirectionApplies(def.valueType)
+      ? key.direction
+      : SortDirection.ascending;
+  return '${_directionPrefix(direction)}${sortTagToken(def)}';
 }
 
 /// 정렬 순서 전체를 텍스트 한 줄로 되돌린다.
@@ -163,14 +188,14 @@ String formatSortQuery(
   return parts.join(kQuerySeparator);
 }
 
-/// 태그 이름을 정렬 조각에 넣을 수 있는 형태로. 방향 접두사로 시작하는 이름은
-/// 인용해야 내림차순 표기와 갈리지 않는다.
+/// 태그 이름을 정렬 조각에 넣을 수 있는 형태로. 접두사로 시작하는 이름은 인용해야
+/// 정렬 방법 표기와 갈리지 않는다.
 String sortTagToken(TagDefinition def) =>
-    quoteQueryToken(def.name, reservedPrefix: kSortDescendingPrefix);
+    quoteQueryToken(def.name, reservedPrefixes: kSortDirectionPrefixes);
 
 // ── 자동완성 ──
 //
-// 방향이 접두사라 조각은 통째로 태그 이름 자리다(접두사 위의 커서도 여기 든다).
+// 정렬 방법이 접두사라 조각은 통째로 태그 이름 자리다(접두사 위의 커서도 여기 든다).
 // 그래서 필터와 달리 자리를 가릴 것이 없고, 후보는 늘 태그 이름이다.
 
 /// 태그 자리의 후보. 이름에 인용이 필요하면 인용된 형태로 넣는다.
@@ -195,7 +220,7 @@ final class SortQueryCompletions {
   /// 이름 자리에 커서 앞까지 입력된, 인용·이스케이프를 푼 문자열. 후보를 거른 기준.
   final String query;
 
-  /// 후보를 고를 때 원문에서 갈아 끼울 구간(방향 접두사는 건드리지 않는다).
+  /// 후보를 고를 때 원문에서 갈아 끼울 구간(접두사는 건드리지 않는다).
   final int replaceStart;
   final int replaceEnd;
 
@@ -219,9 +244,7 @@ SortQueryCompletions sortQueryCompletions(
   final chunk = range == null ? '' : text.substring(range.start, range.end);
   final local = at - chunkStart;
 
-  final nameStart = chunk.startsWith(kSortDescendingPrefix)
-      ? kSortDescendingPrefix.length
-      : 0;
+  final nameStart = _readDirectionPrefix(chunk).length;
   final name = readQueryField(chunk, nameStart);
   final query = queryFieldPrefix(chunk, nameStart, local);
 

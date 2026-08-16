@@ -48,14 +48,20 @@ FileFilter filterFromJson(Object? json) {
   return FileFilter(conditions: conditions);
 }
 
+/// 씨앗은 무작위 정렬에서만 뜻이 있어 그때만 담는다 — 다른 방법의 단계에 실리면
+/// 읽히지도 않는 값이 저장 파일에 남는다.
 Map<String, dynamic> sortToJson(FileSortOrder sort) => {
   'keys': [
     for (final k in sort.keys)
-      {'tag': k.tagDefinitionId, 'direction': k.direction.name},
+      {
+        'tag': k.tagDefinitionId,
+        'direction': k.direction.name,
+        if (k.direction == SortDirection.random) 'seed': k.seed,
+      },
   ],
 };
 
-/// 저장된 정렬. 형식이 어긋나거나 알 수 없는 방향이면 그 단계만 건너뛴다.
+/// 저장된 정렬. 형식이 어긋나거나 알 수 없는 정렬 방법이면 그 단계만 건너뛴다.
 FileSortOrder sortFromJson(Object? json) {
   if (json is! Map) return const FileSortOrder();
   final raw = json['keys'];
@@ -66,7 +72,14 @@ FileSortOrder sortFromJson(Object? json) {
     final tag = item['tag'];
     final direction = enumByName(SortDirection.values, item['direction']);
     if (tag is! int || direction == null) continue;
-    keys.add(SortKey(tagDefinitionId: tag, direction: direction));
+    final seed = item['seed'];
+    keys.add(
+      SortKey(
+        tagDefinitionId: tag,
+        direction: direction,
+        seed: seed is int ? seed : 0,
+      ),
+    );
   }
   return FileSortOrder(keys: keys);
 }

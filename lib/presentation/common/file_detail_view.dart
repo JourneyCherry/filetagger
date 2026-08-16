@@ -557,11 +557,15 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     );
   }
 
+  /// 열 머리글은 오름·내림만 오가지만([_toggleSort]), 저장된 정렬에 다른 방법이
+  /// 실려 있을 수 있어 표식은 세 갈래를 모두 그린다.
   Widget _sortArrow(BuildContext context, SortDirection direction) {
     return Icon(
-      direction == SortDirection.ascending
-          ? Icons.arrow_upward
-          : Icons.arrow_downward,
+      switch (direction) {
+        SortDirection.ascending => Icons.arrow_upward,
+        SortDirection.descending => Icons.arrow_downward,
+        SortDirection.random => Icons.shuffle,
+      },
       size: 14,
       color: Theme.of(context).colorScheme.primary,
     );

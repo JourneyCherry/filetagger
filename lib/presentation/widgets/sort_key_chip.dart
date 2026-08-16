@@ -6,13 +6,14 @@ import '../../domain/usecases/sort_query_text.dart';
 import 'filter_condition_chip.dart' show kDeletedTagChipText;
 import 'tag_capsule.dart';
 
-/// 정렬 단계 하나를 나타내는 캡슐(태그 + 방향). 도구모음의 정렬 칩과 텍스트 입력의
-/// 캡슐이 같은 모양으로 보이도록 겉모습을 공통 [TagCapsule]에 맡기고, 여기선 정렬
-/// 문법에 딸린 것(방향 아이콘·색)만 얹는다.
+/// 정렬 단계 하나를 나타내는 캡슐(태그 + 정렬 방법). 도구모음의 정렬 칩과 텍스트
+/// 입력의 캡슐이 같은 모양으로 보이도록 겉모습을 공통 [TagCapsule]에 맡기고, 여기선
+/// 정렬 문법에 딸린 것(방법 아이콘·색)만 얹는다.
 ///
-/// 방향은 구분선 오른쪽에 아이콘으로 둔다. 방향이 없는 태그(label)는 화살표 대신
-/// 존재 정렬 아이콘을 보여준다. 순서 변경 손잡이·삭제 버튼은 [showHandle]/[dragIndex]·
-/// [showDelete]/[onDelete]로 켠다(도구모음은 동작까지, 텍스트 입력 안 캡슐은 모양만).
+/// 정렬 방법은 구분선 오른쪽에 아이콘으로 둔다. 방법을 가리지 않는 태그(label)는
+/// 화살표 대신 존재 정렬 아이콘을 보여준다. 순서 변경 손잡이·삭제 버튼은
+/// [showHandle]/[dragIndex]·[showDelete]/[onDelete]로 켠다(도구모음은 동작까지,
+/// 텍스트 입력 안 캡슐은 모양만).
 class SortKeyChip extends StatelessWidget {
   const SortKeyChip({
     super.key,
@@ -29,7 +30,7 @@ class SortKeyChip extends StatelessWidget {
   /// 단계가 가리키는 태그. 정의가 사라졌으면 null.
   final TagDefinition? definition;
 
-  /// null이면 누를 수 없는 캡슐(텍스트 안의 캡슐, 또는 방향이 없는 태그).
+  /// null이면 누를 수 없는 캡슐(텍스트 안의 캡슐, 또는 방법을 가리지 않는 태그).
   final VoidCallback? onTap;
 
   /// 순서 변경 드래그 인덱스. null이면 손잡이 아이콘을 감춘다(자리는 유지).
@@ -45,7 +46,6 @@ class SortKeyChip extends StatelessWidget {
     final colors = sortChipColors(context);
     final def = definition;
     final hasDirection = def != null && sortDirectionApplies(def.valueType);
-    final ascending = sortKey.direction == SortDirection.ascending;
 
     return TagCapsule(
       background: colors.background,
@@ -54,7 +54,11 @@ class SortKeyChip extends StatelessWidget {
       value: Icon(
         !hasDirection
             ? Icons.check_circle_outline
-            : (ascending ? Icons.arrow_upward : Icons.arrow_downward),
+            : switch (sortKey.direction) {
+                SortDirection.ascending => Icons.arrow_upward,
+                SortDirection.descending => Icons.arrow_downward,
+                SortDirection.random => Icons.shuffle,
+              },
         size: kCapsuleIconSize,
         color: colors.foreground,
       ),

@@ -38,6 +38,11 @@ void main() {
         keys: [
           SortKey(tagDefinitionId: 2, direction: SortDirection.descending),
           SortKey(tagDefinitionId: 1),
+          SortKey(
+            tagDefinitionId: 4,
+            direction: SortDirection.random,
+            seed: 12345,
+          ),
         ],
       ),
     );
@@ -52,10 +57,13 @@ void main() {
     expect(c1.operand, '5');
     expect(loaded.filter.conditions[2].exclude, isTrue);
 
-    expect(loaded.sort.keys, hasLength(2));
+    expect(loaded.sort.keys, hasLength(3));
     expect(loaded.sort.keys[0].tagDefinitionId, 2);
     expect(loaded.sort.keys[0].direction, SortDirection.descending);
     expect(loaded.sort.keys[1].direction, SortDirection.ascending);
+    // 씨앗까지 되살아나야 껐다 켠 뒤에도 같은 순서로 섞인다.
+    expect(loaded.sort.keys[2].direction, SortDirection.random);
+    expect(loaded.sort.keys[2].seed, 12345);
   });
 
   test('프리뷰 비율을 저장하고 그대로 불러온다', () async {

@@ -19,6 +19,7 @@ const _spaced = TagDefinition(
   valueType: TagValueType.date,
 );
 const _dashed = TagDefinition(id: 5, name: '-급', valueType: TagValueType.text);
+const _marked = TagDefinition(id: 6, name: '?급', valueType: TagValueType.text);
 
 /// 시스템 태그는 음수 id를 쓰며 이름 해석 대상에 함께 들어간다.
 const _system = TagDefinition(
@@ -34,6 +35,7 @@ const _defs = <TagDefinition>[
   _number,
   _spaced,
   _dashed,
+  _marked,
   _system,
 ];
 
@@ -72,6 +74,17 @@ void main() {
       expect(_key('-평점').direction, SortDirection.descending);
     });
 
+    test('무작위 접두사를 붙이면 무작위 정렬이다', () {
+      expect(_key('?평점').direction, SortDirection.random);
+    });
+
+    test('무작위 조각은 읽을 때마다 새 씨앗을 뽑는다', () {
+      // 텍스트를 고쳐 넣는 것이 곧 "다시 섞기"다. 씨앗은 무작위 값이라 아주 드물게
+      // 겹칠 수 있어, 여러 번 읽어 하나라도 다르면 새로 뽑은 것으로 본다.
+      final seeds = {for (var i = 0; i < 8; i++) _key('?평점').seed};
+      expect(seeds, hasLength(greaterThan(1)));
+    });
+
     test('빈 줄은 조각이 없다', () {
       expect(_parse('   '), isEmpty);
     });
@@ -100,9 +113,15 @@ void main() {
       expect(_error('-급'), SortQueryError.unknownTag);
     });
 
-    test('라벨 태그는 방향이 없어 접두사를 거부한다', () {
+    test('무작위 접두사로 시작하는 이름도 인용해야 갈린다', () {
+      expect(_key('"?급"').tagDefinitionId, _marked.id);
+      expect(_error('?급'), SortQueryError.unknownTag);
+    });
+
+    test('라벨 태그는 정렬 방법을 가리지 않아 접두사를 거부한다', () {
       expect(_key('숨김').direction, SortDirection.ascending);
       expect(_error('-숨김'), SortQueryError.directionNotAllowed);
+      expect(_error('?숨김'), SortQueryError.directionNotAllowed);
     });
 
     test('없는 이름은 해석하지 못한다', () {
@@ -151,7 +170,7 @@ void main() {
       expect(parsed.direction, key.direction);
     }
 
-    test('오름차순은 이름만, 내림차순은 접두사를 붙인다', () {
+    test('오름차순은 이름만, 내림차순·무작위는 접두사를 붙인다', () {
       expect(formatSortKey(const SortKey(tagDefinitionId: 3), _number), '평점');
       expect(
         formatSortKey(
@@ -162,6 +181,17 @@ void main() {
           _number,
         ),
         '-평점',
+      );
+      expect(
+        formatSortKey(
+          const SortKey(
+            tagDefinitionId: 3,
+            direction: SortDirection.random,
+            seed: 7,
+          ),
+          _number,
+        ),
+        '?평점',
       );
     });
 
@@ -179,13 +209,20 @@ void main() {
       );
     });
 
-    test('라벨 태그에 남은 방향은 되펼칠 때 지워진다', () {
+    test('라벨 태그에 남은 정렬 방법은 되펼칠 때 지워진다', () {
       expect(
         formatSortKey(
           const SortKey(
             tagDefinitionId: 1,
             direction: SortDirection.descending,
           ),
+          _label,
+        ),
+        '숨김',
+      );
+      expect(
+        formatSortKey(
+          const SortKey(tagDefinitionId: 1, direction: SortDirection.random),
           _label,
         ),
         '숨김',
@@ -198,7 +235,12 @@ void main() {
         const SortKey(tagDefinitionId: 4, direction: SortDirection.descending),
       );
       expectRoundTrip(const SortKey(tagDefinitionId: 5));
+      expectRoundTrip(const SortKey(tagDefinitionId: 6));
       expectRoundTrip(const SortKey(tagDefinitionId: -1));
+      // 씨앗은 텍스트에 담기지 않아 되읽을 때 다시 뽑힌다(정렬 방법만 왕복한다).
+      expectRoundTrip(
+        const SortKey(tagDefinitionId: 3, direction: SortDirection.random),
+      );
     });
 
     test('정렬 전체를 한 줄로 되돌린다', () {
@@ -243,6 +285,13 @@ void main() {
       final c = completions('-평', 2);
       expect(c.query, '평');
       expect(c.replaceStart, kSortDescendingPrefix.length);
+      expect(c.replaceEnd, 2);
+    });
+
+    test('무작위 접두사도 대체 구간 밖이다', () {
+      final c = completions('?평', 2);
+      expect(c.query, '평');
+      expect(c.replaceStart, kSortRandomPrefix.length);
       expect(c.replaceEnd, 2);
     });
 

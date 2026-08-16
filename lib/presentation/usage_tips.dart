@@ -86,7 +86,7 @@ const List<UsageTip> usageTips = [
     body:
         '정렬 줄도 빈 곳을 누르면 같은 방식으로 칩니다. 왼쪽에서 오른쪽 순서가 그대로 정렬 '
         '우선순위라, 캡슐을 잘라 붙이면 드래그보다 빠르게 순서를 바꿉니다. 이름 앞에 '
-        '방향 접두사를 붙이면 내림차순이 됩니다.',
+        '접두사를 붙이면 내림차순·무작위가 됩니다.',
     icon: Icons.swap_horiz,
     command: AppCommandId.toggleSortBar,
   ),

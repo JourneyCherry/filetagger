@@ -64,14 +64,23 @@ class QueryFiles {
       for (var i = 0; i < keys.length; i++) {
         final av = ma.values[i];
         final bv = mb.values[i];
-        // 이 태그값이 없는 노드는 방향과 무관하게 이 단계에서 뒤로 민다.
+        // 이 태그값이 없는 노드는 정렬 방법과 무관하게 이 단계에서 뒤로 민다.
         if (av == null && bv == null) continue;
         if (av == null) return 1;
         if (bv == null) return -1;
+        // 값이 같으면 어떤 방법이든 동률이라 다음 단계로 넘어간다(무작위도 값
+        // 자체를 섞을 뿐, 같은 값끼리의 순서는 뒤 단계가 정한다).
         final cmp = av.compareTo(bv);
-        if (cmp != 0) {
-          return keys[i].direction == SortDirection.descending ? -cmp : cmp;
-        }
+        if (cmp == 0) continue;
+        final ordered = switch (keys[i].direction) {
+          SortDirection.ascending => cmp,
+          SortDirection.descending => -cmp,
+          SortDirection.random => ma.randomRanks[i].compareTo(
+            mb.randomRanks[i],
+          ),
+        };
+        // 무작위 자리가 겹친 두 값은 견줄 수 없어 동률로 두고 다음 단계로 넘긴다.
+        if (ordered != 0) return ordered;
       }
       // 정렬 단계가 없거나 모든 단계가 동률이면 이름으로 안정화한다.
       return _compareName(ma, mb);
@@ -106,22 +115,34 @@ class _SortMaterial {
     List<SortKey> keys,
     List<TagValueType?> types,
     Map<int, List<AssignedTag>> assignmentsByFile,
-  ) : isDirectory = node.isDirectory,
+  ) : this._(
+        node,
+        keys,
+        _representativeValues(node, keys, types, assignmentsByFile),
+      );
+
+  _SortMaterial._(FileNode node, List<SortKey> keys, this.values)
+    : isDirectory = node.isDirectory,
       lowerName = node.name.toLowerCase(),
       path = node.path,
-      values = _representativeValues(node, keys, types, assignmentsByFile);
+      randomRanks = _randomRanks(keys, values);
 
   /// 정렬 단계별 대표값(값이 없는 단계는 null → 그 단계에서 늘 뒤로).
   final List<TagValueKey?> values;
+
+  /// 무작위 단계에서 이 노드가 갖는 자리. 다른 방법의 단계 자리는 읽히지 않는다.
+  final List<int> randomRanks;
+
   final bool isDirectory;
   final String lowerName;
   final String path;
 
-  /// 파일이 가진 각 정렬 단계 태그의 값 중 정렬 방향에 맞는 대표값(오름=최소,
-  /// 내림=최대). 값이 하나도 없으면 null. 여러 값(다중 부여)을 하나로 접어 안정적으로
+  /// 파일이 가진 각 정렬 단계 태그의 값 중 정렬 방법에 맞는 대표값(오름=최소,
+  /// 내림=최대, 무작위=오름과 같음 — 값끼리 견주지 않으니 고를 기준이 없다).
+  /// 값이 하나도 없으면 null. 여러 값(다중 부여)을 하나로 접어 안정적으로
   /// 비교한다. label·image는 값이 없거나(label) 불투명해(image) 부여 여부만 보아,
-  /// 붙어 있으면 비교상 동률인 대표값(빈 값)을, 없으면 null을 돌려 방향과 무관하게
-  /// "부여된 요소가 위, 없는 요소는 뒤"가 되게 한다.
+  /// 붙어 있으면 비교상 동률인 대표값(빈 값)을, 없으면 null을 돌려 정렬 방법과
+  /// 무관하게 "부여된 요소가 위, 없는 요소는 뒤"가 되게 한다.
   static List<TagValueKey?> _representativeValues(
     FileNode node,
     List<SortKey> keys,
@@ -141,6 +162,19 @@ class _SortMaterial {
           types[i],
           keys[i].direction == SortDirection.descending,
         ),
+    ];
+  }
+
+  /// 무작위 단계의 자리를 대표값에서 미리 뽑아 둔다. 무작위 단계가 하나도 없으면
+  /// 읽힐 일이 없어 만들지 않는다.
+  static List<int> _randomRanks(List<SortKey> keys, List<TagValueKey?> values) {
+    if (!keys.any((k) => k.direction == SortDirection.random)) return const [];
+    return [
+      for (var i = 0; i < keys.length; i++)
+        if (keys[i].direction == SortDirection.random && values[i] != null)
+          randomOrderRank(keys[i].seed, values[i]!)
+        else
+          0,
     ];
   }
 

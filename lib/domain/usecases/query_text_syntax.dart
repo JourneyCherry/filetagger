@@ -159,27 +159,31 @@ String queryFieldPrefix(
 /// 다시 읽었을 때 한 필드로 남도록 필요한 경우에만 인용한다.
 ///
 /// [reserved]는 그 자리에서 필드를 끊는 글자(연산자 시작 글자 등),
-/// [reservedPrefix]는 필드 첫 글자로 오면 다른 뜻이 되는 접두사다.
+/// [reservedPrefixes]는 필드 첫 글자로 오면 다른 뜻이 되는 접두사들이다.
 String quoteQueryToken(
   String raw, {
   Set<String> reserved = const {},
-  String? reservedPrefix,
+  Set<String> reservedPrefixes = const {},
 }) {
-  if (!_needsQuote(raw, reserved, reservedPrefix)) return raw;
+  if (!_needsQuote(raw, reserved, reservedPrefixes)) return raw;
   final escaped = raw
       .replaceAll(kQueryEscape, '$kQueryEscape$kQueryEscape')
       .replaceAll(kQueryQuote, '$kQueryEscape$kQueryQuote');
   return '$kQueryQuote$escaped$kQueryQuote';
 }
 
-bool _needsQuote(String raw, Set<String> reserved, String? reservedPrefix) {
+bool _needsQuote(
+  String raw,
+  Set<String> reserved,
+  Set<String> reservedPrefixes,
+) {
   if (raw.isEmpty) return true;
   for (final ch in raw.split('')) {
     if (ch.trim().isEmpty) return true;
     if (ch == kQueryQuote || ch == kQueryEscape) return true;
     if (reserved.contains(ch)) return true;
   }
-  return reservedPrefix != null && raw.startsWith(reservedPrefix);
+  return reservedPrefixes.any(raw.startsWith);
 }
 
 // ── 태그 이름 해석 ──

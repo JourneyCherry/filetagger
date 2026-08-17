@@ -32,7 +32,7 @@ void main() {
     // 저장·직렬화에 쓰이므로 특정 값이 바뀌지 않아야 한다.
     expect(SystemTag.fileSize.id, -1);
     expect(SystemTag.fileName.id, -5);
-    expect(SystemTag.folder.id, -6);
+    expect(SystemTag.childFileCount.id, -6);
     expect(systemTagById(-5), SystemTag.fileName);
     expect(systemTagById(999), isNull);
   });
@@ -52,7 +52,7 @@ void main() {
     expect(SystemTag.extension.valueFor(node), 'png'); // 소문자로 정규화
     expect(SystemTag.imageDimensions.valueFor(node), '4x2');
     expect(SystemTag.fileName.valueFor(node), 'photo.PNG');
-    expect(SystemTag.folder.valueFor(node), isNull); // 파일은 폴더 표식 없음
+    expect(SystemTag.childFileCount.valueFor(node), isNull); // 파일은 폴더가 아니다
   });
 
   test('valueFor: 확장자 없는 이름·선두 점 이름은 확장자가 없다', () {
@@ -60,22 +60,36 @@ void main() {
     expect(SystemTag.extension.valueFor(_file(path: '.gitignore')), isNull);
   });
 
-  test('valueFor: 폴더는 크기·확장자·이미지크기가 없고 수정시각·이름만 갖는다', () {
+  test('valueFor: 폴더는 크기·확장자·이미지크기가 없고 수정시각·이름·수량을 갖는다', () {
     final dir = FileNode(
       id: 2,
       path: 'a/sub',
       kind: NodeKind.directory,
       modifiedAt: DateTime(2024, 1, 1),
+      childFileCount: 3,
     );
     expect(SystemTag.fileSize.valueFor(dir), isNull);
     expect(SystemTag.extension.valueFor(dir), isNull);
     expect(SystemTag.imageDimensions.valueFor(dir), isNull);
     expect(SystemTag.modifiedTime.valueFor(dir), isNotNull);
     expect(SystemTag.fileName.valueFor(dir), 'sub');
-    expect(SystemTag.folder.valueFor(dir), isNotNull); // 폴더 표식이 붙는다
+    expect(SystemTag.childFileCount.valueFor(dir), '3');
   });
 
-  test('systemAssignmentsFor: 폴더는 폴더 표식이 붙고 파일은 안 붙는다', () {
+  test('valueFor: 빈 폴더와 수량 모르는 폴더도 값이 비지 않는다(폴더 표식 겸용)', () {
+    // 값이 비면 "있음"으로 폴더만 거르던 필터에서 그 폴더들만 조용히 빠진다.
+    const empty = FileNode(
+      id: 2,
+      path: 'a/empty',
+      kind: NodeKind.directory,
+      childFileCount: 0,
+    );
+    const unscanned = FileNode(id: 3, path: 'a/old', kind: NodeKind.directory);
+    expect(SystemTag.childFileCount.valueFor(empty), '0');
+    expect(SystemTag.childFileCount.valueFor(unscanned), '0');
+  });
+
+  test('systemAssignmentsFor: 수량 태그는 폴더에만 붙어 파일과 구분된다', () {
     final dir = FileNode(
       id: 3,
       path: 'a/sub',
@@ -83,24 +97,24 @@ void main() {
       modifiedAt: DateTime(2024, 1, 1),
     );
     final dirTags = systemAssignmentsFor(dir).map((t) => t.tagDefinitionId);
-    expect(dirTags, contains(SystemTag.folder.id));
+    expect(dirTags, contains(SystemTag.childFileCount.id));
     final fileTags = systemAssignmentsFor(
       _file(path: 'a/README'),
     ).map((t) => t.tagDefinitionId);
-    expect(fileTags, isNot(contains(SystemTag.folder.id)));
+    expect(fileTags, isNot(contains(SystemTag.childFileCount.id)));
   });
 
   test('systemAssignmentsFor: 값 있는 시스템 태그만 부여로 묶고 null은 건너뛴다', () {
     final node = _file(
       path: 'a/photo.png',
       imageDimensions: '4x2',
-    ); // 이미지 파일 → 폴더 표식만 빼고 전부
+    ); // 이미지 파일 → 폴더 전용 태그만 빼고 전부
     final tags = systemAssignmentsFor(node);
     expect(tags.map((t) => t.tagDefinitionId).toSet(), {
-      // 노드 종류 표식(폴더·키워드)은 파일에 붙지 않고, 미해결 링크는 부여 목록에서
-      // 나오는 태그라 부여를 넘기지 않으면 붙지 않는다.
+      // 노드 종류를 가르는 태그(내부 파일 수량·키워드)는 파일에 붙지 않고, 미해결
+      // 링크는 부여 목록에서 나오는 태그라 부여를 넘기지 않으면 붙지 않는다.
       for (final t in SystemTag.values)
-        if (t != SystemTag.folder &&
+        if (t != SystemTag.childFileCount &&
             t != SystemTag.keyword &&
             t != SystemTag.unresolvedLink)
           t.id,
@@ -128,7 +142,7 @@ void main() {
     expect(SystemTag.fileSize.valueFor(memo), isNull);
     expect(SystemTag.imageDimensions.valueFor(memo), isNull);
     expect(SystemTag.modifiedTime.valueFor(memo), isNull);
-    expect(SystemTag.folder.valueFor(memo), isNull);
+    expect(SystemTag.childFileCount.valueFor(memo), isNull);
   });
 
   test('valueFor: 키워드 표식은 파일·폴더에 붙지 않는다', () {

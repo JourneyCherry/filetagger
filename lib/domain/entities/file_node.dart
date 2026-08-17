@@ -21,6 +21,7 @@ class FileNode {
     this.missingSince,
     this.manageMode,
     this.childSignature,
+    this.childFileCount,
     this.imageDimensions,
   });
 
@@ -52,6 +53,13 @@ class FileNode {
   /// 내용 해시가 없는 폴더를 이동 후에도 동일 폴더로 알아보기 위해 스캐너가
   /// 직속 자식 이름 구성으로 계산한다. 자식이 없으면(빈 폴더) null이다.
   final String? childSignature;
+
+  /// 폴더가 직속으로 담고 있는 **파일**의 수(하위 폴더와 그 안은 세지 않는다).
+  /// 폴더 노드에만 채워지며 그 외는 null이다. 시스템 태그 '내부 파일 수량'의 원본.
+  ///
+  /// 내부를 인덱싱하지 않는 불투명 폴더에도 채워진다 — 스캐너는 이동 시그니처를
+  /// 만드느라 어차피 직속 자식 목록을 만들므로, 세는 데 드는 파일시스템 접근이 없다.
+  final int? childFileCount;
 
   /// 이미지 파일의 픽셀 크기("가로x세로"). 스캐너가 이미지 헤더를 파싱해 채운다.
   /// 이미지가 아니거나 크기를 못 읽으면 null이다. 시스템 태그 '이미지 크기'의 원본.

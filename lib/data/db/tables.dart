@@ -57,6 +57,10 @@ class FileNodes extends Table {
   /// 폴더 이동 추적용, 직속 자식 구성의 부분 시그니처. 폴더 노드에만 채워진다.
   TextColumn get childSignature => text().nullable()();
 
+  /// 폴더가 직속으로 담고 있는 파일의 수. 폴더 노드에만 채워진다. 시스템 태그
+  /// '내부 파일 수량'의 원본.
+  IntColumn get childFileCount => integer().nullable()();
+
   /// 이미지 파일의 픽셀 크기("가로x세로"). 스캐너가 헤더를 파싱해 채운다. 이미지가
   /// 아니거나 크기를 못 읽으면 미지정. 시스템 태그 '이미지 크기'의 원본.
   TextColumn get imageDimensions => text().nullable()();

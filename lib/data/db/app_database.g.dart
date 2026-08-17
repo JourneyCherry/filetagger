@@ -464,6 +464,17 @@ class $FileNodesTable extends FileNodes
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _childFileCountMeta = const VerificationMeta(
+    'childFileCount',
+  );
+  @override
+  late final GeneratedColumn<int> childFileCount = GeneratedColumn<int>(
+    'child_file_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _imageDimensionsMeta = const VerificationMeta(
     'imageDimensions',
   );
@@ -507,6 +518,7 @@ class $FileNodesTable extends FileNodes
     contentHashPrefix,
     manageMode,
     childSignature,
+    childFileCount,
     imageDimensions,
     lastSeenAt,
     missingSince,
@@ -561,6 +573,15 @@ class $FileNodesTable extends FileNodes
         childSignature.isAcceptableOrUnknown(
           data['child_signature']!,
           _childSignatureMeta,
+        ),
+      );
+    }
+    if (data.containsKey('child_file_count')) {
+      context.handle(
+        _childFileCountMeta,
+        childFileCount.isAcceptableOrUnknown(
+          data['child_file_count']!,
+          _childFileCountMeta,
         ),
       );
     }
@@ -642,6 +663,10 @@ class $FileNodesTable extends FileNodes
         DriftSqlType.string,
         data['${effectivePrefix}child_signature'],
       ),
+      childFileCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}child_file_count'],
+      ),
       imageDimensions: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}image_dimensions'],
@@ -695,6 +720,10 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   /// 폴더 이동 추적용, 직속 자식 구성의 부분 시그니처. 폴더 노드에만 채워진다.
   final String? childSignature;
 
+  /// 폴더가 직속으로 담고 있는 파일의 수. 폴더 노드에만 채워진다. 시스템 태그
+  /// '내부 파일 수량'의 원본.
+  final int? childFileCount;
+
   /// 이미지 파일의 픽셀 크기("가로x세로"). 스캐너가 헤더를 파싱해 채운다. 이미지가
   /// 아니거나 크기를 못 읽으면 미지정. 시스템 태그 '이미지 크기'의 원본.
   final String? imageDimensions;
@@ -715,6 +744,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     this.contentHashPrefix,
     this.manageMode,
     this.childSignature,
+    this.childFileCount,
     this.imageDimensions,
     required this.lastSeenAt,
     this.missingSince,
@@ -746,6 +776,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     if (!nullToAbsent || childSignature != null) {
       map['child_signature'] = Variable<String>(childSignature);
     }
+    if (!nullToAbsent || childFileCount != null) {
+      map['child_file_count'] = Variable<int>(childFileCount);
+    }
     if (!nullToAbsent || imageDimensions != null) {
       map['image_dimensions'] = Variable<String>(imageDimensions);
     }
@@ -774,6 +807,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       childSignature: childSignature == null && nullToAbsent
           ? const Value.absent()
           : Value(childSignature),
+      childFileCount: childFileCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(childFileCount),
       imageDimensions: imageDimensions == null && nullToAbsent
           ? const Value.absent()
           : Value(imageDimensions),
@@ -804,6 +840,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
         serializer.fromJson<String?>(json['manageMode']),
       ),
       childSignature: serializer.fromJson<String?>(json['childSignature']),
+      childFileCount: serializer.fromJson<int?>(json['childFileCount']),
       imageDimensions: serializer.fromJson<String?>(json['imageDimensions']),
       lastSeenAt: serializer.fromJson<DateTime>(json['lastSeenAt']),
       missingSince: serializer.fromJson<DateTime?>(json['missingSince']),
@@ -825,6 +862,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
         $FileNodesTable.$convertermanageModen.toJson(manageMode),
       ),
       'childSignature': serializer.toJson<String?>(childSignature),
+      'childFileCount': serializer.toJson<int?>(childFileCount),
       'imageDimensions': serializer.toJson<String?>(imageDimensions),
       'lastSeenAt': serializer.toJson<DateTime>(lastSeenAt),
       'missingSince': serializer.toJson<DateTime?>(missingSince),
@@ -840,6 +878,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     Value<String?> contentHashPrefix = const Value.absent(),
     Value<FolderManageMode?> manageMode = const Value.absent(),
     Value<String?> childSignature = const Value.absent(),
+    Value<int?> childFileCount = const Value.absent(),
     Value<String?> imageDimensions = const Value.absent(),
     DateTime? lastSeenAt,
     Value<DateTime?> missingSince = const Value.absent(),
@@ -856,6 +895,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     childSignature: childSignature.present
         ? childSignature.value
         : this.childSignature,
+    childFileCount: childFileCount.present
+        ? childFileCount.value
+        : this.childFileCount,
     imageDimensions: imageDimensions.present
         ? imageDimensions.value
         : this.imageDimensions,
@@ -880,6 +922,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       childSignature: data.childSignature.present
           ? data.childSignature.value
           : this.childSignature,
+      childFileCount: data.childFileCount.present
+          ? data.childFileCount.value
+          : this.childFileCount,
       imageDimensions: data.imageDimensions.present
           ? data.imageDimensions.value
           : this.imageDimensions,
@@ -903,6 +948,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           ..write('contentHashPrefix: $contentHashPrefix, ')
           ..write('manageMode: $manageMode, ')
           ..write('childSignature: $childSignature, ')
+          ..write('childFileCount: $childFileCount, ')
           ..write('imageDimensions: $imageDimensions, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('missingSince: $missingSince')
@@ -920,6 +966,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     contentHashPrefix,
     manageMode,
     childSignature,
+    childFileCount,
     imageDimensions,
     lastSeenAt,
     missingSince,
@@ -936,6 +983,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           other.contentHashPrefix == this.contentHashPrefix &&
           other.manageMode == this.manageMode &&
           other.childSignature == this.childSignature &&
+          other.childFileCount == this.childFileCount &&
           other.imageDimensions == this.imageDimensions &&
           other.lastSeenAt == this.lastSeenAt &&
           other.missingSince == this.missingSince);
@@ -950,6 +998,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   final Value<String?> contentHashPrefix;
   final Value<FolderManageMode?> manageMode;
   final Value<String?> childSignature;
+  final Value<int?> childFileCount;
   final Value<String?> imageDimensions;
   final Value<DateTime> lastSeenAt;
   final Value<DateTime?> missingSince;
@@ -962,6 +1011,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.contentHashPrefix = const Value.absent(),
     this.manageMode = const Value.absent(),
     this.childSignature = const Value.absent(),
+    this.childFileCount = const Value.absent(),
     this.imageDimensions = const Value.absent(),
     this.lastSeenAt = const Value.absent(),
     this.missingSince = const Value.absent(),
@@ -975,6 +1025,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.contentHashPrefix = const Value.absent(),
     this.manageMode = const Value.absent(),
     this.childSignature = const Value.absent(),
+    this.childFileCount = const Value.absent(),
     this.imageDimensions = const Value.absent(),
     required DateTime lastSeenAt,
     this.missingSince = const Value.absent(),
@@ -990,6 +1041,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Expression<String>? contentHashPrefix,
     Expression<String>? manageMode,
     Expression<String>? childSignature,
+    Expression<int>? childFileCount,
     Expression<String>? imageDimensions,
     Expression<DateTime>? lastSeenAt,
     Expression<DateTime>? missingSince,
@@ -1003,6 +1055,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       if (contentHashPrefix != null) 'content_hash_prefix': contentHashPrefix,
       if (manageMode != null) 'manage_mode': manageMode,
       if (childSignature != null) 'child_signature': childSignature,
+      if (childFileCount != null) 'child_file_count': childFileCount,
       if (imageDimensions != null) 'image_dimensions': imageDimensions,
       if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
       if (missingSince != null) 'missing_since': missingSince,
@@ -1018,6 +1071,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Value<String?>? contentHashPrefix,
     Value<FolderManageMode?>? manageMode,
     Value<String?>? childSignature,
+    Value<int?>? childFileCount,
     Value<String?>? imageDimensions,
     Value<DateTime>? lastSeenAt,
     Value<DateTime?>? missingSince,
@@ -1031,6 +1085,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       contentHashPrefix: contentHashPrefix ?? this.contentHashPrefix,
       manageMode: manageMode ?? this.manageMode,
       childSignature: childSignature ?? this.childSignature,
+      childFileCount: childFileCount ?? this.childFileCount,
       imageDimensions: imageDimensions ?? this.imageDimensions,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       missingSince: missingSince ?? this.missingSince,
@@ -1068,6 +1123,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     if (childSignature.present) {
       map['child_signature'] = Variable<String>(childSignature.value);
     }
+    if (childFileCount.present) {
+      map['child_file_count'] = Variable<int>(childFileCount.value);
+    }
     if (imageDimensions.present) {
       map['image_dimensions'] = Variable<String>(imageDimensions.value);
     }
@@ -1091,6 +1149,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
           ..write('contentHashPrefix: $contentHashPrefix, ')
           ..write('manageMode: $manageMode, ')
           ..write('childSignature: $childSignature, ')
+          ..write('childFileCount: $childFileCount, ')
           ..write('imageDimensions: $imageDimensions, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('missingSince: $missingSince')
@@ -2103,6 +2162,7 @@ typedef $$FileNodesTableCreateCompanionBuilder =
       Value<String?> contentHashPrefix,
       Value<FolderManageMode?> manageMode,
       Value<String?> childSignature,
+      Value<int?> childFileCount,
       Value<String?> imageDimensions,
       required DateTime lastSeenAt,
       Value<DateTime?> missingSince,
@@ -2117,6 +2177,7 @@ typedef $$FileNodesTableUpdateCompanionBuilder =
       Value<String?> contentHashPrefix,
       Value<FolderManageMode?> manageMode,
       Value<String?> childSignature,
+      Value<int?> childFileCount,
       Value<String?> imageDimensions,
       Value<DateTime> lastSeenAt,
       Value<DateTime?> missingSince,
@@ -2193,6 +2254,11 @@ class $$FileNodesTableFilterComposer
 
   ColumnFilters<String> get childSignature => $composableBuilder(
     column: $table.childSignature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get childFileCount => $composableBuilder(
+    column: $table.childFileCount,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2286,6 +2352,11 @@ class $$FileNodesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get childFileCount => $composableBuilder(
+    column: $table.childFileCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get imageDimensions => $composableBuilder(
     column: $table.imageDimensions,
     builder: (column) => ColumnOrderings(column),
@@ -2341,6 +2412,11 @@ class $$FileNodesTableAnnotationComposer
 
   GeneratedColumn<String> get childSignature => $composableBuilder(
     column: $table.childSignature,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get childFileCount => $composableBuilder(
+    column: $table.childFileCount,
     builder: (column) => column,
   );
 
@@ -2421,6 +2497,7 @@ class $$FileNodesTableTableManager
                 Value<String?> contentHashPrefix = const Value.absent(),
                 Value<FolderManageMode?> manageMode = const Value.absent(),
                 Value<String?> childSignature = const Value.absent(),
+                Value<int?> childFileCount = const Value.absent(),
                 Value<String?> imageDimensions = const Value.absent(),
                 Value<DateTime> lastSeenAt = const Value.absent(),
                 Value<DateTime?> missingSince = const Value.absent(),
@@ -2433,6 +2510,7 @@ class $$FileNodesTableTableManager
                 contentHashPrefix: contentHashPrefix,
                 manageMode: manageMode,
                 childSignature: childSignature,
+                childFileCount: childFileCount,
                 imageDimensions: imageDimensions,
                 lastSeenAt: lastSeenAt,
                 missingSince: missingSince,
@@ -2447,6 +2525,7 @@ class $$FileNodesTableTableManager
                 Value<String?> contentHashPrefix = const Value.absent(),
                 Value<FolderManageMode?> manageMode = const Value.absent(),
                 Value<String?> childSignature = const Value.absent(),
+                Value<int?> childFileCount = const Value.absent(),
                 Value<String?> imageDimensions = const Value.absent(),
                 required DateTime lastSeenAt,
                 Value<DateTime?> missingSince = const Value.absent(),
@@ -2459,6 +2538,7 @@ class $$FileNodesTableTableManager
                 contentHashPrefix: contentHashPrefix,
                 manageMode: manageMode,
                 childSignature: childSignature,
+                childFileCount: childFileCount,
                 imageDimensions: imageDimensions,
                 lastSeenAt: lastSeenAt,
                 missingSince: missingSince,

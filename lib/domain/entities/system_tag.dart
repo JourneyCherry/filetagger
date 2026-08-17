@@ -35,12 +35,18 @@ enum SystemTag {
     editable: true,
   ),
 
-  /// 디렉토리 표식(label). 폴더에만 붙어 일반 파일과 구분한다. 파일은 값 없음이라
-  /// '있음'으로 폴더만, '제외'로 파일만 걸러낼 수 있다.
-  folder(id: -6, displayName: '폴더', valueType: TagValueType.label),
+  /// 폴더가 직속으로 담은 파일 수. **폴더에만 붙으므로 디렉토리 표식을 겸한다** —
+  /// 파일·키워드는 값 없음이라 '있음'으로 폴더만, '제외'로 파일만 걸러낼 수 있다.
+  /// 빈 폴더도 0을 값으로 가져(값 없음이 아니다) 그 갈래가 수량과 무관하게 선다.
+  childFileCount(
+    id: -6,
+    displayName: '내부 파일 수량',
+    valueType: TagValueType.number,
+  ),
 
-  /// 키워드 표식(label). 디스크에 실체가 없는 노드에만 붙는다. [folder]와 같은
-  /// 층위(노드 종류)이며, '제외'로 키워드를 목록에서 감추는 것이 이 태그의 주 용도다.
+  /// 키워드 표식(label). 디스크에 실체가 없는 노드에만 붙는다. [childFileCount]가
+  /// 폴더에 대해 그러하듯 노드 종류를 가르는 층위이며, '제외'로 키워드를 목록에서
+  /// 감추는 것이 이 태그의 주 용도다.
   keyword(id: -7, displayName: '키워드', valueType: TagValueType.label),
 
   /// 미해결 링크 표식(label). 대상을 가리키지 못하는 링크 태그를 **하나라도** 가진
@@ -91,9 +97,12 @@ enum SystemTag {
         return node.imageDimensions;
       case SystemTag.fileName:
         return node.name;
-      case SystemTag.folder:
-        // label이므로 값은 의미 없다 — 폴더에만 존재 표식('')을 달고 나머지는 없음.
-        return node.isDirectory ? '' : null;
+      case SystemTag.childFileCount:
+        if (!node.isDirectory) return null;
+        // 스캔 전(컬럼 신설 직후 등)이라 수량을 모르는 폴더도 값을 비우지 않는다 —
+        // 비우면 '있음'으로 폴더만 거르던 필터에서 그 폴더들만 조용히 빠진다.
+        // 다음 스캔이 실제 수량으로 덮는다.
+        return (node.childFileCount ?? 0).toString();
       case SystemTag.keyword:
         return node.isKeyword ? '' : null;
       case SystemTag.unresolvedLink:

@@ -231,6 +231,44 @@ void main() {
       expect(empty.childSignature, isNull);
     });
 
+    test('내부를 인덱싱하지 않는 불투명 폴더도 직속 파일 수는 센다', () async {
+      await touchFile('box/a.txt');
+      await touchFile('box/b.txt');
+      // 하위 폴더와 그 안의 파일은 세지 않는다(직속 파일만).
+      await touchFile('box/deep/c.txt');
+      await Directory(p.join(root.path, 'empty')).create();
+
+      final result = await const DirectoryScanner().scan(root.path);
+      final box = result.nodes.firstWhere((n) => n.path == 'box');
+      final empty = result.nodes.firstWhere((n) => n.path == 'empty');
+
+      // 'box'는 기본 불투명이라 내부는 인덱싱되지 않지만 수량은 채워진다.
+      expect(result.nodes.map((n) => n.path), isNot(contains('box/a.txt')));
+      expect(box.childFileCount, 2);
+      // 빈 폴더는 시그니처와 달리 0으로 남는다(폴더 표식을 겸하기 때문).
+      expect(empty.childFileCount, 0);
+    });
+
+    test('파일 노드는 내부 파일 수량을 갖지 않는다', () async {
+      await touchFile('note.txt');
+
+      final result = await const DirectoryScanner().scan(root.path);
+      final note = result.nodes.firstWhere((n) => n.path == 'note.txt');
+
+      expect(note.childFileCount, isNull);
+    });
+
+    test('내부 파일 수량은 .filetagger/를 세지 않는다', () async {
+      await touchFile('project/$filetaggerDirName/$databaseFileName');
+      await touchFile('project/note.txt');
+
+      final result = await const DirectoryScanner().scan(root.path);
+      final project = result.nodes.firstWhere((n) => n.path == 'project');
+
+      // .filetagger/는 디렉토리라 파일 수에 애초에 들지 않는다.
+      expect(project.childFileCount, 1);
+    });
+
     test('불투명 폴더 안의 중첩 .filetagger/도 병합 후보로 수집한다', () async {
       await touchFile('project/$filetaggerDirName/$databaseFileName');
       await touchFile('project/note.txt');

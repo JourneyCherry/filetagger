@@ -22,6 +22,11 @@ void main() {
     expect(companion.childSignature.value, 'sig');
   });
 
+  test('FileNodes 스키마에 내부 파일 수량 컬럼이 반영된다', () {
+    const companion = FileNodesCompanion(childFileCount: Value(3));
+    expect(companion.childFileCount.value, 3);
+  });
+
   test('FileNodes 스키마에 이미지 크기 컬럼이 반영된다', () {
     const companion = FileNodesCompanion(imageDimensions: Value('400x300'));
     expect(companion.imageDimensions.value, '400x300');

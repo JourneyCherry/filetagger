@@ -22,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
     : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -111,6 +111,12 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'UPDATE file_nodes SET content_hash_prefix = NULL',
         );
+      }
+      if (from < 11) {
+        // 시스템 태그 '내부 파일 수량'의 원본. 다음 스캔이 폴더에 채운다 — 그때까지
+        // 값을 모르는 폴더는 시스템 태그가 수량 대신 폴더 표식 노릇만 한다
+        // ([SystemTag.childFileCount] 참고).
+        await m.addColumn(fileNodes, fileNodes.childFileCount);
       }
     },
     beforeOpen: (details) async {

@@ -114,6 +114,8 @@ class DirectoryScanner implements WorkspaceScanner {
           // 내용 해시가 없는 폴더의 이동 추적용 시그니처. 내부를 인덱싱하지
           // 않는 불투명 폴더라도 직속 자식 구성만은 담아 이동을 알아본다.
           childSignature: _signatureOf(visible),
+          // 시그니처와 같은 목록에서 세므로 불투명 폴더에서도 추가 접근이 없다.
+          childFileCount: _fileCountOf(visible),
         ),
       );
     }
@@ -219,6 +221,12 @@ class DirectoryScanner implements WorkspaceScanner {
     names.sort();
     return _contentHash(utf8.encode(names.join('\n')));
   }
+
+  /// 폴더가 직속으로 담은 **파일**의 수. 하위 폴더는 세지 않으므로 `.filetagger/`도
+  /// 저절로 빠진다(디렉토리라 애초에 후보가 아니다). 시그니처와 달리 자식이 없어도
+  /// 0으로 남긴다 — 폴더에는 늘 값이 있어야 이 시스템 태그가 폴더 표식 노릇을 겸한다.
+  int _fileCountOf(List<FileSystemEntity> entries) =>
+      entries.whereType<File>().length;
 
   /// 루트 기준 상대 경로를 플랫폼 무관하게 '/' 구분으로 정규화한다.
   String _relativePosix(String workspaceRoot, String path) =>

@@ -47,6 +47,7 @@ class FileListView extends ConsumerStatefulWidget {
   const FileListView({
     super.key,
     required this.onTapNode,
+    required this.onTapHeader,
     required this.onOpenNode,
     required this.onEditAssignment,
     this.onLongPressNode,
@@ -62,6 +63,10 @@ class FileListView extends ConsumerStatefulWidget {
   /// 행을 탭했을 때. 표시 순서의 노드 목록과 그 안의 인덱스를 함께 넘겨
   /// 셸이 범위 선택 등을 해석할 수 있게 한다.
   final void Function(List<FileNode> items, int index) onTapNode;
+
+  /// 그룹 헤더 행을 탭했을 때(그 행의 펼침 키를 넘긴다). 헤더는 선택 대상이 아니라
+  /// 노드 탭과 통로를 나눠 두고, 커서와 선택을 어떻게 할지는 셸이 정한다.
+  final ValueChanged<String> onTapHeader;
 
   /// 행을 더블클릭(활성)했을 때. **펼칠 수 있는 행은 여기로 오지 않는다** — 그룹
   /// 헤더와, 폴더 계층으로 묶인 폴더는 열리는 대신 이 뷰가 여닫기로 처리한다
@@ -105,18 +110,19 @@ class FileListView extends ConsumerStatefulWidget {
   ConsumerState<FileListView> createState() => _FileListViewState();
 }
 
-class _FileListViewState extends ConsumerState<FileListView> {
-  /// 키보드 커서를 화면 밖 행으로 옮겼을 때 스크롤을 끌어오기 위한 컨트롤러.
-  /// 실체화된 행은 [EnsureVisibleOnFocus]가 스스로 드러내지만, 화면·캐시 밖 행은
-  /// 위젯이 없어 그 방법이 안 먹으므로 여기서 대략 위치로 먼저 점프해 실체화시킨다.
+class _FileListViewState extends ConsumerState<FileListView>
+    with CursorRevealMixin<FileListView> {
+  /// 커서 행을 화면으로 끌어올 때 쓰는 컨트롤러. 만들어져 있는 행은
+  /// [EnsureVisibleOnFocus]가 스스로 드러내고, 아직 없는 행은 이 컨트롤러로 그 언저리로
+  /// 옮겨 만들어 낸다([CursorRevealMixin]).
   final ScrollController _scroll = ScrollController();
 
   /// 이번 build의 표시 행(커서 대상 행 인덱스를 찾을 때 쓴다).
   List<TreeRow> _rows = const [];
 
-  /// 마지막으로 반응한 커서 자리(같은 자리에 반복 반영하지 않기 위함). 노드 행이면
-  /// 노드 id, 그룹 헤더 행이면 그 행의 펼침 키다.
-  Object? _lastCursorAnchor;
+  /// 마지막으로 받아 처리한 드러내기 요청 번호. 이 번호가 오른 프레임에만 커서 행을
+  /// 끌어온다 — 그냥 다시 그려질 때마다 끌어오면 사용자가 굴리던 스크롤을 뺏는다.
+  int _lastRevealSerial = 0;
 
   /// 마지막 탭의 시각·대상. 아이콘 뷰와 같이 더블탭을 손수 판정한다 —
   /// `GestureDetector`의 더블탭을 쓰면 단일 탭이 판정 시간만큼 늦어져 선택이 굼떠진다.
@@ -156,19 +162,28 @@ class _FileListViewState extends ConsumerState<FileListView> {
     super.dispose();
   }
 
-  /// 커서 행이 화면·캐시 밖(실체화 전)이면 대략 위치로 점프해 실체화시킨다
-  /// ([jumpToRowIfOffscreen]). 여기서는 커서가 가리키는 행이 몇 번째인지만 찾는다.
-  void _ensureCursorVisible(Object anchor) {
-    if (!mounted) return;
-    final rows = _rows;
-    final idx = rows.indexWhere((r) {
-      if (anchor is String) {
-        return r.nodeIndex == null && r.expandKey == anchor;
-      }
+  @override
+  ScrollController get revealScrollController => _scroll;
+
+  @override
+  int get revealRowCount => _rows.length;
+
+  /// 커서가 가리키는 표시 행의 위치. 헤더 행이면 펼침 키로, 노드 행이면 노드 id로 찾는다.
+  @override
+  int get cursorRowIndex {
+    final cursor = ref.read(navigationCursorProvider);
+    final headerKey = cursor.headerKey;
+    if (headerKey != null) {
+      return _rows.indexWhere(
+        (r) => r.nodeIndex == null && r.expandKey == headerKey,
+      );
+    }
+    final id = cursor.nodeId;
+    if (id == null) return -1;
+    return _rows.indexWhere((r) {
       final it = r.item;
-      return it is FileTreeNode && it.node.id == anchor;
+      return it is FileTreeNode && it.node.id == id;
     });
-    jumpToRowIfOffscreen(_scroll, idx, rows.length);
   }
 
   @override
@@ -192,16 +207,10 @@ class _FileListViewState extends ConsumerState<FileListView> {
       data: (flat) {
         final rows = flat.rows;
         _rows = rows;
-        // 커서가 새 노드로 바뀌면(특히 화면 밖 먼 항목으로 점프한 경우) 스크롤을
-        // 끌어와 드러낸다. 실체화된 근처 이동은 EnsureVisibleOnFocus가 알아서 한다.
-        final Object? anchor = cursor.headerKey ?? cursor.nodeId;
-        if (anchor != _lastCursorAnchor) {
-          _lastCursorAnchor = anchor;
-          if (anchor != null) {
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _ensureCursorVisible(anchor),
-            );
-          }
+        // 커서를 옮긴 쪽(방향키·클릭·빠른 탐색)과 펼치기·접기가 번호를 올려 요청한다.
+        if (cursor.revealSerial != _lastRevealSerial) {
+          _lastRevealSerial = cursor.revealSerial;
+          requestCursorReveal();
         }
         if (rows.isEmpty) {
           return Text(
@@ -226,6 +235,7 @@ class _FileListViewState extends ConsumerState<FileListView> {
                 final cursored = cursor.headerKey == row.expandKey;
                 return EnsureVisibleOnFocus(
                   active: cursored,
+                  request: cursorReveal,
                   child: _GroupHeaderTile(
                     header: item,
                     depth: row.depth,
@@ -237,13 +247,10 @@ class _FileListViewState extends ConsumerState<FileListView> {
                     onToggleExpand: row.expandable
                         ? () => _toggleExpandKey(row.expandKey)
                         : null,
-                    // 노드 행과 같은 결: 단일 탭은 커서를 그 행으로 옮기고(헤더는
-                    // 선택 대상이 아니라 커서가 "지금 이 행"을 대신한다), 두 번째
-                    // 탭이면 활성까지 잇는다. 선택 상태는 건드리지 않는다.
+                    // 노드 행과 같은 결: 단일 탭은 셸이 커서·선택으로 해석하고, 두 번째
+                    // 탭이면 활성까지 잇는다.
                     onTapRow: () {
-                      ref
-                          .read(navigationCursorProvider.notifier)
-                          .moveToHeader(row.expandKey);
+                      widget.onTapHeader(row.expandKey);
                       if (_isSecondTap(row.expandKey)) {
                         _activateRow(row, null);
                       }
@@ -302,9 +309,13 @@ class _FileListViewState extends ConsumerState<FileListView> {
                 scale: scale,
               );
               final wrapped = widget.tileWrapper?.call(node, tile) ?? tile;
-              // 커서가 이 행으로 오면 스크롤이 따라와 화면에 드러낸다(자기 자신을
-              // 뷰포트로 끌어온다). 한 칸씩 이동이라 대상은 대개 캐시 범위 안에 있다.
-              return EnsureVisibleOnFocus(active: cursored, child: wrapped);
+              // 드러내 달라는 요청이 와 있고 커서가 이 행이면, 스스로 뷰포트 안으로
+              // 들어온다(요청이 없으면 다시 만들어져도 가만히 있는다).
+              return EnsureVisibleOnFocus(
+                active: cursored,
+                request: cursorReveal,
+                child: wrapped,
+              );
             },
           ),
         );

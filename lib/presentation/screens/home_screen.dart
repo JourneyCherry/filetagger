@@ -299,8 +299,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _expandCursorRow() {
     final key = _expandKeyAtCursor();
     if (key == null) return;
-    if (!ref.read(expandedFoldersProvider).contains(key)) _toggleExpand(key);
+    if (ref.read(expandedFoldersProvider).contains(key)) return;
+    _toggleExpand(key);
+    _requestCursorReveal();
   }
+
+  /// 커서는 그대로인데 목록 모양이 바뀌는 자리에서, 커서 행을 다시 화면에 붙들어 둔다.
+  /// 여닫으면 행이 무더기로 생기거나 사라져 스크롤 위치가 밀리고, 그 바람에 커서 행이
+  /// 화면 밖으로 나가면 무엇을 가리키고 있었는지 알 수 없게 된다. 이미 보이는 행이면
+  /// 목록이 아무 일도 하지 않으므로 넉넉히 불러도 된다.
+  void _requestCursorReveal() =>
+      ref.read(navigationCursorProvider.notifier).requestReveal();
 
   /// 왼쪽 방향키의 첫 뜻인 접기. 커서 행이 지금 펼쳐져 보이면 접고 true를 낸다.
   /// 접을 것이 없으면 false라 부르는 쪽이 상위로 올라간다.
@@ -316,14 +325,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!row.expandable || !row.expanded) return false;
     if (!ref.read(fileFilterProvider).isEmpty) return false;
     _toggleExpand(row.expandKey);
+    _requestCursorReveal();
     return true;
   }
 
   /// 왼쪽 방향키의 두 번째 뜻: 커서를 그 행이 속한 **상위 행**(그룹 헤더, 폴더 계층을
   /// 쓸 때는 폴더)으로 올린다. 최상위 행이라 올라갈 자리가 없으면 아무 일도 하지 않는다.
-  ///
-  /// 도착한 곳이 노드 행이면 세로 이동과 같이 그것만 선택하고, 그룹 헤더면 선택을
-  /// 건드리지 않는다(헤더는 선택 대상이 아니다).
   void _moveCursorToParentRow() {
     final flat = _currentFlat();
     if (flat == null) return;
@@ -353,26 +360,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (first < 0) return false;
     final parent = parentRowIndex(flat.rows, first);
     if (parent < 0) return false;
-    _placeCursorOnRow(flat, parent, clearSelection: true);
+    _placeCursorOnRow(flat, parent);
     return true;
   }
 
-  /// [flat]의 [rowIndex] 행에 커서를 놓는다. 노드 행이면 세로 이동과 같이 그것만
-  /// 선택하고(골라 둔 것이 여럿이었어도 이 하나로 줄어든다), 그룹 헤더 행이면 커서만
-  /// 놓는다 — 헤더는 선택 대상이 아니라 선택을 담을 수 없어, 남은 선택을 비울지는
-  /// [clearSelection]으로 부르는 쪽이 정한다.
-  void _placeCursorOnRow(
-    FlatTree flat,
-    int rowIndex, {
-    bool clearSelection = false,
-  }) {
+  /// [flat]의 [rowIndex] 행에 커서를 놓고 선택도 그 행으로 맞춘다 — 노드 행이면 그것만
+  /// 선택하고(골라 둔 것이 여럿이었어도 이 하나로 줄어든다), 그룹 헤더 행이면 비운다.
+  ///
+  /// 헤더에서 비우는 것은 "고를 수 없어서 아무것도 고르지 못했다"는 결과다. 커서 이동은
+  /// 선택도 함께 옮기는 것이 규칙인데 헤더만 예외로 이전 선택을 남겨 두면, 커서와 선택이
+  /// 서로 다른 행에 남아 어느 것이 지금 자리인지 알 수 없게 된다.
+  void _placeCursorOnRow(FlatTree flat, int rowIndex) {
     final row = flat.rows[rowIndex];
     final cursorCtl = ref.read(navigationCursorProvider.notifier);
     final selCtl = ref.read(selectionControllerProvider.notifier);
     final nodeIndex = row.nodeIndex;
     if (nodeIndex == null) {
       cursorCtl.moveToHeader(row.expandKey);
-      if (clearSelection) selCtl.clear();
+      selCtl.clear();
       return;
     }
     final id = flat.nodes[nodeIndex].id;
@@ -449,6 +454,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final node = items[index];
     final id = node.id;
     if (id == null) return;
+    // 선택을 어떻게 바꾸든 커서는 늘 누른 행으로 간다. 커서는 선택과 별개지만 "지금 이
+    // 행"을 가리키는 것은 같아서, 옮겨 두지 않으면 다음 방향키가 옛 자리에서 출발해
+    // 선택이 엉뚱한 곳으로 뛴다(눌러 놓고 방향키를 누르면 화면 밖으로 사라진다).
+    ref.read(navigationCursorProvider.notifier).moveTo(id);
     final keys = HardwareKeyboard.instance;
     final controller = ref.read(selectionControllerProvider.notifier);
 
@@ -466,6 +475,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     controller.selectSingle(id);
     if (!isDesktopPlatform && !node.isDirectory) _showPreview(node);
+  }
+
+  /// 목록 보기의 그룹 헤더 행 탭. 커서를 그 행으로 옮기고, 선택은 아래 규칙을 따른다.
+  void _onTapHeader(String expandKey) {
+    ref.read(navigationCursorProvider.notifier).moveToHeader(expandKey);
+    _onTapHeaderTile();
+  }
+
+  /// 그룹 헤더 탭이 **선택에** 남기는 결과: 골라 둔 것을 비운다 — 단일 탭은 "이것만
+  /// 고른다"는 뜻이고, 헤더는 고를 수 없으니 고르려다 아무것도 고르지 못한 결과만 남는다.
+  /// 방향키로 헤더에 올라섰을 때와 같은 규칙이다([_moveCursor]).
+  ///
+  /// 보조키를 짚었으면(범위·개별 토글) 단일 선택의 뜻이 아니므로 선택을 건드리지 않고,
+  /// 모바일 선택 모드의 탭도 토글이라 고르던 것을 지우지 않는다. 커서는 뷰마다 제 것을
+  /// 쥐고 있어(목록은 provider, 아이콘 보기는 자기 상태) 각자 옮기고, 여기서는 두 보기가
+  /// 나눠 쓰는 선택 규칙만 맡는다.
+  void _onTapHeaderTile() {
+    final keys = HardwareKeyboard.instance;
+    if (keys.isShiftPressed || keys.isControlPressed || keys.isMetaPressed) {
+      return;
+    }
+    if (_selectionMode) return;
+    ref.read(selectionControllerProvider.notifier).clear();
   }
 
   /// 행 롱프레스: 선택 모드로 들어가며 그 행을 선택에 넣는다(모바일 전용).
@@ -524,8 +556,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 커서를 세로로 [delta]칸(위 -1/아래 +1) 옮긴다. [mode]에 따라 선택도 함께
   /// 바꾼다: single=그 항목만 선택, range=앵커에서 범위 선택, cursorOnly=선택 불변.
   ///
-  /// 이동 단위는 노드가 아니라 **표시 행**이라 그룹 헤더도 지나간다. 헤더는 선택
-  /// 대상이 아니므로 거기 서면 [mode]와 무관하게 **커서만** 옮긴다.
+  /// 이동 단위는 노드가 아니라 **표시 행**이라 그룹 헤더도 지나간다. 헤더는 선택 대상이
+  /// 아니므로 거기 서면 아무것도 선택되지 않는데, 단일 이동일 때는 **골라 둔 것을
+  /// 비운다** — "이 행만 고른다"고 했다가 고를 수 없는 자리에 선 결과다. 범위 선택은
+  /// 헤더를 건너뛰며 이어져야 하고 커서만 이동은 애초에 선택을 건드리지 않으므로, 그 둘은
+  /// 헤더에서도 선택을 그대로 둔다.
   void _moveCursor(int delta, _CursorMove mode) {
     final flat = _currentFlat();
     if (flat == null || flat.rows.isEmpty) return;
@@ -536,6 +571,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final nodeIndex = row.nodeIndex;
     if (nodeIndex == null) {
       cursorCtl.moveToHeader(row.expandKey);
+      if (mode == _CursorMove.single) {
+        ref.read(selectionControllerProvider.notifier).clear();
+      }
       return;
     }
     final id = flat.nodes[nodeIndex].id;
@@ -617,6 +655,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final key = _expandKeyAtCursor();
     if (key != null) {
       _toggleExpand(key);
+      _requestCursorReveal();
       return;
     }
     _openSelected();
@@ -1723,6 +1762,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildListMode(SelectionState selection, bool desktop) {
     return FileListView(
       onTapNode: _onTapNode,
+      onTapHeader: _onTapHeader,
       // 행 더블클릭은 그 항목을 골라 연다(펼칠 수 있는 행은 뷰가 여닫는다).
       onOpenNode: _openNodeFromView,
       onLongPressNode: desktop ? null : _onLongPressNode,
@@ -1748,6 +1788,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildIconMode(bool desktop) {
     return FileIconView(
       onTapNode: _onTapNode,
+      onTapHeader: _onTapHeaderTile,
       // 파일 더블클릭/Enter는 그 파일을 골라 연다(폴더·그룹은 뷰가 파고든다).
       onOpenNode: _openNodeFromView,
       onLongPressNode: desktop ? null : _onLongPressNode,

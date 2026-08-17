@@ -13,7 +13,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///   - 0..n-1    = 보이는 태그 칩(n = 그 행의 보이는 태그 수)
 ///   - n         = '+' 추가 슬롯(추가 어포던스가 있을 때만 닿는다)
 class NavigationCursor {
-  const NavigationCursor({this.nodeId, this.headerKey, this.tagColumn});
+  const NavigationCursor({
+    this.nodeId,
+    this.headerKey,
+    this.tagColumn,
+    this.revealSerial = 0,
+  });
 
   final int? nodeId;
 
@@ -21,6 +26,15 @@ class NavigationCursor {
   final String? headerKey;
 
   final int? tagColumn;
+
+  /// **커서 행을 화면에 드러내 달라**는 요청을 세는 번호. 값 자체엔 뜻이 없고, 이 번호가
+  /// 오르면 목록이 그 행을 뷰포트 안으로 끌어온다.
+  ///
+  /// 자리를 옮기는 것과 드러내는 것을 나눠 두는 까닭은 둘이 늘 함께 오지 않아서다 —
+  /// 펼치기·접기는 커서를 그대로 둔 채 목록 모양만 바꿔 커서 행을 화면 밖으로 밀어낼 수
+  /// 있고([NavigationCursorController.requestReveal]), 태그 칸을 좌우로 옮기는 것은
+  /// 행이 그대로라 드러낼 일이 없다.
+  final int revealSerial;
 
   bool get isEmpty => nodeId == null && headerKey == null;
 }
@@ -95,19 +109,39 @@ class NavigationCursorController extends Notifier<NavigationCursor> {
   @override
   NavigationCursor build() => const NavigationCursor();
 
-  void clear() => state = const NavigationCursor();
+  /// 커서를 비운다. 드러내기 번호는 이어 간다 — 되돌아가며 값이 겹치면 이미 처리한
+  /// 요청을 새 요청으로 잘못 읽는다.
+  void clear() => state = NavigationCursor(revealSerial: state.revealSerial);
 
   /// 커서를 [nodeId] 행으로 옮긴다. 세로 이동은 늘 태그 칸을 행 레벨로 되돌린다.
-  void moveTo(int nodeId) => state = NavigationCursor(nodeId: nodeId);
+  void moveTo(int nodeId) => state = NavigationCursor(
+    nodeId: nodeId,
+    revealSerial: state.revealSerial + 1,
+  );
 
   /// 커서를 [headerKey]가 가리키는 그룹 헤더 행으로 옮긴다. 헤더는 선택 대상이
   /// 아니라 커서만 놓이고, 태그 칸도 없어 행 레벨뿐이다.
-  void moveToHeader(String headerKey) =>
-      state = NavigationCursor(headerKey: headerKey);
+  void moveToHeader(String headerKey) => state = NavigationCursor(
+    headerKey: headerKey,
+    revealSerial: state.revealSerial + 1,
+  );
 
-  /// 현재 행 안에서 태그 칸만 바꾼다.
-  void setTagColumn(int? column) =>
-      state = NavigationCursor(nodeId: state.nodeId, tagColumn: column);
+  /// 현재 행 안에서 태그 칸만 바꾼다(행이 그대로라 드러낼 일이 없다).
+  void setTagColumn(int? column) => state = NavigationCursor(
+    nodeId: state.nodeId,
+    tagColumn: column,
+    revealSerial: state.revealSerial,
+  );
+
+  /// 커서는 그대로 둔 채 **그 행을 다시 드러내 달라**고 알린다. 펼치기·접기처럼 커서는
+  /// 움직이지 않았는데 목록 모양이 바뀌어 커서 행이 화면 밖으로 밀릴 수 있는 자리에서
+  /// 쓴다. 이미 온전히 보이는 행이면 목록이 아무 일도 하지 않는다.
+  void requestReveal() => state = NavigationCursor(
+    nodeId: state.nodeId,
+    headerKey: state.headerKey,
+    tagColumn: state.tagColumn,
+    revealSerial: state.revealSerial + 1,
+  );
 }
 
 final navigationCursorProvider =

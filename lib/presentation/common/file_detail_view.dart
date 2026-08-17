@@ -104,10 +104,11 @@ class FileDetailView extends ConsumerStatefulWidget {
   ConsumerState<FileDetailView> createState() => _FileDetailViewState();
 }
 
-class _FileDetailViewState extends ConsumerState<FileDetailView> {
+class _FileDetailViewState extends ConsumerState<FileDetailView>
+    with CursorRevealMixin<FileDetailView> {
   final ScrollController _horizontal = ScrollController();
 
-  /// 빠른 탐색이 멀리 떨어진 행으로 건너뛰었을 때 표를 그리로 끌어오기 위한 컨트롤러.
+  /// 커서 행이 화면 밖에 있을 때 표를 그리로 끌어오기 위한 컨트롤러.
   final ScrollController _vertical = ScrollController();
 
   /// 조절 중인 컬럼의 임시 폭(놓는 순간 저장하고 지운다).
@@ -128,6 +129,23 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
   /// 키보드 커서(행=파일 id, 열=0 이름·1.. 태그 컬럼). 선택과 별개다.
   int? _cursorNodeId;
   int _cursorCol = 0;
+
+  @override
+  ScrollController get revealScrollController => _vertical;
+
+  @override
+  int get revealRowCount => _rowsNow.length;
+
+  @override
+  int get cursorRowIndex {
+    final id = _cursorNodeId;
+    if (id == null) return -1;
+    return _rowsNow.indexWhere((n) => n.id == id);
+  }
+
+  /// 지금 표시 중인 행들(커서 행을 찾을 때 쓴다). 아직 없으면 빈 목록.
+  List<FileNode> get _rowsNow =>
+      ref.read(detailRowsProvider).valueOrNull ?? const [];
 
   /// 단축키 바인딩. 화면 상태에 매이지 않아 한 번만 만든다(그릴 때마다 콜백 열댓
   /// 개를 새로 묶지 않는다).
@@ -322,8 +340,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     if (id == null) return;
     setState(() => _cursorNodeId = id);
     ref.read(selectionControllerProvider.notifier).selectSingle(id);
-    // 멀리 건너뛰면 그 행의 자기-노출이 먹지 않는다(위젯이 아직 없다).
-    jumpToRowIfOffscreen(_vertical, target, list.length);
+    requestCursorReveal();
   }
 
   /// Ctrl+Enter: 커서 행을 다중 선택에 넣거나 뺀다(이미 선택돼 있으면 해제).
@@ -349,6 +366,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     final next = stepNodeCursor(ids, current, delta);
     if (next == null) return;
     setState(() => _cursorNodeId = next);
+    requestCursorReveal();
     final ctl = ref.read(selectionControllerProvider.notifier);
     switch (mode) {
       case _DetailMove.single:
@@ -621,6 +639,7 @@ class _FileDetailViewState extends ConsumerState<FileDetailView> {
     // 태그)의 더블탭·우클릭은 행 동작(파일 열기·셸 메뉴)으로 넘긴다.
     return EnsureVisibleOnFocus(
       active: rowCursored,
+      request: cursorReveal,
       child: Material(
         color: selected ? scheme.primaryContainer : Colors.transparent,
         animationDuration: stateChangeDuration,

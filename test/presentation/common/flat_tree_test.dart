@@ -7,8 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 FileTreeNode _dir(String path, List<FileTreeNode> children) =>
     FileTreeNode(FileNode(path: path, kind: NodeKind.directory), children);
 
-FileTreeNode _file(String path) =>
-    FileTreeNode(FileNode(path: path, kind: NodeKind.file), const []);
+FileTreeNode _file(String path, {int? id}) =>
+    FileTreeNode(FileNode(id: id, path: path, kind: NodeKind.file), const []);
 
 /// a/
 ///   a/b/
@@ -163,6 +163,42 @@ void main() {
       );
       expect(parentRowIndex(flat.rows, 1), 0);
       expect(flat.rows[0].item, isA<GroupHeaderNode>());
+    });
+  });
+
+  group('firstRowIndexOfAny', () {
+    /// 헤더 두 개에 파일을 나눠 담은 트리(둘 다 펴 둔다).
+    /// 헤더 → 1 → 2 → 헤더 → 3.
+    FlatTree twoBuckets() => flattenTree(
+      [
+        _group(1, 'red', <TreeItem>[
+          _file('x.txt', id: 1),
+          _file('y.txt', id: 2),
+        ]),
+        _group(1, 'blue', <TreeItem>[_file('z.txt', id: 3)]),
+      ],
+      expandedFolders: const {},
+      expandAll: true,
+    );
+
+    test('여러 그룹에 걸쳐 골라도 표시 순서의 첫 노드를 낸다', () {
+      // 뒤 버킷의 노드를 먼저 적어도 순서는 집합이 아니라 표시 행이 정한다.
+      expect(twoBuckets().firstRowIndexOfAny({3, 2}), 2);
+    });
+
+    test('고른 것이 하나면 그 행', () {
+      expect(twoBuckets().firstRowIndexOfAny({3}), 4);
+    });
+
+    test('목록에 없는 id·빈 집합은 -1', () {
+      expect(twoBuckets().firstRowIndexOfAny({99}), -1);
+      expect(twoBuckets().firstRowIndexOfAny(const {}), -1);
+    });
+
+    test('첫 선택의 상위 행이 그 노드가 담긴 헤더다', () {
+      final flat = twoBuckets();
+      final first = flat.firstRowIndexOfAny({3, 2});
+      expect(parentRowIndex(flat.rows, first), 0);
     });
   });
 

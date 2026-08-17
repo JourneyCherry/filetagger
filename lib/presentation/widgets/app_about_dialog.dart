@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/build_info.dart';
 import '../../core/constants.dart';
+import '../../core/repository_page.dart';
+import '../../data/platform/link_opener.dart';
 import '../commands/app_commands.dart';
 import 'dialog_utils.dart';
 
@@ -34,6 +36,21 @@ String get _versionLine {
   };
   final version = appVersion.isEmpty ? '버전을 알 수 없음' : '버전 $appVersion';
   return '$version · $kind';
+}
+
+/// 소스 코드 저장소를 브라우저로 넘긴다.
+///
+/// **알 수 있는 실패는 넘기는 데까지**다 — OS가 이 주소를 받아 줄 프로그램을 띄우지
+/// 못한 것(기본 브라우저 미등록 등)만 돌아온다. 넘긴 뒤의 일(페이지가 뜨는지, 주소가
+/// 살아 있는지)은 브라우저의 몫이라 알 방법이 없으므로, 알림도 거기까지만 말한다.
+/// 그래도 알리는 것은, 눌러도 아무 일이 없으면 버튼이 죽은 것인지 알 수 없어서다.
+///
+/// 메신저를 미리 잡아 두는 것은 기다린 뒤에는 이 다이얼로그가 이미 닫혔을 수 있기
+/// 때문이다.
+Future<void> _openRepository(BuildContext context) async {
+  final messenger = ScaffoldMessenger.of(context);
+  if (await const LinkOpener().open(sourceRepositoryUrl())) return;
+  messenger.showSnackBar(const SnackBar(content: Text('웹 브라우저를 열지 못했습니다.')));
 }
 
 class _AboutDialog extends StatelessWidget {
@@ -83,6 +100,18 @@ class _AboutDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              // 소스 코드로 가는 유일한 입구. 앱 자체를 밝히는 이 자리가 "이건 누가
+              // 어떻게 만든 것인가"를 찾는 사람이 여는 곳이라, 라이선스와 나란히 둔다.
+              // 메뉴에는 두지 않는다 — 앱 밖으로 한 번 나가고 마는 자리라 조작 경로를
+              // 둘로 벌릴 만큼 자주 쓰이지 않는다.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.code),
+                  label: const Text('소스 코드 저장소'),
+                  onPressed: () => _openRepository(context),
+                ),
+              ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(

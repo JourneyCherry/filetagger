@@ -6,33 +6,41 @@ import 'package:path/path.dart' as p;
 
 import 'workspace_path.dart';
 
-/// OS 파일 관리자를 띄워 해당 항목의 위치를 드러내는 어댑터.
+/// OS 파일 관리자를 띄워 해당 항목을 보이는 어댑터.
 ///
 /// 항목을 "선택된 채로" 여는 방법이 플랫폼마다 달라 여기 한 곳에서만 분기한다.
 /// 파일 관리자를 띄우기만 하고 결과를 기다리지 않는다(사용자가 그쪽에서 계속 조작).
+///
+/// **파일과 디렉토리는 보여 줄 것이 다르다** — 파일은 그 자리를 짚어야 하므로 부모
+/// 폴더를 열어 고른 채로 두고, 디렉토리는 그 안이 보여야 하므로 폴더 자체를 연다.
+/// 디렉토리를 파일처럼 다루면 사용자가 보려던 내용 대신 그 폴더가 놓인 상위 폴더가
+/// 열려, 한 단계 더 들어가야 한다.
 class FileManagerRevealer {
   const FileManagerRevealer();
 
   /// 워크스페이스 루트 기준 '/' 상대 경로 [relPath]의 항목을 파일 관리자에서 연다.
+  /// [isDirectory]면 그 폴더의 내용을 열고, 아니면 부모 폴더에서 그 항목을 고른다.
   /// 실행할 수 없으면 [ProcessException], 지원하지 않는 플랫폼이면 [UnsupportedError].
   Future<void> reveal({
     required String workspaceRoot,
     required String relPath,
+    required bool isDirectory,
   }) async {
     final target = workspaceAbsolutePath(workspaceRoot, relPath);
 
     if (Platform.isWindows) {
-      _revealOnWindows(target);
+      _openInExplorer(target, selectInParent: !isDirectory);
       return;
     }
     if (Platform.isMacOS) {
-      await _run('open', ['-R', target]);
+      // -R이 "부모에서 고른 채로"를 뜻한다. 폴더 자체를 열 때는 붙이지 않는다.
+      await _run('open', [if (!isDirectory) '-R', target]);
       return;
     }
     if (Platform.isLinux) {
       // 리눅스 파일 관리자는 "항목 선택" 인자를 표준화하지 않았다. 표준 열기 도구로
-      // 부모 폴더를 열어 위치까지만 안내한다.
-      await _run('xdg-open', [p.dirname(target)]);
+      // 파일은 부모 폴더를 열어 위치까지만 안내하고, 폴더는 그 폴더를 연다.
+      await _run('xdg-open', [isDirectory ? target : p.dirname(target)]);
       return;
     }
     throw UnsupportedError('이 플랫폼에서는 파일 관리자를 열 수 없습니다.');
@@ -57,11 +65,14 @@ class FileManagerRevealer {
 ///
 /// `Process.run`은 공백이 든 인자를 스위치까지 통째로 감싸 버리는데, 탐색기는 자기
 /// 명령줄을 직접 해석해 그 형태에서 스위치를 알아보지 못하고 엉뚱한 기본 폴더를 연다.
-/// Dart에 원시 명령줄을 넘길 수단이 없어 아래 [_revealOnWindows]가 FFI로 부르고,
+/// Dart에 원시 명령줄을 넘길 수단이 없어 아래 [_openInExplorer]가 FFI로 부르고,
 /// 이 함수가 그 인자를 만든다(Windows 파일 이름에는 따옴표가 들어갈 수 없어 이스케이프
 /// 규칙이 필요 없다). 순수 문자열 로직이라 그대로 유닛테스트한다.
-String explorerSelectArgument(String absolutePath) =>
-    '$_explorerSelectSwitch"$absolutePath"';
+///
+/// [selectInParent]이면 부모 폴더를 열고 그 항목을 고른 채로 두는 스위치를 앞에 붙이고,
+/// 아니면 경로만 넘겨 그 자리를 곧바로 연다(디렉토리면 그 안이 보인다).
+String explorerArgument(String absolutePath, {required bool selectInParent}) =>
+    '${selectInParent ? _explorerSelectSwitch : ''}"$absolutePath"';
 
 /// 탐색기에게 "부모 폴더를 열고 이 항목을 고른 채로 두라"고 지시하는 스위치.
 const String _explorerSelectSwitch = '/select,';
@@ -106,16 +117,20 @@ _shellExecuteW = _shell32
       )
     >('ShellExecuteW');
 
-void _revealOnWindows(String absolutePath) {
+void _openInExplorer(String absolutePath, {required bool selectInParent}) {
+  final argument = explorerArgument(
+    absolutePath,
+    selectInParent: selectInParent,
+  );
   final verb = _shellOpenVerb.toNativeUtf16();
   final file = _explorerExecutable.toNativeUtf16();
-  final args = explorerSelectArgument(absolutePath).toNativeUtf16();
+  final args = argument.toNativeUtf16();
   try {
     final result = _shellExecuteW(0, verb, file, args, nullptr, _swShowNormal);
     if (result <= _shellExecuteSuccessFloor) {
       throw ProcessException(
         _explorerExecutable,
-        [explorerSelectArgument(absolutePath)],
+        [argument],
         'ShellExecuteW 오류',
         result,
       );

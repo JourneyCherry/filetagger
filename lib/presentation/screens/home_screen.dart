@@ -253,7 +253,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// [node]를 OS로 연다. 파일은 확장자에 OS가 연결해 둔 앱으로 실행하고, 폴더는 파일
-  /// 관리자에서 그 폴더를 드러낸다('탐색기에서 열기'와 같다). 키워드·연결 끊긴 노드는
+  /// 관리자에서 그 폴더 안을 연다('탐색기에서 열기'와 같다). 키워드·연결 끊긴 노드는
   /// 디스크에 자리가 없어 열 것이 없다(무동작 — 명령도 비활성이다).
   Future<void> _openNode(FileNode node) async {
     if (node.isMissing || node.isKeyword) return;
@@ -329,17 +329,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (flat == null) return;
     final parent = parentRowIndex(flat.rows, _cursorRowIndex(flat));
     if (parent < 0) return;
-    final row = flat.rows[parent];
-    final nodeIndex = row.nodeIndex;
+    _placeCursorOnRow(flat, parent);
+  }
+
+  /// 여럿을 골라 둔 채로 왼쪽 방향키를 눌렀을 때의 뜻: **선택을 풀고 첫 선택 노드가
+  /// 속한 상위 행**(대개 그룹 헤더)으로 커서를 올린다. 처리했으면 true.
+  ///
+  /// 고른 것이 여럿이면 접기·올라가기가 어느 행을 기준으로 삼을지 정해지지 않는데,
+  /// 표시 순서의 **첫 노드**로 못박으면 서로 다른 그룹에 걸쳐 골랐어도 갈 곳이 하나가
+  /// 된다([FlatTree.firstRowIndexOfAny]). 골라 둔 것을 훑고 나서 그 묶음 밖으로
+  /// 나오는 길이라, 접기보다 앞에 둔다.
+  ///
+  /// 올라갈 상위 행이 없으면(첫 선택이 최상위 행) **선택을 건드리지 않고** false를
+  /// 돌려준다 — 커서가 눈에 보이게 움직이지도 않았는데 선택만 사라지면, 되돌릴 수 없는
+  /// 손실로 보인다.
+  bool _escapeMultiSelectionToParentRow() {
+    if (ref.read(selectionControllerProvider).length < 2) return false;
+    final flat = _currentFlat();
+    if (flat == null) return false;
+    final first = flat.firstRowIndexOfAny(
+      ref.read(selectionControllerProvider).selectedIds,
+    );
+    if (first < 0) return false;
+    final parent = parentRowIndex(flat.rows, first);
+    if (parent < 0) return false;
+    _placeCursorOnRow(flat, parent, clearSelection: true);
+    return true;
+  }
+
+  /// [flat]의 [rowIndex] 행에 커서를 놓는다. 노드 행이면 세로 이동과 같이 그것만
+  /// 선택하고(골라 둔 것이 여럿이었어도 이 하나로 줄어든다), 그룹 헤더 행이면 커서만
+  /// 놓는다 — 헤더는 선택 대상이 아니라 선택을 담을 수 없어, 남은 선택을 비울지는
+  /// [clearSelection]으로 부르는 쪽이 정한다.
+  void _placeCursorOnRow(
+    FlatTree flat,
+    int rowIndex, {
+    bool clearSelection = false,
+  }) {
+    final row = flat.rows[rowIndex];
     final cursorCtl = ref.read(navigationCursorProvider.notifier);
+    final selCtl = ref.read(selectionControllerProvider.notifier);
+    final nodeIndex = row.nodeIndex;
     if (nodeIndex == null) {
       cursorCtl.moveToHeader(row.expandKey);
+      if (clearSelection) selCtl.clear();
       return;
     }
     final id = flat.nodes[nodeIndex].id;
     if (id == null) return;
     cursorCtl.moveTo(id);
-    ref.read(selectionControllerProvider.notifier).selectSingle(id);
+    selCtl.selectSingle(id);
   }
 
   /// [node]의 프리뷰를 드러낸다. 분할이 가능한 폭이면 분할 창을 켜고, 좁으면
@@ -519,7 +558,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ///
   /// 왼쪽은 두 뜻을 사다리처럼 잇는다: 펼쳐진 행이면 접고, **접힌 행이나 펼칠 것이 없는
   /// 행이면 그 행이 속한 상위 행으로 올라간다**. 눌러 나가면 접기와 올라가기가 번갈아
-  /// 일어나 그룹 계층을 거슬러 오르고, 최상위에 닿으면 반응이 없다.
+  /// 일어나 그룹 계층을 거슬러 오르고, 최상위에 닿으면 반응이 없다. 단 **여럿을 골라
+  /// 두었으면 접기보다 먼저 그 묶음에서 빠져나온다**([_escapeMultiSelectionToParentRow]).
   void _moveCursorHorizontal(int delta) {
     if (ref.read(navigationCursorProvider).tagColumn != null) {
       _moveTag(delta);
@@ -529,6 +569,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _expandCursorRow();
       return;
     }
+    if (_escapeMultiSelectionToParentRow()) return;
     if (_collapseCursorRow()) return;
     _moveCursorToParentRow();
   }
@@ -882,7 +923,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await repo.removeNode(nodeId);
   }
 
-  /// 선택한 항목의 위치를 OS 파일 관리자에서 연다(Windows 탐색기는 항목을 고른 채).
+  /// 선택한 항목을 OS 파일 관리자에서 연다. 파일은 부모 폴더에서 고른 채로 보이고,
+  /// 폴더는 그 안이 보이게 열린다.
   Future<void> _revealSelected() async {
     final node = _singleExistingSelected;
     final root = ref.read(workspaceRootProvider);
@@ -895,6 +937,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await const FileManagerRevealer().reveal(
         workspaceRoot: workspaceRoot,
         relPath: node.path,
+        isDirectory: node.isDirectory,
       );
     } catch (e) {
       _showSnack('탐색기에서 열지 못했습니다: $e');

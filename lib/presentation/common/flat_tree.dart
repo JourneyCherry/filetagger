@@ -51,6 +51,16 @@ class FlatTree {
     for (final n in nodes)
       if (n.id != null) n.id!,
   ];
+
+  /// [ids] 중 표시 순서에서 **가장 먼저 나오는** 노드의 행 위치. 하나도 없으면 -1.
+  ///
+  /// 여럿을 골라 둔 채로 "그 선택이 속한 상위 행"을 물을 때의 기준이다 — 고른 것이
+  /// 여러 그룹에 걸쳐 있으면 갈 곳이 여럿이라, 첫 노드 하나로 못박아야 답이 정해진다.
+  /// 다중값 그룹에서 같은 노드가 여러 버킷에 나오는 것도 첫 등장으로 갈린다.
+  int firstRowIndexOfAny(Set<int> ids) => rows.indexWhere((r) {
+    final i = r.nodeIndex;
+    return i != null && ids.contains(nodes[i].id);
+  });
 }
 
 /// 필터·정렬·그룹된 트리를 표시 순서의 평면 행으로 편다. 접힌 폴더·헤더의 자식은

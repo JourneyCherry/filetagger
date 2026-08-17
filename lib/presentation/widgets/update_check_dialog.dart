@@ -66,15 +66,23 @@ class _UpdateCheckDialog extends StatelessWidget {
   }
 
   /// 결과별로 사용자를 보낼 곳. 보낼 곳이 없으면 닫기만 남는다.
+  ///
+  /// 넘기지 못했을 때 할 말도 함께 고른다 — 릴리즈 페이지는 브라우저가, 스토어 스킴은
+  /// 스토어 앱이 받으므로 못 열린 것이 서로 다르다.
   List<Widget> _actions(BuildContext context, UpdateCheckOutcome outcome) {
     final destination = switch (outcome) {
       UpdateAvailable(:final release) => (
         label: '릴리즈 페이지 열기',
         url: release.pageUrl,
+        failure: '웹 브라우저를 열지 못했습니다.',
       ),
       UpdateCheckSkipped(reason: UpdateCheckSkipReason.managedByStore) =>
         switch (storePageUrl()) {
-          final Uri url => (label: '스토어에서 열기', url: url),
+          final Uri url => (
+            label: '스토어에서 열기',
+            url: url,
+            failure: '스토어 앱을 열지 못했습니다.',
+          ),
           null => null,
         },
       _ => null,
@@ -82,14 +90,31 @@ class _UpdateCheckDialog extends StatelessWidget {
     if (destination == null) return const [];
     return [
       FilledButton(
-        onPressed: () {
-          const LinkOpener().open(destination.url);
-          Navigator.of(context).pop();
-        },
+        onPressed: () =>
+            _openDestination(context, destination.url, destination.failure),
         child: Text(destination.label),
       ),
     ];
   }
+}
+
+/// 목적지를 앱 밖으로 넘기고 이 다이얼로그를 닫는다.
+///
+/// **알 수 있는 실패는 넘기는 데까지**다 — OS가 그 주소를 받아 줄 프로그램을 띄우지
+/// 못한 것만 돌아오고, 넘긴 뒤의 일(페이지가 뜨는지)은 알 방법이 없어 알림도 거기까지만
+/// 말한다. 그래도 알리는 것은, 눌러도 아무 일이 없으면 버튼이 죽은 것인지 알 수 없어서다.
+///
+/// 닫기를 기다리지 않고 먼저 하는 것은 종전 그대로다(누른 순간 닫힌다). 그래서 메신저를
+/// 미리 잡아 둔다 — 알릴 때쯤이면 이 다이얼로그는 이미 없다.
+Future<void> _openDestination(
+  BuildContext context,
+  Uri url,
+  String failure,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  Navigator.of(context).pop();
+  if (await const LinkOpener().open(url)) return;
+  messenger.showSnackBar(SnackBar(content: Text(failure)));
 }
 
 class _Checking extends StatelessWidget {

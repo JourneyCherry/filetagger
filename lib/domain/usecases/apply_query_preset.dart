@@ -5,7 +5,7 @@ import '../entities/query_preset.dart';
 
 /// 프리셋을 실제로 걸 수 있는 형태로 푼 결과.
 ///
-/// 세 조건과 두 표시 출처는 그대로 갈아끼울 값이고, [droppedCount]는 태그가 사라져
+/// 세 조건과 세 표시 출처는 그대로 갈아끼울 값이고, [droppedCount]는 태그가 사라져
 /// 걸 수 없어 버린 조각의 수다(사용자에게 알리는 용도 — 0이면 알릴 것이 없다).
 class QueryPresetApplication {
   const QueryPresetApplication({
@@ -13,6 +13,7 @@ class QueryPresetApplication {
     required this.sort,
     required this.grouping,
     required this.nameSources,
+    required this.subtitleSources,
     required this.thumbnailSources,
     required this.droppedCount,
   });
@@ -21,6 +22,7 @@ class QueryPresetApplication {
   final FileSortOrder sort;
   final FileGrouping grouping;
   final List<int> nameSources;
+  final List<int> subtitleSources;
   final List<int> thumbnailSources;
   final int droppedCount;
 }
@@ -53,6 +55,10 @@ QueryPresetApplication resolvePresetApplication(
     for (final id in preset.nameSources)
       if (validTagIds.contains(id)) id,
   ];
+  final subtitleSources = [
+    for (final id in preset.subtitleSources)
+      if (validTagIds.contains(id)) id,
+  ];
   final thumbnailSources = [
     for (final id in preset.thumbnailSources)
       if (validTagIds.contains(id)) id,
@@ -62,12 +68,14 @@ QueryPresetApplication resolvePresetApplication(
       (preset.sort.keys.length - sortKeys.length) +
       (preset.grouping.keys.length - groupKeys.length) +
       (preset.nameSources.length - nameSources.length) +
+      (preset.subtitleSources.length - subtitleSources.length) +
       (preset.thumbnailSources.length - thumbnailSources.length);
   return QueryPresetApplication(
     filter: FileFilter(conditions: conditions),
     sort: FileSortOrder(keys: sortKeys),
     grouping: FileGrouping(keys: groupKeys),
     nameSources: nameSources,
+    subtitleSources: subtitleSources,
     thumbnailSources: thumbnailSources,
     droppedCount: dropped,
   );

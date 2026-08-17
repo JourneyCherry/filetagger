@@ -20,11 +20,17 @@ void main() {
   test('저장한 설정을 그대로 다시 읽는다', () async {
     final store = JsonViewSettingsStore(root.path);
     await store.save(
-      const WorkspaceViewSettings(viewMode: ViewMode.icon, nameSources: [7, 3]),
+      const WorkspaceViewSettings(
+        viewMode: ViewMode.icon,
+        nameSources: [7, 3],
+        subtitleSources: [2, 9],
+      ),
     );
     final loaded = await JsonViewSettingsStore(root.path).load();
     expect(loaded.viewMode, ViewMode.icon);
     expect(loaded.nameSources, [7, 3]);
+    // 이름과 따로 저장된다(둘이 섞이면 한쪽을 고칠 때 다른 쪽이 따라 바뀐다).
+    expect(loaded.subtitleSources, [2, 9]);
   });
 
   test('파일이 없으면 기본값', () async {

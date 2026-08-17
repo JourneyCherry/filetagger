@@ -109,15 +109,19 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     final keptSources = sources
         .where((s) => s == kDefaultThumbnailSourceId || validIds.contains(s))
         .toList();
-    // 이름 출처도 같은 이유로 정리한다(기본=노드 이름은 태그가 아니라 목록에 없다).
+    // 이름·부제 출처도 같은 이유로 정리한다(기본=노드 이름·경로는 태그가 아니라
+    // 목록에 없다).
     final names = state.nameSources;
     final keptNames = names.where(validIds.contains).toList();
+    final subtitles = state.subtitleSources;
+    final keptSubtitles = subtitles.where(validIds.contains).toList();
     if (keptConditions.length == conditions.length &&
         keptKeys.length == keys.length &&
         keptOrder.length == order.length &&
         keptGroupKeys.length == groupKeys.length &&
         keptSources.length == sources.length &&
-        keptNames.length == names.length) {
+        keptNames.length == names.length &&
+        keptSubtitles.length == subtitles.length) {
       return; // 사라진 참조 없음 — 그대로 둔다(불필요한 저장 방지).
     }
     _set(
@@ -128,6 +132,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
         grouping: FileGrouping(keys: keptGroupKeys),
         thumbnailSources: keptSources,
         nameSources: keptNames,
+        subtitleSources: keptSubtitles,
       ),
     );
   }
@@ -141,7 +146,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
       if (d.id != null) d.id!,
   };
 
-  /// 프리셋 한 벌을 통째로 건다 — **지금 걸린 필터·정렬·그룹과 이름·썸네일 출처는
+  /// 프리셋 한 벌을 통째로 건다 — **지금 걸린 필터·정렬·그룹과 이름·부제·썸네일 출처는
   /// 모두 지워지고** 프리셋의 것으로 대체된다(부분 병합 없음).
   ///
   /// 저장한 뒤 태그가 지워졌다면 그 조각은 걸 수 없어 빠지며, 그 수를 돌려준다(호출부가
@@ -156,6 +161,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
             sort: preset.sort,
             grouping: preset.grouping,
             nameSources: preset.nameSources,
+            subtitleSources: preset.subtitleSources,
             thumbnailSources: preset.thumbnailSources,
             droppedCount: 0,
           )
@@ -169,6 +175,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
         sort: resolved.sort,
         grouping: resolved.grouping,
         nameSources: resolved.nameSources,
+        subtitleSources: resolved.subtitleSources,
         thumbnailSources: resolved.thumbnailSources,
       ),
     );
@@ -184,6 +191,11 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
   /// 다이얼로그가 호출). 어느 태그도 글자를 못 내면 노드 이름으로 폴백한다.
   void updateNameSources(List<int> sources) =>
       _set(state.copyWith(nameSources: sources));
+
+  /// 부제 줄에 보일 값의 출처 우선순위를 통째로 갈아끼우고 저장한다(부제 태그
+  /// 다이얼로그가 호출). 어느 태그도 글자를 못 내면 경로로 폴백한다.
+  void updateSubtitleSources(List<int> sources) =>
+      _set(state.copyWith(subtitleSources: sources));
 
   void updateFilter(FileFilter filter) => _set(state.copyWith(filter: filter));
 
@@ -316,12 +328,17 @@ final viewModeProvider = Provider<ViewMode>(
   (ref) => ref.watch(viewSettingsProvider).viewMode,
 );
 
-/// 썸네일 출처 우선순위(태그 id + 기본 항목, 앞이 높음). 쓰기는 [viewSettingsProvider]를 통한다.
-/// 이름 칸에 보일 값의 출처 우선순위(보기 설정 파생).
+/// 이름 칸에 보일 값의 출처 우선순위(보기 설정 파생, 앞이 높음). 비면 파일 이름.
 final nameSourcesProvider = Provider<List<int>>(
   (ref) => ref.watch(viewSettingsProvider).nameSources,
 );
 
+/// 부제 줄에 보일 값의 출처 우선순위(보기 설정 파생, 앞이 높음). 비면 경로.
+final subtitleSourcesProvider = Provider<List<int>>(
+  (ref) => ref.watch(viewSettingsProvider).subtitleSources,
+);
+
+/// 썸네일 출처 우선순위(태그 id + 기본 항목, 앞이 높음).
 final thumbnailSourcesProvider = Provider<List<int>>(
   (ref) => ref.watch(viewSettingsProvider).thumbnailSources,
 );

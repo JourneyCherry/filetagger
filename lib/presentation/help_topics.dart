@@ -104,12 +104,12 @@ const List<HelpTopic> helpTopics = [
     icon: Icons.bookmarks_outlined,
   ),
   HelpTopic(
-    title: '이름 태그 · 썸네일 태그가 프리셋에 담긴다',
+    title: '이름 · 부제 · 썸네일 태그가 프리셋에 담긴다',
     body:
-        '이름 태그와 썸네일 태그는 한 번 정해 두는 설정처럼 보이지만 프리셋에 함께 '
-        '담깁니다. 그래서 프리셋을 부르면 필터·정렬·그룹만이 아니라 이름 칸과 썸네일이 '
-        '보이는 방식도 그 프리셋의 것으로 바뀝니다. 이름·썸네일 태그를 지정하지 않은 '
-        '채로 저장한 프리셋을 부르면 파일 이름과 기본 썸네일로 되돌아갑니다 — 이 기능이 '
+        '이름·부제·썸네일 태그는 한 번 정해 두는 설정처럼 보이지만 프리셋에 함께 '
+        '담깁니다. 그래서 프리셋을 부르면 필터·정렬·그룹만이 아니라 이름 칸과 그 아래 줄, '
+        '썸네일이 보이는 방식도 그 프리셋의 것으로 바뀝니다. 이 셋을 지정하지 않은 채로 '
+        '저장한 프리셋을 부르면 파일 이름과 경로, 기본 썸네일로 되돌아갑니다 — 이 기능이 '
         '생기기 전에 만들어 둔 프리셋도 그렇습니다. 원하는 상태로 맞춘 뒤 그 프리셋에 '
         '덮어쓰면 다음부터는 함께 되살아납니다.',
     icon: Icons.text_fields,
@@ -189,6 +189,7 @@ const List<HelpCommandGroup> helpCommandGroups = [
     AppCommandId.reconnect,
     AppCommandId.manageTags,
     AppCommandId.manageNameTags,
+    AppCommandId.manageSubtitleTags,
     AppCommandId.manageThumbnailTags,
     AppCommandId.tagDisplayOrder,
   ]),

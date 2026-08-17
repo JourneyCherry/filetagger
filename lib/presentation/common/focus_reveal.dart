@@ -75,31 +75,81 @@ class _EnsureVisibleOnFocusState extends State<EnsureVisibleOnFocus> {
   }
 
   void _reveal() {
-    if (!mounted) return;
-    final render = context.findRenderObject();
-    if (render is! RenderBox || !render.attached) return;
-    final scrollable = Scrollable.maybeOf(context);
-    final viewport = RenderAbstractViewport.maybeOf(render);
-    if (scrollable == null || viewport == null) return;
-    final pos = scrollable.position;
-    final target = minimalRevealOffset(pos, viewport, render);
-    if (target == null) return; // 이미 온전히 보인다.
-    final clamped = target.clamp(pos.minScrollExtent, pos.maxScrollExtent);
-    if ((clamped - pos.pixels).abs() < 1) return; // 이미 제자리
-    // 데스크톱은 stateChangeDuration이 0이라 애니메이션 없이 곧바로 이동한다.
-    if (stateChangeDuration == Duration.zero) {
-      pos.jumpTo(clamped);
-    } else {
-      pos.animateTo(
-        clamped,
-        duration: stateChangeDuration,
-        curve: Curves.easeInOut,
-      );
-    }
+    if (mounted) revealSelfInNearestViewport(context);
   }
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// 커서가 놓인 **칸**(한 행 안의 태그 칩 등)을 가장 가까운 뷰포트로 밀어 넣는다.
+///
+/// [EnsureVisibleOnFocus]와 달리 요청 손잡이가 없다. 행은 스크롤에 따라 생겼다 사라져
+/// "다시 만들어진 것"과 "새 커서"를 가릴 수 없지만, 칸이 든 가로 스크롤은 그 행과 함께
+/// 새로 만들어져 늘 처음 자리에서 시작하므로 — 다시 드러내도 그 줄의 가로 위치만 제자리로
+/// 돌아올 뿐, 사용자가 보던 세로 위치를 뺏지 않는다.
+class RevealWhileFocused extends StatefulWidget {
+  const RevealWhileFocused({
+    super.key,
+    required this.active,
+    required this.child,
+  });
+
+  /// 커서가 이 칸에 있는지.
+  final bool active;
+
+  final Widget child;
+
+  @override
+  State<RevealWhileFocused> createState() => _RevealWhileFocusedState();
+}
+
+class _RevealWhileFocusedState extends State<RevealWhileFocused> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _reveal();
+  }
+
+  @override
+  void didUpdateWidget(RevealWhileFocused old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _reveal();
+  }
+
+  void _reveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) revealSelfInNearestViewport(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// [context]가 놓인 위젯을 **가장 가까운 뷰포트** 안으로 모자란 만큼만 민다. 레이아웃이
+/// 끝난 뒤에 불러야 한다(위치를 재야 한다).
+void revealSelfInNearestViewport(BuildContext context) {
+  final render = context.findRenderObject();
+  if (render is! RenderBox || !render.attached) return;
+  final scrollable = Scrollable.maybeOf(context);
+  final viewport = RenderAbstractViewport.maybeOf(render);
+  if (scrollable == null || viewport == null) return;
+  final pos = scrollable.position;
+  final target = minimalRevealOffset(pos, viewport, render);
+  if (target == null) return; // 이미 온전히 보인다.
+  final clamped = target.clamp(pos.minScrollExtent, pos.maxScrollExtent);
+  if ((clamped - pos.pixels).abs() < 1) return; // 이미 제자리
+  // 데스크톱은 stateChangeDuration이 0이라 애니메이션 없이 곧바로 이동한다.
+  if (stateChangeDuration == Duration.zero) {
+    pos.jumpTo(clamped);
+  } else {
+    pos.animateTo(
+      clamped,
+      duration: stateChangeDuration,
+      curve: Curves.easeInOut,
+    );
+  }
 }
 
 /// [row]가 온전히 보이도록 스크롤을 **모자란 만큼만** 옮길 목적지. 이미 보이면 null.

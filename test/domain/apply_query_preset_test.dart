@@ -22,6 +22,7 @@ void main() {
     ),
     grouping: FileGrouping(keys: [FolderHierarchyGroupKey(), TagGroupKey(2)]),
     nameSources: [3, 2],
+    subtitleSources: [2, 1],
     thumbnailSources: [2],
   );
 
@@ -32,13 +33,14 @@ void main() {
     expect(applied.sort, preset.sort);
     expect(applied.grouping, preset.grouping);
     expect(applied.nameSources, preset.nameSources);
+    expect(applied.subtitleSources, preset.subtitleSources);
     expect(applied.thumbnailSources, preset.thumbnailSources);
     expect(applied.droppedCount, 0);
   });
 
   test('사라진 태그를 가리키는 조각만 빼고 그 수를 센다', () {
-    // 태그 2가 지워진 상황: 필터 조건 1개, 그룹 단계 1개, 이름 출처 1개, 썸네일
-    // 출처 1개가 걸 수 없게 된다.
+    // 태그 2가 지워진 상황: 필터 조건 1개, 그룹 단계 1개, 이름 출처 1개, 부제 출처
+    // 1개, 썸네일 출처 1개가 걸 수 없게 된다.
     final applied = resolvePresetApplication(preset, {1, 3});
 
     expect(applied.filter.conditions.single.tagDefinitionId, 1);
@@ -46,8 +48,9 @@ void main() {
     // 폴더 계층 키는 진짜 태그가 아니라 늘 남는다.
     expect(applied.grouping.keys, [const FolderHierarchyGroupKey()]);
     expect(applied.nameSources, [3]);
+    expect(applied.subtitleSources, [1]);
     expect(applied.thumbnailSources, isEmpty);
-    expect(applied.droppedCount, 4);
+    expect(applied.droppedCount, 5);
   });
 
   test('원본 프리셋은 고쳐지지 않는다(정리가 아니라 걸러 내기다)', () {
@@ -57,6 +60,7 @@ void main() {
     expect(preset.sort.keys.length, 2);
     expect(preset.grouping.keys.length, 2);
     expect(preset.nameSources.length, 2);
+    expect(preset.subtitleSources.length, 2);
     expect(preset.thumbnailSources.length, 1);
   });
 
@@ -68,9 +72,10 @@ void main() {
     expect(applied.filter.isEmpty, isTrue);
     expect(applied.sort.isEmpty, isTrue);
     expect(applied.grouping.isEmpty, isTrue);
-    // 비면 파일 이름·기본 썸네일로 돌아간다(부분 병합이 없으므로 "안 담김"과
+    // 비면 파일 이름·경로·기본 썸네일로 돌아간다(부분 병합이 없으므로 "안 담김"과
     // 구분하지 않는다).
     expect(applied.nameSources, isEmpty);
+    expect(applied.subtitleSources, isEmpty);
     expect(applied.thumbnailSources, isEmpty);
     expect(applied.droppedCount, 0);
   });
@@ -82,6 +87,7 @@ void main() {
         sort: preset.sort,
         grouping: preset.grouping,
         nameSources: preset.nameSources,
+        subtitleSources: preset.subtitleSources,
         thumbnailSources: preset.thumbnailSources,
       ),
       isTrue,
@@ -93,6 +99,7 @@ void main() {
         sort: FileSortOrder(keys: preset.sort.keys.reversed.toList()),
         grouping: preset.grouping,
         nameSources: preset.nameSources,
+        subtitleSources: preset.subtitleSources,
         thumbnailSources: preset.thumbnailSources,
       ),
       isFalse,
@@ -104,6 +111,7 @@ void main() {
         sort: preset.sort,
         grouping: preset.grouping,
         nameSources: preset.nameSources.reversed.toList(),
+        subtitleSources: preset.subtitleSources,
         thumbnailSources: preset.thumbnailSources,
       ),
       isFalse,
@@ -115,7 +123,20 @@ void main() {
         sort: preset.sort,
         grouping: preset.grouping,
         nameSources: preset.nameSources,
+        subtitleSources: preset.subtitleSources,
         thumbnailSources: const [],
+      ),
+      isFalse,
+    );
+    // 부제 출처도 마찬가지다(이름·썸네일과 같은 자격으로 프리셋에 담긴다).
+    expect(
+      preset.matchesQuery(
+        filter: preset.filter,
+        sort: preset.sort,
+        grouping: preset.grouping,
+        nameSources: preset.nameSources,
+        subtitleSources: const [],
+        thumbnailSources: preset.thumbnailSources,
       ),
       isFalse,
     );

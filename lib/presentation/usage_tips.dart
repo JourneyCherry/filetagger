@@ -140,6 +140,16 @@ const List<UsageTip> usageTips = [
     command: AppCommandId.manageNameTags,
   ),
   UsageTip(
+    title: '이름 아래 줄에 경로 대신 다른 값 보기',
+    body:
+        '이름 아래 줄에는 기본으로 경로가 보입니다. 태그로 묶어 보는 동안에는 경로보다 '
+        '작가·연도처럼 다른 축이 더 궁금할 수 있는데, 그때 부제 태그를 지정하면 그 값이 '
+        '대신 보입니다. 이름 태그와 같은 방식이라 여러 개를 순서대로 둘 수 있고, 그 태그가 '
+        '없는 항목은 경로를 그대로 보입니다.',
+    icon: Icons.short_text,
+    command: AppCommandId.manageSubtitleTags,
+  ),
+  UsageTip(
     title: '태그를 다른 폴더로 옮기기',
     body:
         '가져오기 기능은 따로 없습니다. 항목을 골라 내보내면 요청함 형식의 파일이 나오고, '

@@ -137,12 +137,13 @@ void main() {
     expect(store.lastSaved!.tagDisplayOrder, [1, SystemTag.fileSize.id]);
   });
 
-  test('삭제된 태그를 참조하는 썸네일·이름 출처를 걷어낸다', () async {
+  test('삭제된 태그를 참조하는 썸네일·이름·부제 출처를 걷어낸다', () async {
     // 사라진 태그를 계속 가리키면 그 자리는 영영 폴백만 하면서 목록에 남는다.
     final store = _FakeStore(
       const WorkspaceViewSettings(
         thumbnailSources: [2, 1],
         nameSources: [1, 2],
+        subtitleSources: [2, 1],
       ),
     );
 
@@ -159,7 +160,27 @@ void main() {
 
     expect(container.read(viewSettingsProvider).thumbnailSources, [1]);
     expect(container.read(viewSettingsProvider).nameSources, [1]);
-    expect(store.lastSaved!.nameSources, [1]);
+    expect(container.read(viewSettingsProvider).subtitleSources, [1]);
+    expect(store.lastSaved!.subtitleSources, [1]);
+  });
+
+  test('부제 출처만 사라져도 정리가 돈다(다른 자리가 멀쩡해도)', () async {
+    // 정리 여부를 판정할 때 부제 출처를 빠뜨리면, 사라진 태그가 그 자리에만 남는다.
+    final store = _FakeStore(const WorkspaceViewSettings(subtitleSources: [2]));
+
+    final container = ProviderContainer(
+      overrides: [
+        viewSettingsRepositoryProvider.overrideWithValue(store),
+        tagDefinitionsProvider.overrideWith((ref) => Stream.value([_def(1)])),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(viewSettingsProvider, (_, __) {});
+
+    await _settle();
+
+    expect(container.read(viewSettingsProvider).subtitleSources, isEmpty);
+    expect(store.lastSaved, isNotNull);
   });
 
   test('폴더 펼침 토글은 상태를 뒤집고 디스크에 저장한다', () async {

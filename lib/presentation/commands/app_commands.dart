@@ -28,6 +28,7 @@ enum AppCommandId {
   manageTags,
   manageThumbnailTags,
   manageNameTags,
+  manageSubtitleTags,
   tagDisplayOrder,
   createKeyword,
   editKeyword,
@@ -207,6 +208,14 @@ final List<AppCommand> appCommands = [
     // 태그 설정 셋은 같은 층(Shift)에 두되, T 자리는 썸네일이 이미 썼으므로 이름의
     // 머리글자를 쓴다.
     shortcut: _primaryShift(LogicalKeyboardKey.keyN),
+  ),
+  // 부제 태그는 이름 태그와 한 벌이지만 단축키를 두지 않는다 — 한 번 정해 두면 그대로
+  // 두는 설정이라 메뉴로 충분하고, 남은 조합을 더 쓰지 않는 편이 낫다.
+  const AppCommand(
+    id: AppCommandId.manageSubtitleTags,
+    label: '부제 태그…',
+    intent: ManageSubtitleTagsIntent(),
+    icon: Icons.short_text,
   ),
   // 키워드(디스크에 남지 않는 노드) 만들기·고치기·지우기. 단축키는 두지 않는다 —
   // 가끔 쓰는 조작이라 남은 조합을 쓰기보다 메뉴·컨텍스트 메뉴로만 부른다.

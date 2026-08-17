@@ -107,6 +107,11 @@ class ManageNameTagsIntent extends Intent {
   const ManageNameTagsIntent();
 }
 
+/// 부제 줄에 보일 값의 출처로 쓸 태그를 고르는 다이얼로그를 연다.
+class ManageSubtitleTagsIntent extends Intent {
+  const ManageSubtitleTagsIntent();
+}
+
 /// 키워드를 새로 만든다.
 class CreateKeywordIntent extends Intent {
   const CreateKeywordIntent();

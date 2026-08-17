@@ -99,7 +99,7 @@ void main() {
     Map<int, String> build(
       Map<int, List<AssignedTag>> byFile,
       List<int> sources,
-    ) => buildDisplayNameIndex(assignmentsByFile: byFile, nameSources: sources);
+    ) => buildTagTextIndex(assignmentsByFile: byFile, sources: sources);
 
     test('출처가 없으면 아무 노드도 갈아끼우지 않는다', () {
       expect(

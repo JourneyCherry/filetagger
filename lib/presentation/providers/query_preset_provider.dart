@@ -54,6 +54,7 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
       sort: ref.read(fileSortProvider),
       grouping: ref.read(groupingProvider),
       nameSources: ref.read(nameSourcesProvider),
+      subtitleSources: ref.read(subtitleSourcesProvider),
       thumbnailSources: ref.read(thumbnailSourcesProvider),
     );
     final index = indexOfName(name);
@@ -78,6 +79,7 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
             sort: ref.read(fileSortProvider),
             grouping: ref.read(groupingProvider),
             nameSources: ref.read(nameSourcesProvider),
+            subtitleSources: ref.read(subtitleSourcesProvider),
             thumbnailSources: ref.read(thumbnailSourcesProvider),
           )
         else
@@ -130,6 +132,7 @@ final activeQueryPresetProvider = Provider<int?>((ref) {
   final sort = ref.watch(fileSortProvider);
   final grouping = ref.watch(groupingProvider);
   final nameSources = ref.watch(nameSourcesProvider);
+  final subtitleSources = ref.watch(subtitleSourcesProvider);
   final thumbnailSources = ref.watch(thumbnailSourcesProvider);
   for (var i = 0; i < presets.length; i++) {
     if (presets[i].matchesQuery(
@@ -137,6 +140,7 @@ final activeQueryPresetProvider = Provider<int?>((ref) {
       sort: sort,
       grouping: grouping,
       nameSources: nameSources,
+      subtitleSources: subtitleSources,
       thumbnailSources: thumbnailSources,
     )) {
       return i;

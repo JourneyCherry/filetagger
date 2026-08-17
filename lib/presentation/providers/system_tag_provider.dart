@@ -129,9 +129,20 @@ final resolvedAssignmentsByFileProvider = Provider<Map<int, List<AssignedTag>>>(
 final displayNameByIdProvider = Provider<Map<int, String>>((ref) {
   final sources = ref.watch(nameSourcesProvider);
   if (sources.isEmpty) return const {};
-  return buildDisplayNameIndex(
+  return buildTagTextIndex(
     assignmentsByFile: ref.watch(resolvedAssignmentsByFileProvider),
-    nameSources: sources,
+    sources: sources,
+  );
+});
+
+/// 노드 id → 부제 줄에 보일 문자열(부제 태그가 정한 것). 이름 칸과 같은 얼개이고,
+/// 태그가 글자를 내지 못한 노드는 키가 없어 소비 측이 **경로**로 폴백한다.
+final displaySubtitleByIdProvider = Provider<Map<int, String>>((ref) {
+  final sources = ref.watch(subtitleSourcesProvider);
+  if (sources.isEmpty) return const {};
+  return buildTagTextIndex(
+    assignmentsByFile: ref.watch(resolvedAssignmentsByFileProvider),
+    sources: sources,
   );
 });
 

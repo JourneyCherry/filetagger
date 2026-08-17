@@ -1,4 +1,5 @@
-import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -192,6 +193,7 @@ class _FileListViewState extends ConsumerState<FileListView>
     final tree = ref.watch(flatTreeProvider);
     final assignmentsByFile = ref.watch(effectiveAssignmentsByFileProvider);
     final displayNames = ref.watch(displayNameByIdProvider);
+    final displaySubtitles = ref.watch(displaySubtitleByIdProvider);
     final isTagVisible = ref.watch(tagChipVisibleProvider);
     final tagDisplayOrder = ref.watch(effectiveTagDisplayOrderProvider);
     final resolvedModes = ref.watch(folderResolvedModesProvider);
@@ -269,6 +271,7 @@ class _FileListViewState extends ConsumerState<FileListView>
               final tile = FileNodeTile(
                 node: node,
                 displayName: displayNames[node.id],
+                displaySubtitle: displaySubtitles[node.id],
                 depth: row.depth,
                 expandable: row.expandable,
                 expanded: row.expanded,
@@ -331,6 +334,7 @@ class FileNodeTile extends StatelessWidget {
     required this.node,
     required this.selected,
     this.displayName,
+    this.displaySubtitle,
     this.cursored = false,
     this.focusedTagColumn,
     required this.assignments,
@@ -363,11 +367,17 @@ class FileNodeTile extends StatelessWidget {
   static const double _caretIcon = 20;
   static const double _thumbSize = 40;
 
+  /// 이름 옆 상태 표식(연결 끊김·내부 감춤)의 아이콘 한 변.
+  static const double _statusIcon = 16;
+
   final FileNode node;
   final bool selected;
 
   /// 이름 칸에 노드 이름 대신 보일 문자열(이름 태그가 정한 값). null이면 노드 이름.
   final String? displayName;
+
+  /// 부제 줄에 경로 대신 보일 문자열(부제 태그가 정한 값). null이면 경로.
+  final String? displaySubtitle;
 
   /// 키보드 커서가 이 행에 놓여 있는지(선택과 별개의 포커스 링).
   final bool cursored;
@@ -428,7 +438,6 @@ class FileNodeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final missing = node.isMissing;
     final indent = visualIndentDepth(depth);
     // 렌더할 태그 칩: 표시 술어를 통과한 것만(사용자 태그는 감추지 않은 것, 시스템
     // 태그는 표시로 켠 것). 한 행에서 여러 번 쓰이므로 한 번만 고른다.
@@ -523,54 +532,23 @@ class FileNodeTile extends StatelessWidget {
                   ],
                 ),
                 trailing: trailing,
-                title: Text(
-                  displayName ?? node.name,
-                  style: missing ? TextStyle(color: scheme.error) : null,
-                ),
+                title: _titleRow(scheme),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 키워드는 경로 계층에 속하지 않아 경로 자리에 이름이 그대로
-                    // 들어간다 — 이름 칸과 같은 글자를 두 번 보이느니 종류를 알린다.
-                    Text(node.isKeyword ? '키워드' : node.path),
-                    if (missing)
-                      Text(
-                        '연결 끊김 — 원본 파일을 찾아 태그를 재연결하세요',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: scheme.error),
-                      ),
-                    if (folderMode == FolderManageMode.opaque)
-                      Text(
-                        '내부 감춤 — 메뉴에서 ‘내부 관리’로 펼치기',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
+                    Text(
+                      _subtitleText,
+                      // 한 줄로 못박는다 — 경로가 깊거나 부제 태그 값이 길다고 행이
+                      // 두꺼워지면 한 화면에 담기는 항목이 들쭉날쭉해진다.
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     if (inlineEdit) ...[
                       const SizedBox(height: 4),
-                      _inlineTagRow(scheme.primary, visibleTags),
+                      _inlineTagRow(context, scheme.primary, visibleTags),
                     ] else if (visibleTags.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          for (final (i, a) in visibleTags.indexed)
-                            _maybeTagRing(
-                              i,
-                              scheme.primary,
-                              AssignedTagChip(
-                                tag: a,
-                                // 값 태그만 눌러 편집 가능. 시스템 태그는 수정 가능한
-                                // '파일 이름'만 눌러 rename, 나머지는 표시 전용.
-                                onPressed: isEditableAssignment(a)
-                                    ? () => onEditAssignment(a)
-                                    : null,
-                              ),
-                            ),
-                        ],
-                      ),
+                      _tagRow(context, scheme.primary, visibleTags),
                     ],
                   ],
                 ),
@@ -582,39 +560,111 @@ class FileNodeTile extends StatelessWidget {
     );
   }
 
+  /// 이름 칸과 그 옆의 상태 표식. 상태를 **문장이 아니라 아이콘으로** 두는 것은, 줄로
+  /// 쌓으면 노드마다 행 높이가 달라지고 목록이 난잡해지기 때문이다. 설명은 툴팁에 있다.
+  Widget _titleRow(ColorScheme scheme) {
+    final title = Text(
+      displayName ?? node.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: node.isMissing ? TextStyle(color: scheme.error) : null,
+    );
+    final marks = <Widget>[
+      if (node.isMissing)
+        _statusMark(
+          Icons.link_off,
+          scheme.error,
+          '연결 끊김 — 원본 파일을 찾아 태그를 재연결하세요',
+        ),
+      if (folderMode == FolderManageMode.opaque)
+        _statusMark(
+          Icons.visibility_off_outlined,
+          scheme.onSurfaceVariant,
+          '내부 감춤 — 메뉴에서 ‘내부 관리’로 펼치기',
+        ),
+    ];
+    if (marks.isEmpty) return title;
+    return Row(
+      children: [
+        // 이름이 길면 표식을 밀어내지 않고 이름 쪽이 줄어든다(표식이 먼저 잘리면
+        // 무엇이 잘못됐는지 알 길이 사라진다).
+        Flexible(child: title),
+        ...marks,
+      ],
+    );
+  }
+
+  Widget _statusMark(IconData icon, Color color, String tooltip) => Padding(
+    padding: const EdgeInsets.only(left: 6),
+    child: Tooltip(
+      message: tooltip,
+      child: Icon(icon, size: _statusIcon * scale, color: color),
+    ),
+  );
+
+  /// 부제 줄에 보일 글자. 부제 태그가 값을 냈으면 그것, 아니면 경로다.
+  ///
+  /// 키워드는 경로 계층에 속하지 않아 경로 자리에 이름이 그대로 들어간다 — 이름 칸과
+  /// 같은 글자를 두 번 보이느니 종류를 알린다.
+  String get _subtitleText =>
+      displaySubtitle ?? (node.isKeyword ? '키워드' : node.path);
+
+  /// 표시 전용 태그 줄. 칩이 많아도 줄바꿈하지 않고 가로로 스크롤해 행 높이를 지킨다
+  /// (목록 수정 모드의 줄과 같은 결 — 거기엔 '+' 버튼만 스크롤 밖에 더 붙는다).
+  Widget _tagRow(
+    BuildContext context,
+    Color ringColor,
+    List<AssignedTag> visibleTags,
+  ) => _scrollingChips(
+    context,
+    children: [
+      for (final (i, a) in visibleTags.indexed)
+        _chipSlot(
+          i,
+          ringColor,
+          AssignedTagChip(
+            tag: a,
+            // 값 태그만 눌러 편집 가능. 시스템 태그는 수정 가능한 '파일 이름'만
+            // 눌러 rename, 나머지는 표시 전용.
+            onPressed: isEditableAssignment(a)
+                ? () => onEditAssignment(a)
+                : null,
+          ),
+        ),
+    ],
+  );
+
   /// 목록 수정 모드의 태그 줄. 프리뷰 창처럼 칩을 눌러 값을 고치고 x로 해제한다.
-  /// 칩이 많으면 줄바꿈 대신 가로로 스크롤해 행 높이를 지키고, '+' 버튼은 스크롤
-  /// 바깥 고정 자리에 두어 칩 수와 무관하게 늘 닿을 수 있게 한다.
-  Widget _inlineTagRow(Color ringColor, List<AssignedTag> visibleTags) {
+  /// '+' 버튼은 스크롤 바깥 고정 자리에 두어 칩 수와 무관하게 늘 닿을 수 있게 한다.
+  Widget _inlineTagRow(
+    BuildContext context,
+    Color ringColor,
+    List<AssignedTag> visibleTags,
+  ) {
     return Row(
       children: [
         Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final (i, a) in visibleTags.indexed)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: _maybeTagRing(
-                      i,
-                      ringColor,
-                      AssignedTagChip(
-                        tag: a,
-                        onPressed: isEditableAssignment(a)
-                            ? () => onEditAssignment(a)
-                            : null,
-                        // 시스템 태그는 제거할 수 없어 x 버튼을 달지 않는다.
-                        onDeleted:
-                            isSystemTagId(a.tagDefinitionId) ||
-                                onRemoveAssignment == null
-                            ? null
-                            : () => onRemoveAssignment!(a),
-                      ),
-                    ),
+          child: _scrollingChips(
+            context,
+            children: [
+              for (final (i, a) in visibleTags.indexed)
+                _chipSlot(
+                  i,
+                  ringColor,
+                  AssignedTagChip(
+                    tag: a,
+                    onPressed: isEditableAssignment(a)
+                        ? () => onEditAssignment(a)
+                        : null,
+                    // 시스템 태그는 제거할 수 없어 x 버튼을 달지 않는다.
+                    onDeleted:
+                        isSystemTagId(a.tagDefinitionId) ||
+                            onRemoveAssignment == null
+                        ? null
+                        : () => onRemoveAssignment!(a),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
         // '+' 추가 슬롯. 커서가 이 자리(태그 수 == 칸 번호)면 링을 준다.
@@ -626,6 +676,37 @@ class FileNodeTile extends StatelessWidget {
       ],
     );
   }
+
+  /// 칩 줄을 가로 스크롤로 감싼다.
+  ///
+  /// **마우스 끌기를 이 줄에서만 허용한다** — 데스크톱 기본 동작은 손가락·트랙패드로만
+  /// 끌게 두는데, 그러면 마우스 사용자가 넘친 칩에 닿을 길이 휠뿐이다. 목록 행에는 가로로
+  /// 끄는 다른 뜻이 없어 뺏을 조작도 없다(세로 끌기와 탭은 그대로 목록·행에 간다).
+  Widget _scrollingChips(
+    BuildContext context, {
+    required List<Widget> children,
+  }) => ScrollConfiguration(
+    behavior: ScrollConfiguration.of(context).copyWith(
+      dragDevices: {
+        ...ScrollConfiguration.of(context).dragDevices,
+        PointerDeviceKind.mouse,
+      },
+    ),
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: children),
+    ),
+  );
+
+  /// 칩 하나가 놓이는 자리(칩 사이 간격 + 커서 링 + 커서가 이 칸이면 가로 스크롤을
+  /// 그리로 끌어오기). 줄이 가로로 스크롤되므로 커서가 옮겨 간 칩이 화면 밖일 수 있다.
+  Widget _chipSlot(int column, Color ringColor, Widget chip) => Padding(
+    padding: const EdgeInsets.only(right: 6),
+    child: RevealWhileFocused(
+      active: focusedTagColumn == column,
+      child: _maybeTagRing(column, ringColor, chip),
+    ),
+  );
 
   /// 태그 칸 [column]을 감싸는 포커스 링. 커서가 이 칸에 있을 때만 색이 보이고,
   /// 아니면 투명 테두리로 자리만 지켜 칩이 흔들리지 않는다. 이 행에 태그 커서가

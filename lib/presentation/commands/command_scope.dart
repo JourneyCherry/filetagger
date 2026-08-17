@@ -21,6 +21,7 @@ class CommandHandlers {
     this.manageTags,
     this.manageThumbnailTags,
     this.manageNameTags,
+    this.manageSubtitleTags,
     this.tagDisplayOrder,
     this.createKeyword,
     this.editKeyword,
@@ -67,6 +68,7 @@ class CommandHandlers {
   final VoidCallback? manageTags;
   final VoidCallback? manageThumbnailTags;
   final VoidCallback? manageNameTags;
+  final VoidCallback? manageSubtitleTags;
   final VoidCallback? tagDisplayOrder;
   final VoidCallback? createKeyword;
   final VoidCallback? editKeyword;
@@ -114,6 +116,7 @@ class CommandHandlers {
     AppCommandId.manageTags => manageTags,
     AppCommandId.manageThumbnailTags => manageThumbnailTags,
     AppCommandId.manageNameTags => manageNameTags,
+    AppCommandId.manageSubtitleTags => manageSubtitleTags,
     AppCommandId.tagDisplayOrder => tagDisplayOrder,
     AppCommandId.createKeyword => createKeyword,
     AppCommandId.editKeyword => editKeyword,

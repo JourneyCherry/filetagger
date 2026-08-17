@@ -19,7 +19,7 @@ import 'tag_chip.dart';
 
 /// 도구모음 맨 위 줄에 저장된 프리셋을 캡슐로 늘어놓는다.
 ///
-/// 탭하면 그 프리셋을 통째로 걸고(지금 걸린 조건과 이름·썸네일 출처는 모두
+/// 탭하면 그 프리셋을 통째로 걸고(지금 걸린 조건과 이름·부제·썸네일 출처는 모두
 /// 지워진다), 손잡이 드래그로 순서를 바꾸며, x로 지운다. 이름 변경·덮어쓰기는
 /// 우클릭(모바일은 길게 누르기) 메뉴에 둔다. 지우기는 어느 길로 오든 확인을 한 번
 /// 거친다 — 조건 칩과 달리 사용자가 만들어 둔 자산이라 한 번의 오조작으로 사라지면
@@ -166,7 +166,7 @@ enum _PresetMenuAction {
 /// 프리셋이 담은 것을 한눈에 보는 여러 줄 요약(툴팁용). 조건 줄의 텍스트 표현을
 /// 그대로 쓴다 — 텍스트 입력에서 보던 것과 같은 문법으로 보인다.
 ///
-/// 이름·썸네일 출처도 함께 적는다. 눌렀을 때 조건만 바뀌는 것이 아니므로, 무엇이
+/// 이름·부제·썸네일 출처도 함께 적는다. 눌렀을 때 조건만 바뀌는 것이 아니므로, 무엇이
 /// 갈아끼워지는지 미리 보이지 않으면 표시가 바뀐 이유를 알 수 없다.
 String presetSummary(QueryPreset preset, Map<int, TagDefinition> defsById) {
   final filter = formatFilterQuery(preset.filter, defsById);
@@ -177,6 +177,7 @@ String presetSummary(QueryPreset preset, Map<int, TagDefinition> defsById) {
     '정렬: ${sort.isEmpty ? '기본(이름순)' : sort}',
     '그룹: ${group.isEmpty ? '묶지 않음' : group}',
     '이름: ${_sourceNames(preset.nameSources, defsById) ?? '파일 이름'}',
+    '부제: ${_sourceNames(preset.subtitleSources, defsById) ?? '경로'}',
     '썸네일: ${_sourceNames(preset.thumbnailSources, defsById) ?? '기본'}',
   ].join('\n');
 }
@@ -327,6 +328,7 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
     final sort = ref.watch(fileSortProvider);
     final grouping = ref.watch(groupingProvider);
     final nameSources = ref.watch(nameSourcesProvider);
+    final subtitleSources = ref.watch(subtitleSourcesProvider);
     final thumbnailSources = ref.watch(thumbnailSourcesProvider);
     final overwrites =
         ref.read(queryPresetsProvider.notifier).indexOfName(_trimmed) != null;
@@ -382,6 +384,11 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
                 '이름',
                 _sourceChips(nameSources, defsById),
                 emptyLabel: '파일 이름',
+              ),
+              _preview(
+                '부제',
+                _sourceChips(subtitleSources, defsById),
+                emptyLabel: '경로',
               ),
               _preview(
                 '썸네일',

@@ -44,6 +44,7 @@ void main() {
           keys: [FolderHierarchyGroupKey(), TagGroupKey(1)],
         ),
         nameSources: [4, 1],
+        subtitleSources: [1],
         thumbnailSources: [5],
       ),
       QueryPreset(name: '모두 보기'),
@@ -63,6 +64,7 @@ void main() {
     final loaded = await JsonQueryPresetStore(root.path).load();
 
     expect(loaded.single.nameSources, isEmpty);
+    expect(loaded.single.subtitleSources, isEmpty);
     expect(loaded.single.thumbnailSources, isEmpty);
   });
 

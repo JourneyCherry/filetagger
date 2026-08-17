@@ -68,6 +68,7 @@ class WorkspaceViewSettings {
     this.detailColumnWidths = const <int, double>{},
     this.thumbnailSources = const <int>[],
     this.nameSources = const <int>[],
+    this.subtitleSources = const <int>[],
   });
 
   final FileFilter filter;
@@ -146,6 +147,14 @@ class WorkspaceViewSettings {
   /// 같게 동작**한다 — 고르는 자리에서 막지 않고 이 폴백으로 흡수한다.
   final List<int> nameSources;
 
+  /// 목록의 **부제 줄에 보일 값의 출처 우선순위**(앞이 높음). 이름 출처와 같은 얼개이며,
+  /// 어느 태그도 글자를 내지 못하면 **경로**로 폴백한다(비면 늘 경로 — 지금까지의 모습).
+  ///
+  /// 이름과 따로 두는 이유는 두 자리가 답해야 하는 물음이 다르기 때문이다 — 제목은 "이게
+  /// 무엇인가", 부제는 "어디에 있는가 · 무엇으로 묶이는가"다. 태그로 묶어 보는 동안에는
+  /// 경로보다 그 묶음의 다른 축(작가·연도 등)이 부제에 있는 편이 낫다.
+  final List<int> subtitleSources;
+
   /// [id] 컬럼의 폭(저장값이 없으면 기본, 늘 허용 범위로 가둔다).
   double detailColumnWidthFor(int id) =>
       (detailColumnWidths[id] ?? kDefaultDetailColumnWidth).clamp(
@@ -171,6 +180,7 @@ class WorkspaceViewSettings {
     Map<int, double>? detailColumnWidths,
     List<int>? thumbnailSources,
     List<int>? nameSources,
+    List<int>? subtitleSources,
   }) => WorkspaceViewSettings(
     filter: filter ?? this.filter,
     sort: sort ?? this.sort,
@@ -187,5 +197,6 @@ class WorkspaceViewSettings {
     detailColumnWidths: detailColumnWidths ?? this.detailColumnWidths,
     thumbnailSources: thumbnailSources ?? this.thumbnailSources,
     nameSources: nameSources ?? this.nameSources,
+    subtitleSources: subtitleSources ?? this.subtitleSources,
   );
 }

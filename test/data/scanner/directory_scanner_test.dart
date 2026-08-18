@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:filetagger/core/constants.dart';
 import 'package:filetagger/data/scanner/directory_scanner.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
 import 'package:filetagger/domain/entities/node_kind.dart';
+import 'package:filetagger/domain/entities/scan_progress.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -477,6 +479,82 @@ void main() {
       );
       final node = result.nodes.firstWhere((n) => n.path == 'a.txt');
       expect(node.contentHashPrefix, isNotNull);
+    });
+  });
+
+  // 스캔은 화면과 다른 isolate에서 돌기 때문에, 진행 상태는 보고로만 건너온다.
+  // 보고가 끊기면 화면은 "작업 중"을 알 길이 없으므로 최종 집계까지 확인한다.
+  group('진행 보고', () {
+    test('훑은 항목 수와 읽은 파일 수를 알린다', () async {
+      await touchFile('a.txt');
+      await touchFile('b.txt');
+      // 하위 폴더는 기본(관리)에서 불투명이라 나열은 하되 내부를 인덱싱하지 않는다.
+      await touchFile('sub/c.txt');
+
+      final reports = <ScanProgress>[];
+      await const DirectoryScanner().scan(root.path, onProgress: reports.add);
+
+      expect(reports, isNotEmpty);
+      final last = reports.last;
+      // 루트 직속 셋(a.txt, b.txt, sub) + sub 직속 하나(c.txt).
+      expect(last.entriesSeen, 4);
+      // 내용을 읽는 것은 인덱싱 대상인 루트 직속 파일뿐이다.
+      expect(last.filesIndexed, 2);
+    });
+
+    // 목록에 미리 보여 주는 근거가 이 노드들이다. 빠지면 그 노드는 스캔이 끝날
+    // 때까지 안 보이고, 겹치면 같은 것을 두 번 저장하게 된다.
+    test('보고에 실린 노드는 최종 결과와 정확히 같다(빠짐·중복 없음)', () async {
+      await touchFile('a.txt');
+      await touchFile('b.txt');
+      await touchFile('sub/c.txt');
+
+      final streamed = <String>[];
+      final result = await const DirectoryScanner().scan(
+        root.path,
+        onProgress: (progress) =>
+            streamed.addAll(progress.newNodes.map((n) => n.path)),
+      );
+
+      expect(streamed.toSet(), result.nodes.map((n) => n.path).toSet());
+      expect(streamed.length, result.nodes.length);
+    });
+
+    // 스캔 본체는 다른 isolate로 건너가는데, 클로저는 변수 하나가 아니라 스코프
+    // 컨텍스트를 통째로 캡처한다. 진행 콜백이 보낼 수 없는 것(화면 상태 등)을 붙들고
+    // 있어도 그것이 스캔 인자에 딸려가면 안 된다 — 딸려가면 스캔 자체가 실패한다.
+    test('진행 콜백이 보낼 수 없는 것을 붙들고 있어도 스캔은 돈다', () async {
+      await touchFile('a.txt');
+      // Completer는 isolate로 보낼 수 없는 객체다(화면 상태를 대신하는 표본).
+      final unsendable = Completer<void>();
+      final reports = <ScanProgress>[];
+
+      final result = await const DirectoryScanner().scan(
+        root.path,
+        onProgress: (progress) {
+          if (!unsendable.isCompleted) unsendable.complete();
+          reports.add(progress);
+        },
+      );
+
+      expect(result.nodes.map((n) => n.path), contains('a.txt'));
+      expect(reports, isNotEmpty);
+    });
+
+    test('진행 보고를 원하지 않아도 결과는 같다', () async {
+      await touchFile('a.txt');
+      await touchFile('sub/c.txt');
+
+      final withReports = await const DirectoryScanner().scan(
+        root.path,
+        onProgress: (_) {},
+      );
+      final without = await const DirectoryScanner().scan(root.path);
+
+      expect(
+        without.nodes.map((n) => n.path).toList(),
+        withReports.nodes.map((n) => n.path).toList(),
+      );
     });
   });
 }

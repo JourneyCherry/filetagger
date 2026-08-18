@@ -19,6 +19,7 @@ class MobileShell extends StatelessWidget {
     required this.workspaceRoot,
     required this.selectionCount,
     required this.scanning,
+    required this.backgroundScanning,
     required this.onOpenFilterSheet,
     required this.onCharacter,
     required this.body,
@@ -33,6 +34,10 @@ class MobileShell extends StatelessWidget {
   final int selectionCount;
 
   final bool scanning;
+
+  /// watcher가 트리거한 조용한 재스캔이 진행 중인지. 본문은 그대로 두고 진행 막대만
+  /// 띄워, 목록이 저절로 바뀌는 이유를 알린다.
+  final bool backgroundScanning;
 
   /// 필터·정렬 시트를 여는 콜백.
   final VoidCallback onOpenFilterSheet;
@@ -78,7 +83,8 @@ class MobileShell extends StatelessWidget {
   }
 
   /// 스캔 중임을 AppBar 아래 가는 진행 막대로 알린다(전면 스피너는 본문이 맡는다).
-  PreferredSizeWidget? get _progress => scanning
+  /// 조용한 재스캔도 같은 막대로 알린다 — 본문에는 아무 표시가 없기 때문이다.
+  PreferredSizeWidget? get _progress => (scanning || backgroundScanning)
       ? const PreferredSize(
           preferredSize: Size.fromHeight(4),
           child: LinearProgressIndicator(minHeight: 4),

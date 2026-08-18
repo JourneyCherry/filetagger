@@ -57,4 +57,71 @@ void main() {
     },
     skip: Platform.isWindows ? false : '숨김 속성 설정은 Windows 전용',
   );
+
+  // 폴더 단위 조회는 항목별 판정을 싸게 대신하는 것이므로, 답이 달라지면 안 된다.
+  // Windows에서는 나열로 받은 속성을, POSIX에서는 이름을 보게 된다.
+  group('hiddenLookupFor (폴더 단위 숨김 조회)', () {
+    late Directory tempRoot;
+
+    setUp(() async {
+      tempRoot = await Directory.systemTemp.createTemp(
+        'filetagger_lookup_test',
+      );
+    });
+
+    tearDown(() async {
+      if (await tempRoot.exists()) await tempRoot.delete(recursive: true);
+    });
+
+    /// 플랫폼이 숨김으로 보는 항목을 만든다(POSIX는 이름, Windows는 속성).
+    File makeHiddenFile(String visibleName) {
+      final name = Platform.isWindows ? visibleName : '.$visibleName';
+      final file = File('${tempRoot.path}${Platform.pathSeparator}$name');
+      file.createSync();
+      if (Platform.isWindows) markPathHidden(file.path);
+      return file;
+    }
+
+    test('항목별 판정과 같은 답을 낸다', () {
+      File('${tempRoot.path}${Platform.pathSeparator}plain.txt').createSync();
+      Directory(
+        '${tempRoot.path}${Platform.pathSeparator}plain_dir',
+      ).createSync();
+      makeHiddenFile('hidden.txt');
+
+      final lookup = hiddenLookupFor(tempRoot.path);
+      final entries = tempRoot.listSync();
+      expect(entries, hasLength(3));
+      for (final entry in entries) {
+        expect(
+          lookup.isHidden(entry),
+          isHiddenEntry(entry),
+          reason: entry.path,
+        );
+      }
+    });
+
+    test('준비한 뒤에 생긴 항목도 판정한다(항목별 조회로 폴백)', () {
+      final lookup = hiddenLookupFor(tempRoot.path);
+
+      // 조회기를 만든 뒤에 나타난 항목이라 준비분에는 없다.
+      final late = makeHiddenFile('late.txt');
+      final plain = File('${tempRoot.path}${Platform.pathSeparator}late2.txt')
+        ..createSync();
+
+      expect(lookup.isHidden(late), isTrue);
+      expect(lookup.isHidden(plain), isFalse);
+    });
+
+    test('나열할 수 없는 경로여도 판정은 계속된다', () {
+      final missing = Directory(
+        '${tempRoot.path}${Platform.pathSeparator}없는폴더',
+      );
+      final lookup = hiddenLookupFor(missing.path);
+      // 준비분이 없으니 항목별 조회로 돌아간다(예외 없이 답이 나와야 한다).
+      final file = File('${tempRoot.path}${Platform.pathSeparator}plain.txt')
+        ..createSync();
+      expect(lookup.isHidden(file), isFalse);
+    });
+  });
 }

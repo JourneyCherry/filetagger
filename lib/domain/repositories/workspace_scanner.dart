@@ -1,5 +1,6 @@
 import '../entities/file_node.dart';
 import '../entities/folder_manage_mode.dart';
+import '../entities/scan_progress.dart';
 import '../entities/scan_result.dart';
 
 /// 관리 폴더 루트를 재귀 스캔해 파일/폴더 노드를 수집하는 스캐너.
@@ -17,9 +18,13 @@ abstract interface class WorkspaceScanner {
   /// [rootManageMode]에서 시작해, override 없는 하위는 부모가
   /// [FolderManageMode.managedRecursive]면 재귀 관리를 물려받고 그렇지 않으면
   /// 불투명이 된다. 불투명 폴더는 내부(자식 노드·재귀)를 인덱싱하지 않는다.
+  ///
+  /// [onProgress]를 주면 스캔이 도는 동안 진행 상태를 주기적으로 알린다(폴더가
+  /// 크면 스캔이 길어지므로, 화면이 "작업 중"임을 보일 수 있어야 한다).
   Future<ScanResult> scan(
     String workspaceRoot, {
     Map<String, FileNode> priorIndex,
     FolderManageMode rootManageMode,
+    void Function(ScanProgress progress)? onProgress,
   });
 }

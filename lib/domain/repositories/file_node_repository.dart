@@ -25,10 +25,22 @@ abstract interface class FileNodeRepository {
   /// [rootManageMode]로 인덱싱 범위를 계산해, **더 이상 관리되지 않는(불투명이 되었거나
   /// 부모가 사라진) 서브트리 안의 노드는 연결 끊김이라도 보존하지 않고 제거**한다
   /// (범위를 벗어나면 되살아나거나 재연결될 수 없으므로).
+  ///
+  /// [priorPaths]는 **스캔이 시작될 때** 인덱스에 있던 경로들이다. 이동 재연결은
+  /// "이번 스캔에서 처음 본 경로"를 알아야 하는데, 스캔 도중 [applyPartialScan]으로
+  /// 미리 반영한 노드가 있으면 지금 저장된 것만 봐서는 그 판정이 서지 않는다.
   Future<void> applyScan(
     List<FileNode> scanned, {
     required FolderManageMode rootManageMode,
+    required Set<String> priorPaths,
   });
+
+  /// 스캔 **도중** 관측된 노드를 목록에 미리 반영한다(경로 기준 upsert만).
+  ///
+  /// 사라진 노드 정리·이동 재연결은 스캔이 다 끝나야 판단할 수 있으므로 여기서는
+  /// 하지 않는다 — 이 메서드는 "읽은 만큼 먼저 보이게" 하는 것이 전부이고, 최종
+  /// 정합은 [applyScan]이 맞춘다.
+  Future<void> applyPartialScan(List<FileNode> observed);
 
   /// 연결 끊긴(보존된) 노드 [missingNodeId]의 태그를 실제 존재하는 노드
   /// [targetNodeId]로 옮기고, 보존 노드를 정리한다. 사용자가 원본 파일을 직접

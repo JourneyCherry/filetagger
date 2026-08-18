@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/entities/scan_progress.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../help_topics.dart';
@@ -22,6 +23,8 @@ class DesktopShell extends StatelessWidget {
     required this.onOpenHelpTab,
     required this.onCharacter,
     required this.scanning,
+    required this.backgroundScanning,
+    required this.scanProgress,
     required this.previewVisible,
     required this.presetBarVisible,
     required this.filterBarVisible,
@@ -50,6 +53,14 @@ class DesktopShell extends StatelessWidget {
   final ValueChanged<String>? onCharacter;
 
   final bool scanning;
+
+  /// watcher가 트리거한 조용한 재스캔이 도는 중인지(본문은 그대로 두고 상태표시줄
+  /// 에만 알린다).
+  final bool backgroundScanning;
+
+  /// 진행 중인 스캔이 마지막으로 알려 온 진행 상태. 없으면 null.
+  final ScanProgress? scanProgress;
+
   final bool previewVisible;
 
   /// 도구모음의 조건 프리셋·필터·정렬·그룹 줄을 각각 그릴지('보기' 메뉴가 토글).
@@ -117,6 +128,8 @@ class DesktopShell extends StatelessWidget {
                 DesktopStatusBar(
                   handlers: handlers,
                   scanning: scanning,
+                  backgroundScanning: backgroundScanning,
+                  scanProgress: scanProgress,
                   previewVisible: previewVisible,
                 ),
               ],

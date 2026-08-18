@@ -19,6 +19,7 @@ import '../../domain/entities/file_node.dart';
 import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/nested_merge_resolution.dart';
+import '../../domain/entities/scan_progress.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
@@ -36,6 +37,7 @@ import '../common/flat_tree.dart';
 import '../common/navigation_cursor.dart';
 import '../common/pointer_presence.dart';
 import '../common/preview_split.dart';
+import '../common/scan_progress_label.dart';
 import '../common/selection_controller.dart';
 import '../common/type_ahead.dart';
 import '../providers/command_queue_provider.dart';
@@ -89,8 +91,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _picking = false;
 
   /// watcher가 트리거한 백그라운드 재스캔이 진행 중인지. 전면 스피너를 띄우지
-  /// 않으며(_scanning과 별개), 재스캔 중복 실행을 막는 데 쓴다.
+  /// 않으며(_scanning과 별개), 재스캔 중복 실행을 막는 데 쓴다. 대신 상태표시줄에
+  /// 표시해, 목록이 저절로 바뀌는 동안 사용자가 "지금 뭔가 돌고 있다"를 알 수 있게 한다.
   bool _backgroundScanning = false;
+
+  /// 진행 중인 스캔이 마지막으로 알려 온 진행 상태. 스캔이 없으면 null이다.
+  /// 큰 폴더에서 스캔이 멈춘 것처럼 보이지 않도록 화면에 그대로 보여 준다.
+  ScanProgress? _scanProgress;
 
   /// 외부 앱 큐 패스가 진행 중인지. 스캔 뒤와 큐 감시자 신호 양쪽에서 불려
   /// 겹칠 수 있어 하나만 돌게 막는다.
@@ -155,10 +162,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (usecase == null || root == null) return;
 
     final rootMode = ref.read(rootManageModeProvider);
-    setState(() => _scanning = true);
+    setState(() {
+      _scanning = true;
+      _scanProgress = null;
+    });
     var scanned = false;
     try {
-      final result = await usecase(root, rootManageMode: rootMode);
+      final result = await usecase(
+        root,
+        rootManageMode: rootMode,
+        onProgress: _reportScanProgress,
+      );
       scanned = true;
       if (!mounted) return;
       await _reconcileNestedDecisions(result.nestedFiletaggerDirs);
@@ -169,9 +183,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ).showSnackBar(SnackBar(content: Text('스캔에 실패했습니다: $e')));
       }
     } finally {
-      if (mounted) setState(() => _scanning = false);
+      if (mounted) {
+        setState(() {
+          _scanning = false;
+          _scanProgress = null;
+        });
+      }
     }
     if (scanned) await _applyQueue();
+  }
+
+  /// 스캐너가 알려 온 진행 상태를 화면에 반영한다. 보고 간격은 스캐너가 조절하므로
+  /// 여기서는 그대로 받아 그린다(화면이 사라진 뒤 온 보고는 버린다).
+  void _reportScanProgress(ScanProgress progress) {
+    if (!mounted) return;
+    setState(() => _scanProgress = progress);
   }
 
   /// watcher가 감지한 디스크 변화에 맞춰 조용히 재스캔한다. 전면 스피너를 띄우지
@@ -184,15 +210,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (usecase == null || root == null) return;
 
     final rootMode = ref.read(rootManageModeProvider);
-    _backgroundScanning = true;
+    setState(() {
+      _backgroundScanning = true;
+      _scanProgress = null;
+    });
     var scanned = false;
     try {
-      await usecase(root, rootManageMode: rootMode);
+      await usecase(
+        root,
+        rootManageMode: rootMode,
+        onProgress: _reportScanProgress,
+      );
       scanned = true;
     } catch (_) {
       // 백그라운드 재스캔 실패는 조용히 무시한다(다음 변화 때 재시도).
     } finally {
-      _backgroundScanning = false;
+      if (mounted) {
+        setState(() {
+          _backgroundScanning = false;
+          _scanProgress = null;
+        });
+      } else {
+        _backgroundScanning = false;
+      }
     }
     if (scanned) await _applyQueue();
   }
@@ -1669,6 +1709,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         workspaceRoot: workspaceRoot,
         selectionCount: selection.length,
         scanning: _scanning,
+        backgroundScanning: _backgroundScanning,
         onOpenFilterSheet: () => showFilterSortSheet(context),
         onCharacter: _typeAhead,
         // 빈 상태(최근 폴더)만 여백을 준다. 목록은 화면 끝까지 채운다.
@@ -1689,6 +1730,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onOpenHelpTab: (tab) => showHelpDialog(context, initial: tab),
       onCharacter: _typeAhead,
       scanning: _scanning,
+      backgroundScanning: _backgroundScanning,
+      scanProgress: _scanProgress,
       previewVisible: _previewVisible,
       presetBarVisible: _presetBarVisible,
       filterBarVisible: _filterBarVisible,
@@ -1739,9 +1782,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// 스캔 중 **아직 보여 줄 노드가 없을 때** 목록 자리에 놓는 표시. 스피너만 두면
+  /// 큰 폴더에서 멈춘 것과 구별되지 않으므로, 지금까지 훑은 양과 훑고 있는 폴더를
+  /// 함께 보인다. 노드가 하나라도 들어오면 목록이 이 자리를 넘겨받는다.
+  Widget _buildScanningIndicator() {
+    final progress = _scanProgress;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(scanProgressLabel(progress)),
+          if (progress != null && progress.currentPath.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              progress.currentPath,
+              style: Theme.of(context).textTheme.bodySmall,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildFileList(SelectionState selection) {
     final desktop = isDesktopPlatform;
-    if (_scanning) return const Center(child: CircularProgressIndicator());
+    // 스캔 중이라도 이미 인덱싱된 노드는 그대로 보여 준다 — 스캔이 관측하는 대로
+    // 인덱스에 미리 반영되므로, 큰 폴더에서도 읽은 만큼 목록이 차오른다(필터·정렬·
+    // 그룹은 늘 쓰던 파생 경로가 그대로 건다). 아직 보여 줄 것이 없을 때만 스캔
+    // 표시가 자리를 채운다.
+    if (_scanning && (ref.watch(visibleNodeCountProvider) ?? 0) == 0) {
+      return _buildScanningIndicator();
+    }
     // 세 보기 모드는 같은 프리뷰·선택 자리를 나눠 쓰고 표현만 다르다. 아이콘·자세히는
     // 아직 자리표시자다(Phase 3·4에서 구현).
     final Widget content;
@@ -1753,8 +1828,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case ViewMode.detail:
         content = _buildDetailMode(desktop);
     }
-    // 당겨서 재스캔(모바일에는 상시 '다시 스캔' 버튼이 없다). 스캔이 시작되면
-    // 목록이 스피너로 바뀌므로 RefreshIndicator를 그 바깥에 두어 살려 둔다.
+    // 당겨서 재스캔(모바일에는 상시 '다시 스캔' 버튼이 없다). 목록이 빌 때는 스캔
+    // 표시가 자리를 대신하므로 RefreshIndicator를 그 바깥에 두어 살려 둔다.
     // 빠른 탐색 표시는 세 모드가 나눠 쓰는 자리라 가장 바깥에 한 번만 덧댄다.
     return TypeAheadOverlay(
       child: desktop

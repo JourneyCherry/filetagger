@@ -5,6 +5,8 @@ import '../../data/platform/link_opener.dart';
 import '../../domain/entities/update_check_outcome.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
+import '../../domain/entities/scan_progress.dart';
+import '../common/scan_progress_label.dart';
 import '../common/selection_controller.dart';
 import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
@@ -22,13 +24,22 @@ class DesktopStatusBar extends ConsumerWidget {
     super.key,
     required this.handlers,
     required this.scanning,
+    required this.backgroundScanning,
+    required this.scanProgress,
     required this.previewVisible,
   });
 
   final CommandHandlers handlers;
 
-  /// 전면 스캔이 진행 중인지(백그라운드 재스캔은 표시하지 않는다).
+  /// 전면 스캔(폴더 열기·수동 재스캔)이 진행 중인지.
   final bool scanning;
+
+  /// watcher가 트리거한 조용한 재스캔이 진행 중인지. 본문에는 스피너가 뜨지 않으므로
+  /// 목록이 저절로 바뀌는 이유를 여기서 알려야 한다.
+  final bool backgroundScanning;
+
+  /// 진행 중인 스캔이 마지막으로 알려 온 진행 상태. 없으면 수치 없이 알린다.
+  final ScanProgress? scanProgress;
 
   final bool previewVisible;
 
@@ -76,14 +87,14 @@ class DesktopStatusBar extends ConsumerWidget {
     final sort = ref.watch(fileSortProvider);
 
     return [
-      if (scanning) ...[
+      if (scanning || backgroundScanning) ...[
         const SizedBox(
           width: 12,
           height: 12,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         const SizedBox(width: 8),
-        const Text('스캔 중…'),
+        Text(scanProgressLabel(scanProgress)),
         const _Separator(),
       ],
       Text(visibleCount == null ? '목록 불러오는 중…' : '항목 $visibleCount개'),

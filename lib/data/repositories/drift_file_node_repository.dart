@@ -34,9 +34,36 @@ class DriftFileNodeRepository implements FileNodeRepository {
   }
 
   @override
+  Future<void> applyPartialScan(List<FileNode> observed) async {
+    if (observed.isEmpty) return;
+    // upsert만 한다. 아직 스캔이 끝나지 않아 "이번 스캔에서 관측되지 않은 노드"를
+    // 알 수 없으므로, 사라진 노드 판정은 여기서 절대 하지 않는다.
+    final seenAt = DateTime.now();
+    await _db.batch((batch) => _upsertNodes(batch, observed, seenAt));
+  }
+
+  /// 스캔이 내놓은 노드들을 경로 기준으로 upsert한다. 스캔 규모가 수천 건이라
+  /// 문장을 하나씩 왕복시키지 않고 배치로 묶어 보낸다.
+  void _upsertNodes(Batch batch, List<FileNode> nodes, DateTime seenAt) {
+    for (final node in nodes) {
+      final companion = _toCompanion(node, seenAt);
+      batch.insert(
+        _db.fileNodes,
+        companion,
+        onConflict: DoUpdate(
+          (_) => companion,
+          // 유일성이 (종류, 경로)이므로 충돌 대상도 둘을 함께 지목한다.
+          target: [_db.fileNodes.kind, _db.fileNodes.path],
+        ),
+      );
+    }
+  }
+
+  @override
   Future<void> applyScan(
     List<FileNode> scanned, {
     required FolderManageMode rootManageMode,
+    required Set<String> priorPaths,
   }) async {
     // 경로 기준 upsert 후 사라진 노드를 정리한다. 정리 전에 (1) 태그된 사라진
     // 노드를 내용 시그니처로 새 노드에 자동 재연결하고, (2) 그래도 태그가 남은
@@ -50,25 +77,10 @@ class DriftFileNodeRepository implements FileNodeRepository {
       final before = await (_db.select(
         _db.fileNodes,
       )..where((t) => t.kind.equalsValue(NodeKind.keyword).not())).get();
-      final beforePaths = {for (final r in before) r.path};
       final scannedPaths = {for (final n in scanned) n.path};
 
       // 같은 경로로 다시 나타난 노드는 upsert가 missingSince를 지워 되살린다.
-      // 스캔 규모가 수천 건이라 문장을 하나씩 왕복시키지 않고 배치로 묶어 보낸다.
-      await _db.batch((batch) {
-        for (final node in scanned) {
-          final companion = _toCompanion(node, seenAt);
-          batch.insert(
-            _db.fileNodes,
-            companion,
-            onConflict: DoUpdate(
-              (_) => companion,
-              // 유일성이 (종류, 경로)이므로 충돌 대상도 둘을 함께 지목한다.
-              target: [_db.fileNodes.kind, _db.fileNodes.path],
-            ),
-          );
-        }
-      });
+      await _db.batch((batch) => _upsertNodes(batch, scanned, seenAt));
 
       final disappeared = before
           .where((r) => !scannedPaths.contains(r.path))
@@ -84,8 +96,12 @@ class DriftFileNodeRepository implements FileNodeRepository {
       // 새로 추가된 노드(이번 스캔에서 처음 본 경로). 이게 하나도 없으면 파일이
       // 다른 곳으로 이동한 게 아니라 사용자가 제거한 것으로 판단해, 이번에 새로
       // 사라진 노드는 태그가 있어도 보존하지 않는다(요청 2).
+      //
+      // 기준은 지금 저장된 것이 아니라 **스캔 시작 시점의 경로**다 — 스캔 도중
+      // applyPartialScan이 미리 반영한 노드는 이미 저장되어 있어, 지금 것만 보면
+      // 새로 나타난 노드가 하나도 없는 것처럼 보인다(이동 재연결이 통째로 죽는다).
       final appeared = scanned
-          .where((n) => !beforePaths.contains(n.path))
+          .where((n) => !priorPaths.contains(n.path))
           .toList();
 
       // 이미 보존(연결 끊김) 중인 노드는 사용자가 재연결/제거하거나 파일이

@@ -125,12 +125,15 @@ class BuildGroupedTree {
       List<GroupKey> rest,
     ) {
       final type = definitionsById[tagId]?.valueType ?? TagValueType.text;
+      // 뒤에 폴더 계층 키가 남아 있으면 폴더는 그 키가 구조(조상)로 세우므로 값
+      // 버킷의 멤버로 또 담지 않는다 — 담으면 같은 폴더가 자기 값 버킷과 조상
+      // 자리에 겹쳐 나온다. 그런 키가 없으면 폴더도 파일과 똑같이 값으로 묶인다
+      // (폴더에도 태그를 붙일 수 있고, 버리면 그룹을 거는 순간 사라진다).
+      final foldersAreStructure = rest.any((k) => k is FolderHierarchyGroupKey);
       final byValue = <String, List<FileNode>>{};
       final unclassified = <FileNode>[];
       for (final n in nodes) {
-        // 값 버킷은 파일만 담는다 — 폴더는 값의 대상이 아니라 폴더 계층 키가
-        // 세우는 구조(조상)로만 나타난다. 그룹 카운트도 파일(비디렉토리) 수다.
-        if (n.isDirectory) continue;
+        if (n.isDirectory && foldersAreStructure) continue;
         final vals = valuesOf(n, tagId, type);
         if (vals.isEmpty) {
           unclassified.add(n);
@@ -150,7 +153,7 @@ class BuildGroupedTree {
         return GroupHeaderNode(
           tagDefinitionId: tagId,
           value: value,
-          fileCount: countFileLeaves(children),
+          itemCount: countLeafItems(children),
           children: children,
         );
       }

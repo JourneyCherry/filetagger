@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -97,6 +98,11 @@ class FileThumbnail extends ConsumerWidget {
     );
   }
 
+  /// [expand] 모드 폴백 아이콘이 영역의 짧은 변에서 차지하는 몫과 그 상한.
+  /// 영역이 넉넉하면 상한에 걸려 늘 같은 크기로 보이고, 눌리면 함께 줄어든다.
+  static const double _expandIconRatio = 0.4;
+  static const double _expandIconMaxSide = 72;
+
   Widget _fallback(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final IconData icon;
@@ -111,7 +117,21 @@ class FileThumbnail extends ConsumerWidget {
     } else {
       icon = Icons.insert_drive_file_outlined;
     }
-    if (expand) return Center(child: Icon(icon, color: color, size: 72));
+    if (expand) {
+      // 이미지 폴백과 달리 아이콘은 스스로 줄지 않는다 — 영역이 세로로 눌렸을 때
+      // 고정 크기로 그리면 밖으로 튀어나가므로 짧은 변에 맞춰 깎는다.
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final side = constraints.biggest.shortestSide;
+          final size = side.isFinite
+              ? math.min(side * _expandIconRatio, _expandIconMaxSide)
+              : _expandIconMaxSide;
+          return Center(
+            child: Icon(icon, color: color, size: size),
+          );
+        },
+      );
+    }
     return Icon(icon, color: color, size: dimension * 0.6);
   }
 }

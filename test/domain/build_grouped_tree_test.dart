@@ -92,7 +92,7 @@ void main() {
       expect(_headerLabels(tree), ['3', '5', '·미분류']);
       final b5 = tree[1] as GroupHeaderNode;
       expect(_filePaths(b5.children), ['x']);
-      expect(b5.fileCount, 1);
+      expect(b5.itemCount, 1);
     });
 
     test('다중값은 여러 버킷에 중복 소속되고 카운트 합이 늘 수 있다', () {
@@ -110,9 +110,35 @@ void main() {
       expect(_headerLabels(tree), ['빨강', '파랑']);
       final total = tree.whereType<GroupHeaderNode>().fold<int>(
         0,
-        (s, h) => s + h.fileCount,
+        (s, h) => s + h.itemCount,
       );
       expect(total, 3);
+    });
+
+    // 폴더에도 태그를 붙일 수 있다. 값 버킷이 폴더를 버리면 그 태그로 그룹화하는
+    // 순간 폴더들이 목록에서 통째로 사라진다(빈 목록으로 보인다).
+    test('폴더에 붙은 태그값도 제 버킷으로 묶인다', () {
+      final files = [
+        _node(1, '시리즈A', dir: true),
+        _node(2, '시리즈B', dir: true),
+        _node(3, '메모.txt'),
+      ];
+      final assignments = {
+        1: [_assign(1, _color, '봄')],
+        2: [_assign(2, _color, '여름')],
+      };
+      final tree = _run(
+        files,
+        assignments,
+        const FileGrouping(keys: [TagGroupKey(3)]),
+      );
+
+      expect(_headerLabels(tree), ['봄', '여름', '·미분류']);
+      expect(_filePaths((tree.first as GroupHeaderNode).children), ['시리즈A']);
+      // 카운트가 파일만 세면 폴더뿐인 버킷이 0으로 보인다.
+      expect((tree.first as GroupHeaderNode).itemCount, 1);
+      // 태그가 없는 폴더·파일은 파일과 같은 규칙으로 미분류에 모인다.
+      expect(_filePaths((tree.last as GroupHeaderNode).children), ['메모.txt']);
     });
 
     test('라벨 태그는 붙음/미분류 두 버킷으로 나뉜다', () {
@@ -208,7 +234,10 @@ void main() {
       final a3 = b3.children.single as FileTreeNode;
       expect(a3.node.path, 'a');
       expect(_filePaths(a3.children), ['a/y.txt']);
-      expect(b3.fileCount, 1);
+      expect(b3.itemCount, 1);
+      // 폴더 a는 조상으로만 서고 자기 버킷(미분류)을 따로 만들지 않는다 — 담으면
+      // 같은 폴더가 조상 자리와 값 버킷에 겹쳐 나온다.
+      expect(_headerLabels(tree), isNot(contains('·미분류')));
     });
 
     test('폴더 키 뒤 값 키: 폴더 직속 파일을 값으로 재그룹한다', () {

@@ -26,13 +26,13 @@ final class FileTreeNode extends TreeItem {
   bool get hasChildren => children.isNotEmpty;
 }
 
-/// 한 태그값으로 묶은 그룹 버킷의 헤더(합성 노드). 값별 파일 수를 표기해
+/// 한 태그값으로 묶은 그룹 버킷의 헤더(합성 노드). 값별 항목 수를 표기해
 /// "태그값별 가짓수"를 드러낸다(다중값 중복 소속으로 합이 전체보다 클 수 있다).
 final class GroupHeaderNode extends TreeItem {
   const GroupHeaderNode({
     required this.tagDefinitionId,
     required this.value,
-    required this.fileCount,
+    required this.itemCount,
     required this.children,
   });
 
@@ -42,8 +42,10 @@ final class GroupHeaderNode extends TreeItem {
   /// 이 버킷의 태그값. 값 없는 항목을 모은 "(미분류)" 버킷이면 null.
   final String? value;
 
-  /// 이 버킷에 속한 파일(비디렉토리) 수. 다중값 중복 소속을 그대로 센다.
-  final int fileCount;
+  /// 이 버킷에 담긴 항목 수. **파일과 폴더를 가리지 않는다** — 값 버킷은 태그가
+  /// 붙은 폴더도 담으므로, 종류를 가리면 폴더만 든 버킷이 0으로 보인다. 다중값
+  /// 중복 소속을 그대로 센다.
+  final int itemCount;
 
   @override
   final List<TreeItem> children;
@@ -64,8 +66,22 @@ int countTreeNodes(List<TreeItem> roots) {
   return count;
 }
 
-/// 트리 아래 파일(비디렉토리) 리프 수. 그룹 헤더의 [GroupHeaderNode.fileCount]가
-/// 이 값을 담는다(폴더 안에 중첩된 파일도 함께 센다).
+/// 트리 아래 리프 항목 수(파일·폴더를 가리지 않는다). 그룹 헤더의
+/// [GroupHeaderNode.itemCount]가 이 값을 담는다.
+///
+/// **자식을 거느린 폴더는 세지 않는다** — 그 폴더는 값의 주인이 아니라 계층을 세우는
+/// 구조로 서 있고, 그 안의 것이 대신 세어진다.
+int countLeafItems(List<TreeItem> roots) {
+  var count = 0;
+  for (final item in roots) {
+    if (item is FileTreeNode && item.children.isEmpty) count += 1;
+    count += countLeafItems(item.children);
+  }
+  return count;
+}
+
+/// 트리 아래 파일(비디렉토리) 수. 아이콘 보기의 폴더 타일이 "그 폴더 아래 파일 수"를
+/// 보이는 데 쓴다(폴더 안에 중첩된 파일도 함께 센다).
 int countFileLeaves(List<TreeItem> roots) {
   var count = 0;
   for (final item in roots) {

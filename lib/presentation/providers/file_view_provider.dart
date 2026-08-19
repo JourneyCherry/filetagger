@@ -445,14 +445,17 @@ final fileTreeProvider = Provider<AsyncValue<List<TreeItem>>>((ref) {
 ///
 /// 목록 렌더와 셸의 조작(범위·전체 선택, 키보드 커서 이동)이 **같은 결과**를 나눠
 /// 쓴다 — 각자 펴면 키를 누를 때마다 트리를 다시 펴게 되고, 두 순서가 어긋날 여지도
-/// 생긴다. 필터가 걸리면 매치를 드러내기 위해 접힘 상태와 무관하게 전부 편다.
+/// 생긴다.
+///
+/// **필터는 펼침에 관여하지 않는다.** 접고 펴는 것은 사용자가 쥔 상태이고, 필터는
+/// 목록을 줄일 뿐이다 — 조건을 걸었다고 전부 펴 버리면 접어 둔 그룹이 통째로 쏟아질
+/// 뿐 아니라, 그 상태에서는 헤더를 눌러도 닫히지 않는다(강제 펼침이 저장된 상태를
+/// 단락시킨다).
 final flatTreeProvider = Provider<AsyncValue<FlatTree>>((ref) {
   final tree = ref.watch(fileTreeProvider);
   final expanded = ref.watch(expandedFoldersProvider);
-  final filterActive = !ref.watch(fileFilterProvider).isEmpty;
   return tree.whenData(
-    (roots) =>
-        flattenTree(roots, expandedFolders: expanded, expandAll: filterActive),
+    (roots) => flattenTree(roots, expandedFolders: expanded, expandAll: false),
   );
 });
 
@@ -461,4 +464,19 @@ final flatTreeProvider = Provider<AsyncValue<FlatTree>>((ref) {
 final visibleNodeCountProvider = Provider<int?>((ref) {
   final tree = ref.watch(fileTreeProvider).valueOrNull;
   return tree == null ? null : countTreeNodes(tree);
+});
+
+/// 인덱스에 실린 노드 수(필터·그룹을 거치기 **전**).
+///
+/// [visibleNodeCountProvider]와 갈라 두는 이유는 **"아직 보여 줄 것이 없다"와
+/// "조건에 맞는 것이 없다"가 다른 상태**이기 때문이다. 스캔 표시를 띄울지는 앞의
+/// 것으로만 갈라야 한다 — 뒤의 것으로 가르면 인덱스가 이미 차 있어도 지금 걸린
+/// 조건이 아무것도 못 내는 순간(태그값 그룹은 폴더를 값 버킷에 담지 않아 폴더만
+/// 있는 동안 그렇다) 목록이 스캔 표시에 가려진다. 조건이 아무것도 못 내는 것은
+/// 목록이 제자리에서 알릴 일이다.
+///
+/// 스트림이 잠깐 다시 실리는 동안에도 직전 목록을 그대로 센다(`valueOrNull`은
+/// 이전 값을 물려받는다) — 그 순간 목록이 통째로 사라지지 않게 하기 위함이다.
+final indexedNodeCountProvider = Provider<int>((ref) {
+  return ref.watch(fileNodesProvider).valueOrNull?.length ?? 0;
 });

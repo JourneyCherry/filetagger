@@ -821,11 +821,14 @@ class _GroupHeaderTile extends StatelessWidget {
                             )
                           : null,
                     ),
-                    Flexible(child: _label(context, scheme)),
+                    // 라벨이 남은 폭을 다 차지해 수량이 늘 행의 오른쪽 끝에 선다 —
+                    // 라벨 길이에 따라 수량이 좌우로 흔들리면 행마다 자리가 달라진다
+                    // (값 칩 버킷과 "(미분류)"가 서로 다른 자리에 적히던 원인).
+                    Expanded(child: _label(context, scheme)),
                     const SizedBox(width: 8),
-                    // 버킷에 속한 파일(비디렉토리) 수. 다중값 중복 소속을 그대로 센다.
+                    // 버킷에 담긴 항목 수. 다중값 중복 소속을 그대로 센다.
                     Text(
-                      '${header.fileCount}',
+                      '${header.itemCount}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),

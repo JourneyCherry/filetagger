@@ -520,6 +520,38 @@ void main() {
       expect(streamed.length, result.nodes.length);
     });
 
+    // 파일 노드가 순회를 다 마친 뒤에야 나오면, 순회하는 내내 인덱스에는 폴더밖에
+    // 없다. 태그값 그룹은 폴더를 값 버킷에 담지 않으므로 그동안 목록이 통째로 비어
+    // 스캔 표시가 자리를 차지한다 — 파일도 순회 도중에 나와야 한다.
+    test('파일 보고는 순회가 끝나기를 기다리지 않는다', () async {
+      // 층마다 나열을 한 번씩 기다리는 깊은 사슬. 위층 파일이 아래층을 나열하는
+      // 동안 인덱싱을 마칠 자리를 준다.
+      var dir = '';
+      for (var depth = 0; depth < 6; depth++) {
+        dir = depth == 0 ? 'd0' : '$dir/d$depth';
+        for (var i = 0; i < 3; i++) {
+          await touchFile('$dir/f$i.txt');
+        }
+      }
+
+      final kinds = <bool>[];
+      await const DirectoryScanner().scan(
+        root.path,
+        rootManageMode: FolderManageMode.managedRecursive,
+        onProgress: (progress) =>
+            kinds.addAll(progress.newNodes.map((n) => n.isDirectory)),
+      );
+
+      final lastDirectory = kinds.lastIndexOf(true);
+      final firstFile = kinds.indexOf(false);
+      expect(firstFile, isNonNegative, reason: '파일 노드가 하나도 보고되지 않았다');
+      expect(
+        firstFile,
+        lessThan(lastDirectory),
+        reason: '마지막 폴더보다 먼저 나온 파일이 하나도 없다(순회가 끝난 뒤에야 파일이 나온다)',
+      );
+    });
+
     // 스캔 본체는 다른 isolate로 건너가는데, 클로저는 변수 하나가 아니라 스코프
     // 컨텍스트를 통째로 캡처한다. 진행 콜백이 보낼 수 없는 것(화면 상태 등)을 붙들고
     // 있어도 그것이 스캔 인자에 딸려가면 안 된다 — 딸려가면 스캔 자체가 실패한다.

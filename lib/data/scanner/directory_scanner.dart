@@ -18,8 +18,8 @@ import '../../domain/usecases/folder_index_scope.dart';
 import 'hidden_entry.dart';
 import 'image_dimensions.dart';
 
-/// 순회가 찾아 두었으나 아직 열어 보지 않은 파일. 경로는 이미 루트 기준으로
-/// 정규화되어 있어, 인덱싱 단계는 파일시스템 I/O만 하면 된다.
+/// 순회가 만나 인덱싱으로 넘기는 파일. 경로는 이미 루트 기준으로 정규화되어
+/// 있어, 인덱싱 단계는 파일시스템 I/O만 하면 된다.
 class _PendingFile {
   const _PendingFile(this.file, this.relativePath);
 
@@ -104,8 +104,12 @@ class DirectoryScanner implements WorkspaceScanner {
   ) async {
     final nodes = <FileNode>[];
     final nested = <String>[];
-    final files = <_PendingFile>[];
+    final fileTasks = <Future<FileNode>>[];
     final progress = _ProgressReporter(updates);
+    // 파일 I/O 동시 실행 수를 잡아 두는 일꾼. 순회가 파일을 만나는 즉시 여기에
+    // 맡기고 기다리지 않으므로, 나열과 파일 읽기가 겹쳐 돌고 파일 노드도 순회
+    // 도중에 나온다.
+    final pool = Pool(_fileIoConcurrency);
     await _walk(
       dir: Directory(workspaceRoot),
       workspaceRoot: workspaceRoot,
@@ -113,17 +117,18 @@ class DirectoryScanner implements WorkspaceScanner {
       effectiveMode: rootManageMode,
       storedOverride: null,
       nodes: nodes,
-      pendingFiles: files,
+      indexFile: (file) =>
+          fileTasks.add(_indexFileTask(pool, file, priorIndex, progress)),
       nestedFiletaggerDirs: nested,
       priorIndex: priorIndex,
       progress: progress,
     );
-    // 훑기가 끝난 자리는 파일을 읽기 시작하는 자리이기도 하므로, 다음 단계로
-    // 넘어가기 전에 지금까지의 수를 한 번 확정해 보낸다.
+    // 순회 몫이 끝나는 자리에서 지금까지의 수를 한 번 확정해 보낸다(아직 읽는
+    // 중인 파일이 남아 있어도 나열은 여기서 끝난다).
     progress.flush();
-    // 순회는 폴더 관리 방식을 부모에서 물려받아야 해 순서를 지켜야 하지만, 파일
-    // 인덱싱은 서로 독립이라 순회가 끝난 뒤 한꺼번에 동시에 돌린다.
-    nodes.addAll(await _indexFiles(files, priorIndex, progress));
+    // 결과 순서는 순회가 파일을 만난 순서 그대로다(Future.wait이 입력 순서를 지켜,
+    // 인덱싱이 끝나는 차례가 결과에 새지 않는다).
+    nodes.addAll(await Future.wait(fileTasks).whenComplete(pool.close));
     // 마지막 집계는 간격에 걸려 빠지기 쉬우므로 끝에서 한 번 더 확정해 보낸다.
     progress.flush();
     return ScanResult(nodes: nodes, nestedFiletaggerDirs: nested);
@@ -132,7 +137,8 @@ class DirectoryScanner implements WorkspaceScanner {
   /// [dir]을 인덱싱한다. 루트가 아니면 자기 자신을 폴더 노드로 추가(override는
   /// 그대로 보존)하고, effective 모드가 불투명이면 내부(자식 노드·재귀)를 건너뛴다.
   /// override 없는 하위 폴더는 부모의 effective 모드에서 상속한다. 만난 파일은
-  /// 여기서 열지 않고 [pendingFiles]에 모아 두었다가 나중에 함께 인덱싱한다.
+  /// 그 자리에서 [indexFile]에 넘겨 인덱싱을 띄우되 **기다리지 않고** 순회를
+  /// 이어 간다.
   static Future<void> _walk({
     required Directory dir,
     required String workspaceRoot,
@@ -140,7 +146,7 @@ class DirectoryScanner implements WorkspaceScanner {
     required FolderManageMode effectiveMode,
     required FolderManageMode? storedOverride,
     required List<FileNode> nodes,
-    required List<_PendingFile> pendingFiles,
+    required void Function(_PendingFile file) indexFile,
     required List<String> nestedFiletaggerDirs,
     required Map<String, FileNode> priorIndex,
     required _ProgressReporter progress,
@@ -191,54 +197,56 @@ class DirectoryScanner implements WorkspaceScanner {
     // 불투명 폴더는 내부를 인덱싱하지 않는다(자식 노드 미추가·미재귀).
     if (effectiveMode == FolderManageMode.opaque) return;
 
+    // **파일을 먼저 넘기고 하위 폴더로 내려간다.** 나열이 폴더를 앞에 두면(이름순
+    // 이면 흔하다) 한 덩어리로 훑을 때 이 폴더의 파일이 서브트리를 다 마친 뒤에야
+    // 시작되어, 깊은 트리에서는 사실상 순회가 끝나야 첫 파일이 나온다.
+    final subdirectories = <Directory>[];
     for (final entity in visible) {
-      final name = p.basename(entity.path);
-
       if (entity is Directory) {
         // .filetagger/는 내부를 스캔하지 않는다. 루트 자신의 것은 조용히 제외하고,
         // 중첩된 것은 위에서 이미 소유 폴더를 병합 후보로 수집했다.
-        if (name == filetaggerDirName) continue;
-        final childRel = _relativePosix(workspaceRoot, entity.path);
-        final childOverride = priorIndex[childRel]?.manageMode;
-        final childEffective =
-            childOverride ?? inheritedChildMode(effectiveMode);
-        await _walk(
-          dir: entity,
-          workspaceRoot: workspaceRoot,
-          isRoot: false,
-          effectiveMode: childEffective,
-          storedOverride: childOverride,
-          nodes: nodes,
-          pendingFiles: pendingFiles,
-          nestedFiletaggerDirs: nestedFiletaggerDirs,
-          priorIndex: priorIndex,
-          progress: progress,
-        );
+        if (p.basename(entity.path) == filetaggerDirName) continue;
+        subdirectories.add(entity);
       } else if (entity is File) {
-        pendingFiles.add(
+        indexFile(
           _PendingFile(entity, _relativePosix(workspaceRoot, entity.path)),
         );
       }
     }
+
+    for (final entity in subdirectories) {
+      final childRel = _relativePosix(workspaceRoot, entity.path);
+      final childOverride = priorIndex[childRel]?.manageMode;
+      final childEffective = childOverride ?? inheritedChildMode(effectiveMode);
+      await _walk(
+        dir: entity,
+        workspaceRoot: workspaceRoot,
+        isRoot: false,
+        effectiveMode: childEffective,
+        storedOverride: childOverride,
+        nodes: nodes,
+        indexFile: indexFile,
+        nestedFiletaggerDirs: nestedFiletaggerDirs,
+        priorIndex: priorIndex,
+        progress: progress,
+      );
+    }
   }
 
-  /// 모아 둔 파일들을 노드로 만든다. 한꺼번에 다 띄우지 않도록 [Pool]이 동시에
-  /// 도는 수를 잡아 주고, 하나가 디스크를 기다리는 동안 다음 파일이 그 자리를
-  /// 채운다. 결과 순서는 입력 순서 그대로다.
-  static Future<List<FileNode>> _indexFiles(
-    List<_PendingFile> pending,
+  /// 파일 하나의 인덱싱을 [pool]에 맡겨 띄운다. 한꺼번에 다 띄우지 않도록 풀이
+  /// 동시에 도는 수를 잡아 주고, 하나가 디스크를 기다리는 동안 다음 파일이 그
+  /// 자리를 채운다. 부르는 쪽(순회)은 기다리지 않고 곧바로 나아간다.
+  static Future<FileNode> _indexFileTask(
+    Pool pool,
+    _PendingFile file,
     Map<String, FileNode> priorIndex,
     _ProgressReporter progress,
   ) {
-    final pool = Pool(_fileIoConcurrency);
-    return Future.wait<FileNode>([
-      for (final file in pending)
-        pool.withResource(() async {
-          final node = await _indexFile(file, priorIndex);
-          progress.nodeFound(node);
-          return node;
-        }),
-    ]).whenComplete(pool.close);
+    return pool.withResource(() async {
+      final node = await _indexFile(file, priorIndex);
+      progress.nodeFound(node);
+      return node;
+    });
   }
 
   /// 파일 하나를 노드로 만든다. 직전 인덱스와 크기·수정시각이 그대로면 저장된

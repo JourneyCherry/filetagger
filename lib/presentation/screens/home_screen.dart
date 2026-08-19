@@ -796,8 +796,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// 찾은 행이 접힌 조상 아래 숨어 있으면 그 조상들만 펼쳐 드러낸다. 이미 보이는
-  /// 행이면(펼쳐 뒀거나 필터가 전부를 펴 둔 상태) 펼침 상태를 건드리지 않는다 —
-  /// 필터를 걸었을 때까지 저장된 펼침 집합이 불어나지 않게 하기 위함이다.
+  /// 행이면 펼침 상태를 건드리지 않는다 — 저장된 펼침 집합이 공연히 불어나지 않게
+  /// 하기 위함이다.
   void _revealRow(List<TreeRow> rows, int index, int nodeId) {
     final visible = _currentFlat();
     if (visible != null && visible.nodes.any((n) => n.id == nodeId)) return;
@@ -1811,10 +1811,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildFileList(SelectionState selection) {
     final desktop = isDesktopPlatform;
     // 스캔 중이라도 이미 인덱싱된 노드는 그대로 보여 준다 — 스캔이 관측하는 대로
-    // 인덱스에 미리 반영되므로, 큰 폴더에서도 읽은 만큼 목록이 차오른다(필터·정렬·
-    // 그룹은 늘 쓰던 파생 경로가 그대로 건다). 아직 보여 줄 것이 없을 때만 스캔
-    // 표시가 자리를 채운다.
-    if (_scanning && (ref.watch(visibleNodeCountProvider) ?? 0) == 0) {
+    // 인덱스에 미리 반영되고 지난 스캔의 것도 남아 있으므로, 큰 폴더에서도 목록이
+    // 먼저 서고 스캔은 그 위를 고쳐 나간다(필터·정렬·그룹은 늘 쓰던 파생 경로가
+    // 그대로 건다). 기준은 **인덱스가 비었는지**다 — 지금 걸린 조건이 아무것도 못
+    // 내는 것은 목록이 제자리에서 알릴 일이지 스캔 표시가 가릴 일이 아니다.
+    if (_scanning && ref.watch(indexedNodeCountProvider) == 0) {
       return _buildScanningIndicator();
     }
     // 세 보기 모드는 같은 프리뷰·선택 자리를 나눠 쓰고 표현만 다르다. 아이콘·자세히는

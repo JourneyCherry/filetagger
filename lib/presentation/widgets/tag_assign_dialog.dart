@@ -149,7 +149,10 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       for (final id in widget.fileNodeIds) ...(byFile[id] ?? const []),
     ];
 
-    final content = Column(
+    // 부여 목록과 추가 영역을 따로 만든다 — 부여된 태그가 많을 때 함께 스크롤되면
+    // 추가 영역이 아래로 밀려 나가므로, 스크롤은 목록 쪽에만 걸고 추가 영역은 늘
+    // 보이는 자리에 고정한다.
+    final assigned = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -161,6 +164,13 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           _buildSingleFileTags(selectedAssignments)
         else
           _buildMultiFileTags(selectedAssignments),
+      ],
+    );
+
+    final add = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         const Divider(height: 32),
         Text('태그 추가', style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
@@ -171,7 +181,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       ],
     );
 
-    if (widget.asSheet) return _sheet(context, content);
+    if (widget.asSheet) return _sheet(context, assigned, add);
 
     return escDismissible(
       context,
@@ -180,7 +190,14 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
         content: dialogContentBox(
           context,
           width: 420,
-          child: SingleChildScrollView(child: content),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(child: SingleChildScrollView(child: assigned)),
+              add,
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -192,8 +209,9 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
     );
   }
 
-  /// 바텀시트 크롬: 제목 줄 + 스크롤 본문. 키보드가 올라오면 그만큼 밀어 올린다.
-  Widget _sheet(BuildContext context, Widget content) {
+  /// 바텀시트 크롬: 제목 줄 + 스크롤되는 부여 목록 + 고정된 추가 영역. 키보드가
+  /// 올라오면 그만큼 밀어 올려, 추가 영역이 키보드 위에 그대로 남는다.
+  Widget _sheet(BuildContext context, Widget assigned, Widget add) {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
@@ -202,9 +220,13 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           ListTile(title: Text(widget.title, overflow: TextOverflow.ellipsis)),
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: content,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: assigned,
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: add,
           ),
         ],
       ),

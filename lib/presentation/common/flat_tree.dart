@@ -64,7 +64,8 @@ class FlatTree {
 }
 
 /// 필터·정렬·그룹된 트리를 표시 순서의 평면 행으로 편다. 접힌 폴더·헤더의 자식은
-/// 건너뛴다. [expandAll]이면(필터 활성 등) 접힘 상태를 무시하고 전부 편다.
+/// 건너뛴다. [expandAll]이면 접힘 상태를 무시하고 전부 편다 — 화면에 그리는 자리가
+/// 아니라 **빠른 탐색이 접힌 곳까지 훑을 때** 쓰는 갈래다.
 FlatTree flattenTree(
   List<TreeItem> roots, {
   required Set<String> expandedFolders,

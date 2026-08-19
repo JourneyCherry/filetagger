@@ -27,7 +27,7 @@ GroupHeaderNode _group(int tagId, String? value, List<TreeItem> children) =>
     GroupHeaderNode(
       tagDefinitionId: tagId,
       value: value,
-      fileCount: countFileLeaves(children),
+      itemCount: countLeafItems(children),
       children: children,
     );
 

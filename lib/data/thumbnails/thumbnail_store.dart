@@ -49,20 +49,21 @@ Future<String?> registerThumbnailImage(
     return null;
   }
 
-  final dims = readImageDimensions(bytes);
+  final pixelSize = readImagePixelSize(bytes);
   final srcExt = _extensionOf(sourcePath);
   final knownExt = imageFileExtensions.contains(srcExt);
   // 헤더 파서가 크기를 못 읽고 확장자도 이미지가 아니면 이미지로 보지 않는다.
-  if (dims == null && !knownExt) return null;
+  if (pixelSize == null && !knownExt) return null;
 
   Uint8List outBytes = bytes;
   var ext = knownExt ? srcExt : 'png';
 
-  if (dims != null) {
-    final parts = dims.split('x');
-    final w = int.tryParse(parts[0]) ?? 0;
-    final h = int.tryParse(parts[1]) ?? 0;
-    final target = downscaleTargetSize(w, h, _maxThumbnailDimension);
+  if (pixelSize != null) {
+    final target = downscaleTargetSize(
+      pixelSize.$1,
+      pixelSize.$2,
+      _maxThumbnailDimension,
+    );
     if (target != null) {
       final scaled = await _downscaleToPng(bytes, target.$1, target.$2);
       if (scaled != null) {

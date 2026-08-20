@@ -67,8 +67,10 @@ void main() {
       final result = await const DirectoryScanner().scan(root.path);
       final pic = result.nodes.firstWhere((n) => n.path == 'pic.png');
       final note = result.nodes.firstWhere((n) => n.path == 'note.txt');
-      expect(pic.imageDimensions, '400x300');
-      expect(note.imageDimensions, isNull);
+      expect(pic.imageWidth, 400);
+      expect(pic.imageHeight, 300);
+      expect(note.imageWidth, isNull);
+      expect(note.imageHeight, isNull);
     });
 
     test('크기·수정시각이 그대로면 저장된 이미지 크기를 재사용한다(재파싱 안 함)', () async {
@@ -77,7 +79,7 @@ void main() {
         root.path,
       )).nodes.firstWhere((n) => n.path == 'pic.png');
 
-      // 같은 파일이지만 저장값이 다른 척(1x1). 재사용되면 이 값이 그대로 나온다.
+      // 같은 파일이지만 저장값이 다른 척. 재사용되면 이 값이 그대로 나온다.
       final prior = <String, FileNode>{
         'pic.png': FileNode(
           path: 'pic.png',
@@ -85,14 +87,16 @@ void main() {
           size: first.size,
           modifiedAt: first.modifiedAt,
           contentHashPrefix: first.contentHashPrefix,
-          imageDimensions: '1x1',
+          imageWidth: 1,
+          imageHeight: 1,
         ),
       };
       final again = (await const DirectoryScanner().scan(
         root.path,
         priorIndex: prior,
       )).nodes.firstWhere((n) => n.path == 'pic.png');
-      expect(again.imageDimensions, '1x1');
+      expect(again.imageWidth, 1);
+      expect(again.imageHeight, 1);
     });
 
     test('저장된 이미지 크기가 없으면(컬럼 신설 직후) 다시 읽어 채운다', () async {
@@ -115,7 +119,8 @@ void main() {
         root.path,
         priorIndex: prior,
       )).nodes.firstWhere((n) => n.path == 'pic.png');
-      expect(again.imageDimensions, '400x300');
+      expect(again.imageWidth, 400);
+      expect(again.imageHeight, 300);
     });
   });
 

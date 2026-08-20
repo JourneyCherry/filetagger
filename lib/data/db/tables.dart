@@ -61,9 +61,14 @@ class FileNodes extends Table {
   /// '내부 파일 수량'의 원본.
   IntColumn get childFileCount => integer().nullable()();
 
-  /// 이미지 파일의 픽셀 크기("가로x세로"). 스캐너가 헤더를 파싱해 채운다. 이미지가
-  /// 아니거나 크기를 못 읽으면 미지정. 시스템 태그 '이미지 크기'의 원본.
-  TextColumn get imageDimensions => text().nullable()();
+  /// 이미지 파일의 가로·세로 픽셀 수. 스캐너가 헤더를 파싱해 채운다. 이미지가
+  /// 아니거나 크기를 못 읽으면 미지정이며, 둘은 늘 함께 채워지거나 함께 빈다.
+  /// 시스템 태그 '이미지 너비'·'이미지 높이'의 원본.
+  ///
+  /// 옛 스키마는 둘을 한 문자열로 합쳐 담았다. 숫자로 갈라 둬야 대소 비교와
+  /// 크기순 정렬이 글자 비교로 무너지지 않는다.
+  IntColumn get imageWidth => integer().nullable()();
+  IntColumn get imageHeight => integer().nullable()();
 
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   DateTimeColumn get lastSeenAt => dateTime()();

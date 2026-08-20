@@ -1,20 +1,19 @@
 /// 이미지 파일의 픽셀 크기를 **헤더만 읽어** 알아내는 순수 파서. 전체 디코딩
 /// (dart:ui/외부 패키지) 없이 앞부분 바이트에서 크기를 뽑아, 스캐너가 이동 추적용
-/// 해시로 이미 읽는 바이트를 그대로 재사용한다(새 의존성 없음 — FNV 해시와 동일 방침).
+/// 해시로 이미 읽는 바이트를 그대로 재사용한다. 크기만 필요한데 전체 디코딩 패키지를
+/// 끌어오지 않으려는 것이며, 채택 근거는 `ARCHITECTURE.md`의 의존성 메모에 있다.
 ///
 /// 지원: PNG · JPEG · GIF · BMP · WebP(VP8/VP8L/VP8X). 형식을 모르거나 헤더가
-/// 잘려 크기를 못 읽으면 null(그 파일은 '이미지 크기' 시스템 태그를 갖지 않는다).
+/// 잘려 크기를 못 읽으면 null(그 파일은 크기 시스템 태그를 갖지 않는다).
 library;
 
-/// [bytes](파일 앞부분)에서 이미지 크기를 "가로x세로"로 읽는다. 실패 시 null.
-String? readImageDimensions(List<int> bytes) {
-  final size =
-      _png(bytes) ?? _gif(bytes) ?? _bmp(bytes) ?? _webp(bytes) ?? _jpeg(bytes);
-  if (size == null) return null;
-  return '${size.$1}x${size.$2}';
-}
+/// 이미지의 픽셀 크기. **너비와 높이를 끝까지 따로 들고 다닌다** — 합친 문자열로
+/// 넘기면 받는 쪽이 도로 갈라야 하고, 두 값을 각각 태그로 세우지 못한다.
+typedef ImagePixelSize = (int width, int height);
 
-typedef _Size = (int width, int height);
+/// [bytes](파일 앞부분)에서 이미지의 픽셀 크기를 읽는다. 실패 시 null.
+ImagePixelSize? readImagePixelSize(List<int> bytes) =>
+    _png(bytes) ?? _gif(bytes) ?? _bmp(bytes) ?? _webp(bytes) ?? _jpeg(bytes);
 
 int _beU16(List<int> b, int o) => (b[o] << 8) | b[o + 1];
 int _beU32(List<int> b, int o) =>
@@ -32,7 +31,7 @@ bool _startsWith(List<int> b, List<int> sig, [int offset = 0]) {
 }
 
 /// PNG: 8바이트 시그니처 뒤 IHDR 청크에 width(BE32)·height(BE32).
-_Size? _png(List<int> b) {
+ImagePixelSize? _png(List<int> b) {
   const sig = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
   if (!_startsWith(b, sig)) return null;
   if (b.length < 24) return null;
@@ -40,21 +39,21 @@ _Size? _png(List<int> b) {
 }
 
 /// GIF: "GIF87a"/"GIF89a" 뒤 논리 화면 width(LE16)·height(LE16).
-_Size? _gif(List<int> b) {
+ImagePixelSize? _gif(List<int> b) {
   if (!_startsWith(b, [0x47, 0x49, 0x46])) return null; // "GIF"
   if (b.length < 10) return null;
   return (_leU16(b, 6), _leU16(b, 8));
 }
 
 /// BMP: "BM" 뒤 DIB 헤더의 width(LE32)·height(LE32, top-down이면 음수→절댓값).
-_Size? _bmp(List<int> b) {
+ImagePixelSize? _bmp(List<int> b) {
   if (!_startsWith(b, [0x42, 0x4D])) return null; // "BM"
   if (b.length < 26) return null;
   return (_leS32(b, 18).abs(), _leS32(b, 22).abs());
 }
 
 /// WebP: "RIFF"...."WEBP" 뒤 청크 유형별(VP8/VP8L/VP8X)로 크기를 뽑는다.
-_Size? _webp(List<int> b) {
+ImagePixelSize? _webp(List<int> b) {
   if (!_startsWith(b, [0x52, 0x49, 0x46, 0x46])) return null; // "RIFF"
   if (!_startsWith(b, [0x57, 0x45, 0x42, 0x50], 8)) return null; // "WEBP"
 
@@ -86,7 +85,7 @@ _Size? _webp(List<int> b) {
 }
 
 /// JPEG: FFD8 뒤 마커를 훑어 SOFn 세그먼트의 height(BE16)·width(BE16)를 읽는다.
-_Size? _jpeg(List<int> b) {
+ImagePixelSize? _jpeg(List<int> b) {
   if (!_startsWith(b, [0xFF, 0xD8])) return null;
   var o = 2;
   while (o + 9 < b.length) {

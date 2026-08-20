@@ -22,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
     : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -47,8 +47,13 @@ class AppDatabase extends _$AppDatabase {
         );
       }
       if (from < 5) {
-        // 시스템 태그 '이미지 크기'의 원본. 다음 스캔이 이미지 파일에 채운다.
-        await m.addColumn(fileNodes, fileNodes.imageDimensions);
+        // 이미지 크기의 원본(당시엔 가로·세로를 한 문자열에 합쳐 담았다). 뒤의
+        // 단계가 이 컬럼을 갈라 옮기고 없애므로 **테이블 정의에는 더 이상 없다** —
+        // 그래서 컬럼 참조 대신 원시 SQL로 만든다. 지나간 스키마를 그대로 재현하는
+        // 것이 마이그레이션 사슬의 몫이고, 여기서 건너뛰면 뒤 단계가 읽을 것이 없다.
+        await customStatement(
+          'ALTER TABLE file_nodes ADD COLUMN image_dimensions TEXT',
+        );
       }
       if (from < 6) {
         // 중첩 워크스페이스 병합 확정 기록(프롬프트 반복 억제).
@@ -118,10 +123,47 @@ class AppDatabase extends _$AppDatabase {
         // ([SystemTag.childFileCount] 참고).
         await m.addColumn(fileNodes, fileNodes.childFileCount);
       }
+      if (from < 12) {
+        // 이미지 크기를 한 문자열에서 너비·높이 두 정수로 가른다. 옛 컬럼을 없애야
+        // 하므로 컬럼 추가로 끝나지 않고 테이블을 다시 쓴다(7·8단계와 같은 이유).
+        //
+        // **값을 옮겨 담고 비우지 않는다.** 비우면 스캐너가 크기를 모르는 파일로
+        // 보아 이미지를 전부 다시 읽는데(재사용 조건이 크기 유무를 본다), 그 비용이
+        // 라이브러리 크기에 비례해 커진다. 옛 값은 스캐너가 쓴 것뿐이라 형식이
+        // 일정해 그 자리에서 가를 수 있다.
+        await m.alterTable(
+          // ignore: experimental_member_use
+          TableMigration(
+            fileNodes,
+            columnTransformer: {
+              fileNodes.imageWidth: CustomExpression<int>(
+                _legacyDimensionSql('1', "instr(image_dimensions, 'x') - 1"),
+              ),
+              fileNodes.imageHeight: CustomExpression<int>(
+                _legacyDimensionSql("instr(image_dimensions, 'x') + 1", null),
+              ),
+            },
+            newColumns: [fileNodes.imageWidth, fileNodes.imageHeight],
+          ),
+        );
+      }
     },
     beforeOpen: (details) async {
       // 외래키 무결성(태그 정의/파일 삭제 시 부여 기록 정리)을 위해 필요.
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+}
+
+/// 합쳐 담겼던 옛 이미지 크기 문자열에서 한 조각을 잘라 정수로 옮기는 SQL.
+///
+/// [from]부터 [length]만큼(널이면 끝까지) 자른다. 구분자가 없는 값은 통째로 버려
+/// 미지정으로 남긴다 — 그렇게 두면 다음 스캔이 그 파일만 다시 읽어 채우지만,
+/// 억지로 잘랐다간 엉뚱한 수가 태그값으로 굳어 남는다.
+String _legacyDimensionSql(String from, String? length) {
+  final slice = length == null
+      ? 'substr(image_dimensions, $from)'
+      : 'substr(image_dimensions, $from, $length)';
+  return "CASE WHEN instr(image_dimensions, 'x') > 0 "
+      'THEN CAST($slice AS INTEGER) END';
 }

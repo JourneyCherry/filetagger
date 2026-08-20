@@ -22,7 +22,8 @@ class FileNode {
     this.manageMode,
     this.childSignature,
     this.childFileCount,
-    this.imageDimensions,
+    this.imageWidth,
+    this.imageHeight,
   });
 
   /// 저장소가 부여한 식별자. 아직 저장 전이면 null.
@@ -61,9 +62,16 @@ class FileNode {
   /// 만드느라 어차피 직속 자식 목록을 만들므로, 세는 데 드는 파일시스템 접근이 없다.
   final int? childFileCount;
 
-  /// 이미지 파일의 픽셀 크기("가로x세로"). 스캐너가 이미지 헤더를 파싱해 채운다.
-  /// 이미지가 아니거나 크기를 못 읽으면 null이다. 시스템 태그 '이미지 크기'의 원본.
-  final String? imageDimensions;
+  /// 이미지 파일의 가로 픽셀 수. 스캐너가 이미지 헤더를 파싱해 채운다. 이미지가
+  /// 아니거나 크기를 못 읽으면 null이다. 시스템 태그 '이미지 너비'의 원본.
+  ///
+  /// [imageHeight]와 **따로 담는 것은 의도**다 — 합쳐 두면 크기순 정렬·비교 필터가
+  /// 글자 비교로 무너지고, 둘을 견주는 파생값(화면비 등)을 세울 자리가 없다.
+  final int? imageWidth;
+
+  /// 이미지 파일의 세로 픽셀 수. 채워지는 조건은 [imageWidth]와 같다(둘은 늘 함께
+  /// 채워지거나 함께 비어 있다). 시스템 태그 '이미지 높이'의 원본.
+  final int? imageHeight;
 
   /// 디스크에 있는 디렉토리인지.
   bool get isDirectory => kind == NodeKind.directory;

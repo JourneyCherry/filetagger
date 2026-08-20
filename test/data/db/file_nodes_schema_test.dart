@@ -27,9 +27,13 @@ void main() {
     expect(companion.childFileCount.value, 3);
   });
 
-  test('FileNodes 스키마에 이미지 크기 컬럼이 반영된다', () {
-    const companion = FileNodesCompanion(imageDimensions: Value('400x300'));
-    expect(companion.imageDimensions.value, '400x300');
+  test('FileNodes 스키마에 이미지 너비·높이 컬럼이 반영된다', () {
+    const companion = FileNodesCompanion(
+      imageWidth: Value(400),
+      imageHeight: Value(300),
+    );
+    expect(companion.imageWidth.value, 400);
+    expect(companion.imageHeight.value, 300);
   });
 
   test('FileNodes 스키마에 노드 종류 컬럼이 반영된다', () {

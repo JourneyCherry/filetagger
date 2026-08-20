@@ -12,7 +12,8 @@ FileNode _file({
   String path = 'a/photo.png',
   int? size = 100,
   DateTime? modifiedAt,
-  String? imageDimensions,
+  int? imageWidth,
+  int? imageHeight,
   DateTime? missingSince,
 }) => FileNode(
   id: id,
@@ -20,7 +21,8 @@ FileNode _file({
   kind: NodeKind.file,
   size: size,
   modifiedAt: modifiedAt ?? DateTime(2024, 1, 2, 3, 4, 5),
-  imageDimensions: imageDimensions,
+  imageWidth: imageWidth,
+  imageHeight: imageHeight,
   missingSince: missingSince,
 );
 
@@ -37,12 +39,26 @@ void main() {
     expect(systemTagById(999), isNull);
   });
 
-  test('valueFor: 파일의 크기·수정시각·확장자·이미지크기·이름을 계산한다', () {
+  test('없앤 시스템 태그의 id는 되쓰이지 않는다', () {
+    // 저장된 필터·정렬·프리셋이 옛 id를 여전히 가리킬 수 있어, 되쓰면 그 참조가
+    // 엉뚱한 태그로 되살아난다(사라진 id를 가리키는 참조는 불러올 때 걸러진다).
+    const retired = {-4}; // 합쳐 담던 '이미지 크기'
+    expect(
+      SystemTag.values.map((t) => t.id).toSet().intersection(retired),
+      isEmpty,
+    );
+    for (final id in retired) {
+      expect(systemTagById(id), isNull);
+    }
+  });
+
+  test('valueFor: 파일의 크기·수정시각·확장자·이미지 너비·높이·이름을 계산한다', () {
     final node = _file(
       path: 'a/photo.PNG',
       size: 100,
       modifiedAt: DateTime(2024, 5, 6, 7, 8, 9),
-      imageDimensions: '4x2',
+      imageWidth: 4,
+      imageHeight: 2,
     );
     expect(SystemTag.fileSize.valueFor(node), '100');
     expect(
@@ -50,7 +66,9 @@ void main() {
       DateTime(2024, 5, 6, 7, 8, 9).toIso8601String(),
     );
     expect(SystemTag.extension.valueFor(node), 'png'); // 소문자로 정규화
-    expect(SystemTag.imageDimensions.valueFor(node), '4x2');
+    // 너비·높이가 서로 바뀌지 않도록 표본을 정사각형이 아닌 것으로 둔다.
+    expect(SystemTag.imageWidth.valueFor(node), '4');
+    expect(SystemTag.imageHeight.valueFor(node), '2');
     expect(SystemTag.fileName.valueFor(node), 'photo.PNG');
     expect(SystemTag.childFileCount.valueFor(node), isNull); // 파일은 폴더가 아니다
   });
@@ -60,7 +78,7 @@ void main() {
     expect(SystemTag.extension.valueFor(_file(path: '.gitignore')), isNull);
   });
 
-  test('valueFor: 폴더는 크기·확장자·이미지크기가 없고 수정시각·이름·수량을 갖는다', () {
+  test('valueFor: 폴더는 크기·확장자·이미지 크기가 없고 수정시각·이름·수량을 갖는다', () {
     final dir = FileNode(
       id: 2,
       path: 'a/sub',
@@ -70,7 +88,8 @@ void main() {
     );
     expect(SystemTag.fileSize.valueFor(dir), isNull);
     expect(SystemTag.extension.valueFor(dir), isNull);
-    expect(SystemTag.imageDimensions.valueFor(dir), isNull);
+    expect(SystemTag.imageWidth.valueFor(dir), isNull);
+    expect(SystemTag.imageHeight.valueFor(dir), isNull);
     expect(SystemTag.modifiedTime.valueFor(dir), isNotNull);
     expect(SystemTag.fileName.valueFor(dir), 'sub');
     expect(SystemTag.childFileCount.valueFor(dir), '3');
@@ -107,7 +126,8 @@ void main() {
   test('systemAssignmentsFor: 값 있는 시스템 태그만 부여로 묶고 null은 건너뛴다', () {
     final node = _file(
       path: 'a/photo.png',
-      imageDimensions: '4x2',
+      imageWidth: 4,
+      imageHeight: 2,
     ); // 이미지 파일 → 폴더 전용 태그만 빼고 전부
     final tags = systemAssignmentsFor(node);
     expect(tags.map((t) => t.tagDefinitionId).toSet(), {
@@ -140,7 +160,8 @@ void main() {
     expect(SystemTag.fileName.valueFor(memo), '그림.png');
     expect(SystemTag.extension.valueFor(memo), isNull);
     expect(SystemTag.fileSize.valueFor(memo), isNull);
-    expect(SystemTag.imageDimensions.valueFor(memo), isNull);
+    expect(SystemTag.imageWidth.valueFor(memo), isNull);
+    expect(SystemTag.imageHeight.valueFor(memo), isNull);
     expect(SystemTag.modifiedTime.valueFor(memo), isNull);
     expect(SystemTag.childFileCount.valueFor(memo), isNull);
   });
@@ -209,12 +230,15 @@ void main() {
 
   test('isEditableAssignment: 파일 이름만 편집 가능, 나머지 시스템 태그는 불가', () {
     final tags = {
-      for (final t in systemAssignmentsFor(_file(imageDimensions: '4x2')))
+      for (final t in systemAssignmentsFor(
+        _file(imageWidth: 4, imageHeight: 2),
+      ))
         t.tagDefinitionId: t,
     };
     expect(isEditableAssignment(tags[SystemTag.fileName.id]!), isTrue);
     expect(isEditableAssignment(tags[SystemTag.fileSize.id]!), isFalse);
-    expect(isEditableAssignment(tags[SystemTag.imageDimensions.id]!), isFalse);
+    expect(isEditableAssignment(tags[SystemTag.imageWidth.id]!), isFalse);
+    expect(isEditableAssignment(tags[SystemTag.imageHeight.id]!), isFalse);
   });
 
   test('시스템 태그 정의는 회색용(isSystem)·색 미지정이다', () {
@@ -225,5 +249,8 @@ void main() {
     }
     expect(SystemTag.fileSize.valueType, TagValueType.number);
     expect(SystemTag.modifiedTime.valueType, TagValueType.date);
+    // 숫자여야 대소 비교·크기순 정렬이 글자 비교로 무너지지 않는다.
+    expect(SystemTag.imageWidth.valueType, TagValueType.number);
+    expect(SystemTag.imageHeight.valueType, TagValueType.number);
   });
 }

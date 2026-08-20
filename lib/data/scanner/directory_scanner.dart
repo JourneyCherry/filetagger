@@ -264,18 +264,21 @@ class DirectoryScanner implements WorkspaceScanner {
     final canReuse =
         unchanged &&
         prior!.contentHashPrefix != null &&
-        (!isImage || prior.imageDimensions != null);
+        (!isImage || prior.imageWidth != null);
 
     String? hash;
-    String? dimensions;
+    ImagePixelSize? pixelSize;
     if (canReuse) {
       hash = prior.contentHashPrefix;
-      dimensions = prior.imageDimensions;
+      // 너비·높이는 늘 함께 채워지므로 재사용도 한 쌍으로 한다.
+      final width = prior.imageWidth;
+      final height = prior.imageHeight;
+      if (width != null && height != null) pixelSize = (width, height);
     } else {
       final bytes = await _readPrefix(pending.file, stat.size);
       if (bytes != null) {
         hash = _contentHash(bytes);
-        if (isImage) dimensions = readImageDimensions(bytes);
+        if (isImage) pixelSize = readImagePixelSize(bytes);
       }
     }
 
@@ -285,7 +288,8 @@ class DirectoryScanner implements WorkspaceScanner {
       size: stat.size,
       modifiedAt: stat.modified,
       contentHashPrefix: hash,
-      imageDimensions: dimensions,
+      imageWidth: pixelSize?.$1,
+      imageHeight: pixelSize?.$2,
     );
   }
 

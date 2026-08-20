@@ -48,32 +48,39 @@ List<int> _webpVp8x() => [
 
 void main() {
   test('PNG 헤더에서 크기를 읽는다', () {
-    expect(readImageDimensions(_png()), '400x300');
+    expect(readImagePixelSize(_png()), (400, 300));
   });
 
   test('GIF 헤더에서 크기를 읽는다', () {
-    expect(readImageDimensions(_gif()), '400x300');
+    expect(readImagePixelSize(_gif()), (400, 300));
   });
 
   test('BMP 헤더에서 크기를 읽는다', () {
-    expect(readImageDimensions(_bmp()), '400x300');
+    expect(readImagePixelSize(_bmp()), (400, 300));
   });
 
   test('JPEG SOF0 세그먼트에서 크기를 읽는다', () {
-    expect(readImageDimensions(_jpeg()), '400x300');
+    expect(readImagePixelSize(_jpeg()), (400, 300));
   });
 
   test('WebP(VP8X) 캔버스 크기를 읽는다', () {
-    expect(readImageDimensions(_webpVp8x()), '400x300');
+    expect(readImagePixelSize(_webpVp8x()), (400, 300));
   });
 
   test('이미지가 아니거나 헤더가 잘리면 null', () {
-    expect(readImageDimensions([1, 2, 3, 4]), isNull);
-    expect(readImageDimensions(const []), isNull);
+    expect(readImagePixelSize([1, 2, 3, 4]), isNull);
+    expect(readImagePixelSize(const []), isNull);
     // PNG 시그니처만 있고 IHDR가 잘린 경우.
     expect(
-      readImageDimensions([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+      readImagePixelSize([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
       isNull,
     );
+  });
+
+  test('너비와 높이의 순서가 뒤바뀌지 않는다', () {
+    // 두 값이 이제 파서에서 노드·컬럼·태그까지 따로 실려 가므로 어느 길목에서든
+    // 서로 바뀔 수 있다. 표본이 정사각형이 아니라 여기서 순서가 못박힌다.
+    final size = readImagePixelSize(_jpeg())!;
+    expect(size.$1, greaterThan(size.$2));
   });
 }

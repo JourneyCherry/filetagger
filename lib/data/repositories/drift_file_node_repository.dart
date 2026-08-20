@@ -362,7 +362,8 @@ class DriftFileNodeRepository implements FileNodeRepository {
     manageMode: row.manageMode,
     childSignature: row.childSignature,
     childFileCount: row.childFileCount,
-    imageDimensions: row.imageDimensions,
+    imageWidth: row.imageWidth,
+    imageHeight: row.imageHeight,
   );
 
   FileNodesCompanion _toCompanion(FileNode node, DateTime seenAt) =>
@@ -376,7 +377,8 @@ class DriftFileNodeRepository implements FileNodeRepository {
         manageMode: Value(node.manageMode),
         childSignature: Value(node.childSignature),
         childFileCount: Value(node.childFileCount),
-        imageDimensions: Value(node.imageDimensions),
+        imageWidth: Value(node.imageWidth),
+        imageHeight: Value(node.imageHeight),
         // 스캐너가 만든 노드는 실제 존재하므로 연결 끊김 상태를 항상 해제한다
         // (같은 경로로 되살아난 보존 노드의 missingSince를 upsert가 지운다).
         missingSince: const Value(null),

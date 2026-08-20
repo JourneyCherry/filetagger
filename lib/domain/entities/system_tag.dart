@@ -12,7 +12,13 @@ import 'tag_value_type.dart';
 /// 태그를 소비하므로, 시스템 태그는 **안정적인 음수 id**를 가진 합성 태그로 만들어
 /// 필터/정렬/표시에 그대로 녹아들게 한다.
 ///
-/// [id]는 저장·직렬화(필터·정렬 참조)에 쓰이므로 값을 바꾸지 않는다.
+/// [id]는 저장·직렬화(필터·정렬 참조)에 쓰이므로 값을 바꾸지 않는다. **없앤 태그의
+/// id도 다시 쓰지 않는다** — 저장된 필터·정렬·프리셋이 그 id를 여전히 가리킬 수 있어,
+/// 재사용하면 옛 참조가 엉뚱한 태그로 되살아난다. 사라진 id를 가리키는 참조는 불러올
+/// 때 걸러진다.
+///
+/// 쓰였다가 없앤 id: -4(이미지 크기 — 가로·세로를 한 문자열에 합쳐 담던 태그로,
+/// [imageWidth]·[imageHeight]로 갈라졌다).
 enum SystemTag {
   /// 파일 크기(바이트). 폴더는 값 없음.
   fileSize(id: -1, displayName: '크기', valueType: TagValueType.number),
@@ -23,8 +29,15 @@ enum SystemTag {
   /// 파일 확장자(점 제외, 소문자). 폴더·확장자 없는 파일은 값 없음.
   extension(id: -3, displayName: '확장자', valueType: TagValueType.text),
 
-  /// 이미지 픽셀 크기("가로x세로"). 이미지가 아니면 값 없음.
-  imageDimensions(id: -4, displayName: '이미지 크기', valueType: TagValueType.text),
+  /// 이미지의 가로 픽셀 수. 이미지가 아니거나 크기를 못 읽으면 값 없음.
+  ///
+  /// [imageHeight]와 **따로 서는 것이 요점**이다 — 합쳐 두면 글자로 비교되어 크기순
+  /// 정렬도, "너비가 얼마 이상" 같은 조건도 설 수 없다.
+  imageWidth(id: -9, displayName: '이미지 너비', valueType: TagValueType.number),
+
+  /// 이미지의 세로 픽셀 수. 붙는 조건은 [imageWidth]와 같다(둘은 늘 함께 붙거나
+  /// 함께 없다).
+  imageHeight(id: -10, displayName: '이미지 높이', valueType: TagValueType.number),
 
   /// 노드 이름. **수정 가능** — 디스크 노드는 값 편집 시 실제 rename되고, 키워드는
   /// 디스크에 실체가 없어 저장된 이름만 바뀐다.
@@ -93,8 +106,10 @@ enum SystemTag {
         // 파일 이름에서만 뽑는다. 키워드 이름이 확장자처럼 끝나도(예: 그림.png)
         // 파일이 아니므로 확장자를 갖지 않는다.
         return node.isFile ? _extensionOf(node.name) : null;
-      case SystemTag.imageDimensions:
-        return node.imageDimensions;
+      case SystemTag.imageWidth:
+        return node.imageWidth?.toString();
+      case SystemTag.imageHeight:
+        return node.imageHeight?.toString();
       case SystemTag.fileName:
         return node.name;
       case SystemTag.childFileCount:

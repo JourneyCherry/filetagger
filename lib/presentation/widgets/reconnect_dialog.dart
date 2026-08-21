@@ -30,8 +30,7 @@ Future<ReconnectAction?> showReconnectDialog(
 }) {
   return showDialog<ReconnectAction>(
     context: context,
-    builder: (context) =>
-        _ReconnectDialog(missing: missing, candidates: candidates),
+    builder: (_) => _ReconnectDialog(missing: missing, candidates: candidates),
   );
 }
 
@@ -104,80 +103,77 @@ class _ReconnectDialogState extends State<_ReconnectDialog> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: const Text('원본 파일 찾기'),
-        content: dialogContentBox(
-          context,
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "'${widget.missing.name}'의 태그를 옮길 원본 파일을 고르세요. "
-                '이름이 비슷한 후보가 위에 옵니다. 원본이 없으면 "보존 취소"로 '
-                '태그를 제거할 수 있습니다.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                autofocus: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: '경로로 검색',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (v) => setState(() => _query = v),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: widget.candidates.isEmpty
-                    ? const Text('연결할 수 있는(태그 없는) 후보 노드가 없습니다.')
-                    : filtered.isEmpty
-                    ? const Text('검색 결과가 없습니다.')
-                    : Scrollbar(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final node = filtered[index];
-                            return ListTile(
-                              dense: true,
-                              leading: Icon(
-                                node.isDirectory
-                                    ? Icons.folder
-                                    : Icons.insert_drive_file_outlined,
-                              ),
-                              title: Text(node.name),
-                              subtitle: Text(node.path),
-                              onTap: () => Navigator.of(
-                                context,
-                              ).pop(ReconnectToTarget(node)),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
+    return AlertDialog(
+      title: const Text('원본 파일 찾기'),
+      content: dialogContentBox(
+        context,
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "'${widget.missing.name}'의 태그를 옮길 원본 파일을 고르세요. "
+              '이름이 비슷한 후보가 위에 옵니다. 원본이 없으면 "보존 취소"로 '
+              '태그를 제거할 수 있습니다.',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-            onPressed: () => Navigator.of(context).pop(const ReconnectRemove()),
-            child: const Text('보존 취소(제거)'),
-          ),
-        ],
+            const SizedBox(height: 12),
+            TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: '경로로 검색',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: widget.candidates.isEmpty
+                  ? const Text('연결할 수 있는(태그 없는) 후보 노드가 없습니다.')
+                  : filtered.isEmpty
+                  ? const Text('검색 결과가 없습니다.')
+                  : Scrollbar(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final node = filtered[index];
+                          return ListTile(
+                            dense: true,
+                            leading: Icon(
+                              node.isDirectory
+                                  ? Icons.folder
+                                  : Icons.insert_drive_file_outlined,
+                            ),
+                            title: Text(node.name),
+                            subtitle: Text(node.path),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pop(ReconnectToTarget(node)),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.error,
+          ),
+          onPressed: () => Navigator.of(context).pop(const ReconnectRemove()),
+          child: const Text('보존 취소(제거)'),
+        ),
+      ],
     );
   }
 }

@@ -53,97 +53,115 @@ Future<void> _openRepository(BuildContext context) async {
   messenger.showSnackBar(const SnackBar(content: Text('웹 브라우저를 열지 못했습니다.')));
 }
 
+/// 라이선스 화면을 연다.
+///
+/// 화면 자체는 프레임워크 것([LicensePage])을 그대로 쓰되, 라우트는 [showLicensePage]
+/// 대신 직접 밀어 넣는다 — 그 헬퍼는 라우트를 감쌀 틈을 주지 않아 ESC로 닫는 길
+/// ([escDismissiblePage])을 붙일 수 없다. 헬퍼가 하던 테마 넘기기는 함께 옮긴다
+/// (다이얼로그가 얹은 테마가 새 라우트까지 따라가야 색이 어긋나지 않는다).
+void _openLicensePage(BuildContext context, ThemeData theme) {
+  final themes = InheritedTheme.capture(
+    from: context,
+    to: Navigator.of(context).context,
+  );
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => themes.wrap(
+        escDismissiblePage(
+          LicensePage(
+            applicationName: appDisplayName,
+            applicationVersion: _versionLine,
+            applicationIcon: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Icon(
+                commandOf(AppCommandId.about).icon,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _AboutDialog extends StatelessWidget {
   const _AboutDialog();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: Text(commandOf(AppCommandId.about).label),
-        content: dialogContentBox(
-          context,
-          width: 380,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    commandOf(AppCommandId.about).icon,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(appDisplayName, style: theme.textTheme.titleMedium),
-                      Text(
-                        _versionLine,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '태그로 파일을 정리하고 찾는 앱입니다. 태그는 관리 폴더 안에 함께 저장되어 '
-                '폴더를 옮기면 따라갑니다.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+    return AlertDialog(
+      title: Text(commandOf(AppCommandId.about).label),
+      content: dialogContentBox(
+        context,
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  commandOf(AppCommandId.about).icon,
+                  color: theme.colorScheme.primary,
                 ),
-              ),
-              const SizedBox(height: 16),
-              // 소스 코드로 가는 유일한 입구. 앱 자체를 밝히는 이 자리가 "이건 누가
-              // 어떻게 만든 것인가"를 찾는 사람이 여는 곳이라, 라이선스와 나란히 둔다.
-              // 메뉴에는 두지 않는다 — 앱 밖으로 한 번 나가고 마는 자리라 조작 경로를
-              // 둘로 벌릴 만큼 자주 쓰이지 않는다.
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.code),
-                  label: const Text('소스 코드 저장소'),
-                  onPressed: () => _openRepository(context),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.description_outlined),
-                  label: const Text('오픈소스 라이선스'),
-                  // 라이선스 화면은 다이얼로그가 아니라 전체 화면 라우트로 열린다.
-                  // 목록을 훑는 자리라 좁은 다이얼로그에 가두지 않는 편이 낫고,
-                  // 이 다이얼로그는 뒤에 남아 돌아오면 그대로 보인다.
-                  onPressed: () => showLicensePage(
-                    context: context,
-                    applicationName: appDisplayName,
-                    applicationVersion: _versionLine,
-                    applicationIcon: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        commandOf(AppCommandId.about).icon,
-                        color: theme.colorScheme.primary,
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(appDisplayName, style: theme.textTheme.titleMedium),
+                    Text(
+                      _versionLine,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
+                  ],
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '태그로 파일을 정리하고 찾는 앱입니다. 태그는 관리 폴더 안에 함께 저장되어 '
+              '폴더를 옮기면 따라갑니다.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            // 소스 코드로 가는 유일한 입구. 앱 자체를 밝히는 이 자리가 "이건 누가
+            // 어떻게 만든 것인가"를 찾는 사람이 여는 곳이라, 라이선스와 나란히 둔다.
+            // 메뉴에는 두지 않는다 — 앱 밖으로 한 번 나가고 마는 자리라 조작 경로를
+            // 둘로 벌릴 만큼 자주 쓰이지 않는다.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                icon: const Icon(Icons.code),
+                label: const Text('소스 코드 저장소'),
+                onPressed: () => _openRepository(context),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                icon: const Icon(Icons.description_outlined),
+                label: const Text('오픈소스 라이선스'),
+                // 라이선스 화면은 다이얼로그가 아니라 전체 화면 라우트로 열린다.
+                // 목록을 훑는 자리라 좁은 다이얼로그에 가두지 않는 편이 낫고,
+                // 이 다이얼로그는 뒤에 남아 돌아오면 그대로 보인다.
+                onPressed: () => _openLicensePage(context, theme),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
     );
   }
 }

@@ -25,57 +25,54 @@ class _TagOrderDialog extends ConsumerWidget {
         if (d.id != null) d,
     ], ref.watch(effectiveTagDisplayOrderProvider));
 
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: const Text('태그 표시 순서'),
-        content: dialogContentBox(
-          context,
-          width: 360,
-          height: 420,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '위에 있는 태그일수록 목록 행의 앞에 표시됩니다. 시스템 태그는 기본적으로 사용자 태그 '
-                '뒤에 놓이지만, 원하는 자리로 끌어 옮길 수 있습니다.',
-                style: Theme.of(context).textTheme.bodySmall,
+    return AlertDialog(
+      title: const Text('태그 표시 순서'),
+      content: dialogContentBox(
+        context,
+        width: 360,
+        height: 420,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '위에 있는 태그일수록 목록 행의 앞에 표시됩니다. 시스템 태그는 기본적으로 사용자 태그 '
+              '뒤에 놓이지만, 원하는 자리로 끌어 옮길 수 있습니다.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ReorderableListView.builder(
+                itemCount: definitions.length,
+                onReorderItem: (oldIndex, newIndex) {
+                  final ids = [for (final d in definitions) d.id!];
+                  ids.insert(newIndex, ids.removeAt(oldIndex));
+                  ref
+                      .read(viewSettingsProvider.notifier)
+                      .updateTagDisplayOrder(ids);
+                },
+                itemBuilder: (context, index) {
+                  final definition = definitions[index];
+                  return ListTile(
+                    key: ValueKey(definition.id),
+                    dense: true,
+                    title: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TagChip(definition: definition),
+                    ),
+                    subtitle: Text(tagValueTypeLabel(definition.valueType)),
+                  );
+                },
               ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ReorderableListView.builder(
-                  itemCount: definitions.length,
-                  onReorderItem: (oldIndex, newIndex) {
-                    final ids = [for (final d in definitions) d.id!];
-                    ids.insert(newIndex, ids.removeAt(oldIndex));
-                    ref
-                        .read(viewSettingsProvider.notifier)
-                        .updateTagDisplayOrder(ids);
-                  },
-                  itemBuilder: (context, index) {
-                    final definition = definitions[index];
-                    return ListTile(
-                      key: ValueKey(definition.id),
-                      dense: true,
-                      title: Align(
-                        alignment: Alignment.centerLeft,
-                        child: TagChip(definition: definition),
-                      ),
-                      subtitle: Text(tagValueTypeLabel(definition.valueType)),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
     );
   }
 }

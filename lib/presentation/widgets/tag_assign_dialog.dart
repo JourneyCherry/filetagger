@@ -183,29 +183,26 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
 
     if (widget.asSheet) return _sheet(context, assigned, add);
 
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: Text(widget.title),
-        content: dialogContentBox(
-          context,
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Flexible(child: SingleChildScrollView(child: assigned)),
-              add,
-            ],
-          ),
+    return AlertDialog(
+      title: Text(widget.title),
+      content: dialogContentBox(
+        context,
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(child: SingleChildScrollView(child: assigned)),
+            add,
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: repo == null ? null : () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: repo == null ? null : () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
     );
   }
 

@@ -32,58 +32,55 @@ class _TagManageDialog extends ConsumerWidget {
         if (d.id != null) d,
     ], ref.watch(effectiveTagDisplayOrderProvider));
 
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: const Text('태그 관리'),
-        content: dialogContentBox(
-          context,
-          width: 520,
-          height: 460,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '위에 있는 태그일수록 목록 행의 앞에 표시됩니다. 시스템 태그는 파일에서 자동으로 '
-                '파생되어 표시 여부만 켜고 끌 수 있고, 기본적으로 사용자 태그 뒤에 놓이지만 '
-                '원하는 자리로 끌어 옮길 수 있습니다.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ReorderableListView.builder(
-                  // 행 끝이 편집 버튼·스위치라 기본 손잡이 대신 왼쪽 손잡이를 쓴다.
-                  buildDefaultDragHandles: false,
-                  itemCount: definitions.length,
-                  onReorderItem: (oldIndex, newIndex) {
-                    final ids = [for (final d in definitions) d.id!];
-                    ids.insert(newIndex, ids.removeAt(oldIndex));
-                    ref
-                        .read(viewSettingsProvider.notifier)
-                        .updateTagDisplayOrder(ids);
-                  },
-                  itemBuilder: (context, index) => _TagRow(
-                    key: ValueKey(definitions[index].id),
-                    index: index,
-                    definition: definitions[index],
-                  ),
+    return AlertDialog(
+      title: const Text('태그 관리'),
+      content: dialogContentBox(
+        context,
+        width: 520,
+        height: 460,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '위에 있는 태그일수록 목록 행의 앞에 표시됩니다. 시스템 태그는 파일에서 자동으로 '
+              '파생되어 표시 여부만 켜고 끌 수 있고, 기본적으로 사용자 태그 뒤에 놓이지만 '
+              '원하는 자리로 끌어 옮길 수 있습니다.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ReorderableListView.builder(
+                // 행 끝이 편집 버튼·스위치라 기본 손잡이 대신 왼쪽 손잡이를 쓴다.
+                buildDefaultDragHandles: false,
+                itemCount: definitions.length,
+                onReorderItem: (oldIndex, newIndex) {
+                  final ids = [for (final d in definitions) d.id!];
+                  ids.insert(newIndex, ids.removeAt(oldIndex));
+                  ref
+                      .read(viewSettingsProvider.notifier)
+                      .updateTagDisplayOrder(ids);
+                },
+                itemBuilder: (context, index) => _TagRow(
+                  key: ValueKey(definitions[index].id),
+                  index: index,
+                  definition: definitions[index],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton.icon(
-            onPressed: () => openTagEditor(context),
-            icon: const Icon(Icons.add),
-            label: const Text('새 태그'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton.icon(
+          onPressed: () => openTagEditor(context),
+          icon: const Icon(Icons.add),
+          label: const Text('새 태그'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
     );
   }
 }

@@ -38,46 +38,41 @@ class _HelpDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return escDismissible(
-      context,
-      DefaultTabController(
-        length: HelpTab.values.length,
-        initialIndex: initial.index,
-        child: AlertDialog(
-          title: Text(commandOf(AppCommandId.help).label),
-          // 탭 막대가 제목과 본문 사이에 붙도록 본문 위쪽 여백을 걷어낸다.
-          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          content: dialogContentBox(
-            context,
-            width: 560,
-            height: 560,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TabBar(
-                  // 탭이 넷이라 좁은 창에서는 이름이 눌린다. 늘려 두고 가로로 넘긴다.
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  tabs: [
-                    for (final tab in HelpTab.values) Tab(text: tab.label),
-                  ],
+    return DefaultTabController(
+      length: HelpTab.values.length,
+      initialIndex: initial.index,
+      child: AlertDialog(
+        title: Text(commandOf(AppCommandId.help).label),
+        // 탭 막대가 제목과 본문 사이에 붙도록 본문 위쪽 여백을 걷어낸다.
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        content: dialogContentBox(
+          context,
+          width: 560,
+          height: 560,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TabBar(
+                // 탭이 넷이라 좁은 창에서는 이름이 눌린다. 늘려 두고 가로로 넘긴다.
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: [for (final tab in HelpTab.values) Tab(text: tab.label)],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: TabBarView(
+                  children: [for (final tab in HelpTab.values) _tabView(tab)],
                 ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: TabBarView(
-                    children: [for (final tab in HelpTab.values) _tabView(tab)],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('닫기'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
       ),
     );
   }

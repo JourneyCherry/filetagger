@@ -18,13 +18,10 @@ Future<String?> showKeywordDialog(
 }) {
   return showDialog<String>(
     context: context,
-    builder: (dialogContext) => escDismissible(
-      dialogContext,
-      _KeywordDialog(
-        title: title,
-        confirmLabel: confirmLabel,
-        initialName: initialName,
-      ),
+    builder: (_) => _KeywordDialog(
+      title: title,
+      confirmLabel: confirmLabel,
+      initialName: initialName,
     ),
   );
 }
@@ -99,22 +96,19 @@ class _KeywordDialogState extends State<_KeywordDialog> {
 Future<bool> confirmKeywordDelete(BuildContext context, String name) async {
   final result = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => escDismissible(
-      dialogContext,
-      AlertDialog(
-        title: const Text('키워드 삭제'),
-        content: Text("'$name' 키워드와 그 태그를 지웁니다. 되돌릴 수 없습니다."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('키워드 삭제'),
+      content: Text("'$name' 키워드와 그 태그를 지웁니다. 되돌릴 수 없습니다."),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('삭제'),
+        ),
+      ],
     ),
   );
   return result ?? false;

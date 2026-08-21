@@ -226,100 +226,109 @@ class _FileListViewState extends ConsumerState<FileListView>
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(scale)),
-          child: ListView.builder(
-            controller: _scroll,
-            padding: widget.padding,
-            itemCount: rows.length,
-            itemBuilder: (context, index) {
-              final row = rows[index];
-              final item = row.item;
-              if (item is GroupHeaderNode) {
-                final cursored = cursor.headerKey == row.expandKey;
+          // 행 안의 위젯들(행 자체·태그 칩·x·'+')을 Tab 순회에서 뺀다. 목록 안에서는
+          // **커서가 곧 포커스**라, 행 안의 버튼이 저마다 정거장이 되면 두 모델이
+          // 겹친다 — Tab이 그 정거장에 앉는 순간 본문 스코프가 포커스를 잃고, 스코프
+          // 포커스를 요구하는 방향키·Enter 명령이 한꺼번에 죽어 방향키가 프레임워크의
+          // 포커스 이동으로 새어 나간다(칩 줄이 끌려다니고 목록이 딴 데로 스크롤된다).
+          // 순회에서만 빼는 것이라 클릭·탭은 그대로 닿는다.
+          child: FocusTraversalGroup(
+            descendantsAreTraversable: false,
+            child: ListView.builder(
+              controller: _scroll,
+              padding: widget.padding,
+              itemCount: rows.length,
+              itemBuilder: (context, index) {
+                final row = rows[index];
+                final item = row.item;
+                if (item is GroupHeaderNode) {
+                  final cursored = cursor.headerKey == row.expandKey;
+                  return EnsureVisibleOnFocus(
+                    active: cursored,
+                    request: cursorReveal,
+                    child: _GroupHeaderTile(
+                      header: item,
+                      depth: row.depth,
+                      expandable: row.expandable,
+                      expanded: row.expanded,
+                      cursored: cursored,
+                      scale: scale,
+                      definition: definitionsById[item.tagDefinitionId],
+                      onToggleExpand: row.expandable
+                          ? () => _toggleExpandKey(row.expandKey)
+                          : null,
+                      // 노드 행과 같은 결: 단일 탭은 셸이 커서·선택으로 해석하고, 두 번째
+                      // 탭이면 활성까지 잇는다.
+                      onTapRow: () {
+                        widget.onTapHeader(row.expandKey);
+                        if (_isSecondTap(row.expandKey)) {
+                          _activateRow(row, null);
+                        }
+                      },
+                    ),
+                  );
+                }
+                final node = (item as FileTreeNode).node;
+                final nodeIndex = row.nodeIndex!;
+                // 실제 폴더만 상속 반영 모드를 갖는다. 파일·보존 노드는 null.
+                final resolved = node.isDirectory && !node.isMissing
+                    ? (resolvedModes[node.path] ?? FolderManageMode.managed)
+                    : null;
+                // 커서가 이 노드에 있으면 행 링을 두르고, 태그 칸이면 그 칩에 링을 준다.
+                final cursored = node.id != null && cursor.nodeId == node.id;
+                final tile = FileNodeTile(
+                  node: node,
+                  displayName: displayNames[node.id],
+                  displaySubtitle: displaySubtitles[node.id],
+                  depth: row.depth,
+                  expandable: row.expandable,
+                  expanded: row.expanded,
+                  onToggleExpand: row.expandable
+                      ? () => _toggleExpandKey(node.path)
+                      : null,
+                  selected: node.id != null && selection.contains(node.id!),
+                  cursored: cursored,
+                  focusedTagColumn: cursored ? cursor.tagColumn : null,
+                  assignments: orderAssignedTags(
+                    assignmentsByFile[node.id] ?? const [],
+                    tagDisplayOrder,
+                  ),
+                  isTagVisible: isTagVisible,
+                  // 선택은 매 탭 반영하고, 같은 행의 두 번째 탭이면 활성까지 잇는다.
+                  onTap: () {
+                    widget.onTapNode(items, nodeIndex);
+                    if (_isSecondTap(row.expandKey)) _activateRow(row, node);
+                  },
+                  onLongPress: widget.onLongPressNode == null
+                      ? null
+                      : () => widget.onLongPressNode!(items, nodeIndex),
+                  onSecondaryTap: widget.onSecondaryTapNode == null
+                      ? null
+                      : (position) => widget.onSecondaryTapNode!(
+                          items,
+                          nodeIndex,
+                          position,
+                        ),
+                  onEditAssignment: widget.onEditAssignment,
+                  inlineEdit: widget.inlineEdit,
+                  onRemoveAssignment: widget.onRemoveAssignment,
+                  onAddTag: widget.onAddTag == null
+                      ? null
+                      : () => widget.onAddTag!(node),
+                  folderMode: resolved,
+                  trailing: widget.trailingBuilder?.call(node, resolved),
+                  scale: scale,
+                );
+                final wrapped = widget.tileWrapper?.call(node, tile) ?? tile;
+                // 드러내 달라는 요청이 와 있고 커서가 이 행이면, 스스로 뷰포트 안으로
+                // 들어온다(요청이 없으면 다시 만들어져도 가만히 있는다).
                 return EnsureVisibleOnFocus(
                   active: cursored,
                   request: cursorReveal,
-                  child: _GroupHeaderTile(
-                    header: item,
-                    depth: row.depth,
-                    expandable: row.expandable,
-                    expanded: row.expanded,
-                    cursored: cursored,
-                    scale: scale,
-                    definition: definitionsById[item.tagDefinitionId],
-                    onToggleExpand: row.expandable
-                        ? () => _toggleExpandKey(row.expandKey)
-                        : null,
-                    // 노드 행과 같은 결: 단일 탭은 셸이 커서·선택으로 해석하고, 두 번째
-                    // 탭이면 활성까지 잇는다.
-                    onTapRow: () {
-                      widget.onTapHeader(row.expandKey);
-                      if (_isSecondTap(row.expandKey)) {
-                        _activateRow(row, null);
-                      }
-                    },
-                  ),
+                  child: wrapped,
                 );
-              }
-              final node = (item as FileTreeNode).node;
-              final nodeIndex = row.nodeIndex!;
-              // 실제 폴더만 상속 반영 모드를 갖는다. 파일·보존 노드는 null.
-              final resolved = node.isDirectory && !node.isMissing
-                  ? (resolvedModes[node.path] ?? FolderManageMode.managed)
-                  : null;
-              // 커서가 이 노드에 있으면 행 링을 두르고, 태그 칸이면 그 칩에 링을 준다.
-              final cursored = node.id != null && cursor.nodeId == node.id;
-              final tile = FileNodeTile(
-                node: node,
-                displayName: displayNames[node.id],
-                displaySubtitle: displaySubtitles[node.id],
-                depth: row.depth,
-                expandable: row.expandable,
-                expanded: row.expanded,
-                onToggleExpand: row.expandable
-                    ? () => _toggleExpandKey(node.path)
-                    : null,
-                selected: node.id != null && selection.contains(node.id!),
-                cursored: cursored,
-                focusedTagColumn: cursored ? cursor.tagColumn : null,
-                assignments: orderAssignedTags(
-                  assignmentsByFile[node.id] ?? const [],
-                  tagDisplayOrder,
-                ),
-                isTagVisible: isTagVisible,
-                // 선택은 매 탭 반영하고, 같은 행의 두 번째 탭이면 활성까지 잇는다.
-                onTap: () {
-                  widget.onTapNode(items, nodeIndex);
-                  if (_isSecondTap(row.expandKey)) _activateRow(row, node);
-                },
-                onLongPress: widget.onLongPressNode == null
-                    ? null
-                    : () => widget.onLongPressNode!(items, nodeIndex),
-                onSecondaryTap: widget.onSecondaryTapNode == null
-                    ? null
-                    : (position) => widget.onSecondaryTapNode!(
-                        items,
-                        nodeIndex,
-                        position,
-                      ),
-                onEditAssignment: widget.onEditAssignment,
-                inlineEdit: widget.inlineEdit,
-                onRemoveAssignment: widget.onRemoveAssignment,
-                onAddTag: widget.onAddTag == null
-                    ? null
-                    : () => widget.onAddTag!(node),
-                folderMode: resolved,
-                trailing: widget.trailingBuilder?.call(node, resolved),
-                scale: scale,
-              );
-              final wrapped = widget.tileWrapper?.call(node, tile) ?? tile;
-              // 드러내 달라는 요청이 와 있고 커서가 이 행이면, 스스로 뷰포트 안으로
-              // 들어온다(요청이 없으면 다시 만들어져도 가만히 있는다).
-              return EnsureVisibleOnFocus(
-                active: cursored,
-                request: cursorReveal,
-                child: wrapped,
-              );
-            },
+              },
+            ),
           ),
         );
       },

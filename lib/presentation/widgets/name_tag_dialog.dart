@@ -67,78 +67,72 @@ class _NameTagDialogState extends ConsumerState<_NameTagDialog> {
           d,
     ];
 
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: const Text('이름 태그'),
-        content: dialogContentBox(
-          context,
-          width: 400,
-          height: 460,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '목록의 이름 자리에 보일 값의 우선순위입니다. 위에서 아래로 훑어 처음으로 '
-                '글자를 내는 태그의 값을 씁니다. 어느 태그도 못 내면 파일 이름을 씁니다. '
-                '이 설정은 조건 프리셋에 함께 담겨, 프리셋을 부르면 같이 바뀝니다.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: _order.isEmpty
-                    ? Center(
-                        child: Text(
-                          '지정한 태그가 없습니다. 아래에서 태그를 추가하세요.\n'
-                          '(비우면 파일 이름을 그대로 씁니다.)',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
+    return AlertDialog(
+      title: const Text('이름 태그'),
+      content: dialogContentBox(
+        context,
+        width: 400,
+        height: 460,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '목록의 이름 자리에 보일 값의 우선순위입니다. 위에서 아래로 훑어 처음으로 '
+              '글자를 내는 태그의 값을 씁니다. 어느 태그도 못 내면 파일 이름을 씁니다. '
+              '이 설정은 조건 프리셋에 함께 담겨, 프리셋을 부르면 같이 바뀝니다.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _order.isEmpty
+                  ? Center(
+                      child: Text(
+                        '지정한 태그가 없습니다. 아래에서 태그를 추가하세요.\n'
+                        '(비우면 파일 이름을 그대로 씁니다.)',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                      )
-                    : ReorderableListView.builder(
-                        buildDefaultDragHandles: false,
-                        itemCount: _order.length,
-                        onReorderItem: _reorder,
-                        itemBuilder: (context, i) => _priorityTile(i, byId),
                       ),
-              ),
-              if (candidates.isNotEmpty) ...[
-                const Divider(height: 24),
-                Text('추가할 태그', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 96,
-                  child: SingleChildScrollView(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final d in candidates)
-                          ActionChip(
-                            avatar: const Icon(Icons.add, size: 16),
-                            label: Text(d.name),
-                            onPressed: () => _add(d.id!),
-                          ),
-                      ],
+                    )
+                  : ReorderableListView.builder(
+                      buildDefaultDragHandles: false,
+                      itemCount: _order.length,
+                      onReorderItem: _reorder,
+                      itemBuilder: (context, i) => _priorityTile(i, byId),
                     ),
+            ),
+            if (candidates.isNotEmpty) ...[
+              const Divider(height: 24),
+              Text('추가할 태그', style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 96,
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final d in candidates)
+                        ActionChip(
+                          avatar: const Icon(Icons.add, size: 16),
+                          label: Text(d.name),
+                          onPressed: () => _add(d.id!),
+                        ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ],
-          ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
     );
   }
 

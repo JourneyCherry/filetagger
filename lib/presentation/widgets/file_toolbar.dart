@@ -802,74 +802,71 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
   @override
   Widget build(BuildContext context) {
     final type = _type;
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: Text(widget.initial == null ? '필터 조건 추가' : '필터 조건 편집'),
-        content: dialogContentBox(
-          context,
-          width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TagPicker(
-                definitions: widget.definitions,
-                selectedId: _tagId,
-                onSelected: _onTagSelected,
-              ),
-              if (type != null) ...[
-                const SizedBox(height: 16),
-                SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('표시')),
-                    ButtonSegment(value: true, label: Text('제외')),
-                  ],
-                  selected: {_exclude},
-                  onSelectionChanged: (s) => setState(() => _exclude = s.first),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<FilterOperator>(
-                  // 태그가 바뀌면 가능한 연산 목록도 바뀌므로, 폼필드를 새로
-                  // 만들어(initialValue 재적용) 무효한 선택이 남지 않게 한다.
-                  key: ValueKey(_tagId),
-                  initialValue: _operator,
-                  decoration: const InputDecoration(
-                    labelText: '연산',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    for (final op in operatorsForType(type))
-                      DropdownMenuItem(
-                        value: op,
-                        child: Text(filterOperatorMenuLabel(op)),
-                      ),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setState(() => _operator = v);
-                  },
-                ),
-                if (_needsOperand) ...[
-                  const SizedBox(height: 16),
-                  _buildOperandField(type),
+    return AlertDialog(
+      title: Text(widget.initial == null ? '필터 조건 추가' : '필터 조건 편집'),
+      content: dialogContentBox(
+        context,
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TagPicker(
+              definitions: widget.definitions,
+              selectedId: _tagId,
+              onSelected: _onTagSelected,
+            ),
+            if (type != null) ...[
+              const SizedBox(height: 16),
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: false, label: Text('표시')),
+                  ButtonSegment(value: true, label: Text('제외')),
                 ],
+                selected: {_exclude},
+                onSelectionChanged: (s) => setState(() => _exclude = s.first),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<FilterOperator>(
+                // 태그가 바뀌면 가능한 연산 목록도 바뀌므로, 폼필드를 새로
+                // 만들어(initialValue 재적용) 무효한 선택이 남지 않게 한다.
+                key: ValueKey(_tagId),
+                initialValue: _operator,
+                decoration: const InputDecoration(
+                  labelText: '연산',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  for (final op in operatorsForType(type))
+                    DropdownMenuItem(
+                      value: op,
+                      child: Text(filterOperatorMenuLabel(op)),
+                    ),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _operator = v);
+                },
+              ),
+              if (_needsOperand) ...[
+                const SizedBox(height: 16),
+                _buildOperandField(type),
               ],
             ],
-          ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: _tagId == null ? null : _save,
-            child: const Text('확인'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _tagId == null ? null : _save,
+          child: const Text('확인'),
+        ),
+      ],
     );
   }
 
@@ -969,79 +966,76 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: const Text('정렬 기준 추가'),
-        content: dialogContentBox(
-          context,
-          width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TagPicker(
-                definitions: widget.candidates,
-                selectedId: _tagId,
-                onSelected: (id) => setState(() => _tagId = id),
-              ),
-              if (_tagId != null) ...[
-                const SizedBox(height: 16),
-                if (_isLabel)
-                  Text(
-                    '라벨 태그는 정렬 방법과 무관하게 부여된 항목을 위로 정렬합니다.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  )
-                else ...[
-                  SegmentedButton<SortDirection>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(
-                        value: SortDirection.ascending,
-                        label: Text('오름차순'),
-                        icon: Icon(Icons.arrow_upward, size: 16),
-                      ),
-                      ButtonSegment(
-                        value: SortDirection.descending,
-                        label: Text('내림차순'),
-                        icon: Icon(Icons.arrow_downward, size: 16),
-                      ),
-                      ButtonSegment(
-                        value: SortDirection.random,
-                        label: Text('무작위'),
-                        icon: Icon(Icons.shuffle, size: 16),
-                      ),
-                    ],
-                    selected: {_direction},
-                    onSelectionChanged: (s) =>
-                        setState(() => _direction = s.first),
-                  ),
-                  if (_direction == SortDirection.random) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '값의 순서 대신 무작위로 섞습니다. 값이 같은 항목끼리는 흐트러지지 않아 '
-                      '뒤 단계의 정렬이 그대로 적용됩니다.',
-                      style: Theme.of(context).textTheme.bodySmall,
+    return AlertDialog(
+      title: const Text('정렬 기준 추가'),
+      content: dialogContentBox(
+        context,
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TagPicker(
+              definitions: widget.candidates,
+              selectedId: _tagId,
+              onSelected: (id) => setState(() => _tagId = id),
+            ),
+            if (_tagId != null) ...[
+              const SizedBox(height: 16),
+              if (_isLabel)
+                Text(
+                  '라벨 태그는 정렬 방법과 무관하게 부여된 항목을 위로 정렬합니다.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else ...[
+                SegmentedButton<SortDirection>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: SortDirection.ascending,
+                      label: Text('오름차순'),
+                      icon: Icon(Icons.arrow_upward, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: SortDirection.descending,
+                      label: Text('내림차순'),
+                      icon: Icon(Icons.arrow_downward, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: SortDirection.random,
+                      label: Text('무작위'),
+                      icon: Icon(Icons.shuffle, size: 16),
                     ),
                   ],
+                  selected: {_direction},
+                  onSelectionChanged: (s) =>
+                      setState(() => _direction = s.first),
+                ),
+                if (_direction == SortDirection.random) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '값의 순서 대신 무작위로 섞습니다. 값이 같은 항목끼리는 흐트러지지 않아 '
+                    '뒤 단계의 정렬이 그대로 적용됩니다.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ],
             ],
-          ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: _tagId == null
-                ? null
-                : () => Navigator.of(context).pop(_result),
-            child: const Text('추가'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _tagId == null
+              ? null
+              : () => Navigator.of(context).pop(_result),
+          child: const Text('추가'),
+        ),
+      ],
     );
   }
 }
@@ -1063,32 +1057,29 @@ class _GroupKeyEditorState extends State<_GroupKeyEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: const Text('그룹 기준 추가'),
-        content: dialogContentBox(
-          context,
-          width: 360,
-          child: TagPicker(
-            definitions: widget.candidates,
-            selectedId: _tagId,
-            onSelected: (id) => setState(() => _tagId = id),
-          ),
+    return AlertDialog(
+      title: const Text('그룹 기준 추가'),
+      content: dialogContentBox(
+        context,
+        width: 360,
+        child: TagPicker(
+          definitions: widget.candidates,
+          selectedId: _tagId,
+          onSelected: (id) => setState(() => _tagId = id),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: _tagId == null
-                ? null
-                : () => Navigator.of(context).pop(groupKeyFromId(_tagId!)),
-            child: const Text('추가'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _tagId == null
+              ? null
+              : () => Navigator.of(context).pop(groupKeyFromId(_tagId!)),
+          child: const Text('추가'),
+        ),
+      ],
     );
   }
 }

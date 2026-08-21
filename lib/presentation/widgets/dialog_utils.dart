@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// 다이얼로그를 ESC 키로 닫히게 감싼다.
+/// 전체 화면 라우트를 ESC 키로 닫히게 감싼다.
 ///
-/// 콤보박스 등 다이얼로그 내부 위젯이 처음부터 포커스를 갖지 않을 수 있어,
-/// [Focus]`(autofocus)`로 포커스를 다이얼로그 안으로 넣어 ESC가 이 단축키까지
-/// 확실히 전파되게 한다. 콤보박스 후보가 열려 있으면 그쪽이 ESC를 먼저 소비한다.
-Widget escDismissible(BuildContext context, Widget dialog) {
-  return CallbackShortcuts(
-    bindings: {
-      const SingleActivator(LogicalKeyboardKey.escape): () =>
-          Navigator.of(context).maybePop(),
-    },
-    child: Focus(autofocus: true, child: dialog),
+/// **다이얼로그에는 쓰지 않는다** — 프레임워크가 이미 닫아 준다. 모달 라우트가
+/// ESC를 받는 Action을 스스로 심는데, 그 Action은 배리어를 눌러 닫히는 라우트에서만
+/// 활성이라 배리어가 없는 페이지 라우트만 여기서 따로 건다.
+///
+/// 단축키는 **포커스를 쥔 노드의 조상에서만** 찾는다. 그래서 아래에 [Focus]를 함께
+/// 두어 포커스를 페이지 안으로 들인다 — 없으면 포커스가 라우트의 스코프에 머물러
+/// 이 단축키가 조상 바깥에 놓이고 아무 일도 일어나지 않는다. 페이지는 특정 입력에
+/// 첫 포커스를 몰아 줄 자리가 아니라 이 [Focus]가 그것을 가져가도 잃을 것이 없다.
+/// 다이얼로그에 같은 것을 씌우면 스스로 포커스를 가져가려던 입력이 밀려난다.
+Widget escDismissiblePage(Widget page) {
+  return Builder(
+    builder: (context) => CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            Navigator.of(context).maybePop(),
+      },
+      child: Focus(autofocus: true, child: page),
+    ),
   );
 }
 

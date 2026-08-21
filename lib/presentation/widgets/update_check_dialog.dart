@@ -41,25 +41,22 @@ class _UpdateCheckDialog extends StatelessWidget {
         final outcome = snapshot.hasError
             ? const UpdateCheckFailed()
             : snapshot.data;
-        return escDismissible(
-          context,
-          AlertDialog(
-            title: Text(commandOf(AppCommandId.checkForUpdates).label),
-            content: dialogContentBox(
-              context,
-              width: 360,
-              child: outcome == null
-                  ? const _Checking()
-                  : _Result(outcome: outcome),
-            ),
-            actions: [
-              if (outcome != null) ..._actions(context, outcome),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('닫기'),
-              ),
-            ],
+        return AlertDialog(
+          title: Text(commandOf(AppCommandId.checkForUpdates).label),
+          content: dialogContentBox(
+            context,
+            width: 360,
+            child: outcome == null
+                ? const _Checking()
+                : _Result(outcome: outcome),
           ),
+          actions: [
+            if (outcome != null) ..._actions(context, outcome),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('닫기'),
+            ),
+          ],
         );
       },
     );

@@ -129,22 +129,19 @@ class QueryPresetRow extends ConsumerWidget {
   Future<bool> _confirmDelete(BuildContext context, String name) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => escDismissible(
-        dialogContext,
-        AlertDialog(
-          title: const Text('프리셋 삭제'),
-          content: Text("'$name' 프리셋을 지웁니다. 지금 걸린 조건은 그대로 남습니다."),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('삭제'),
-            ),
-          ],
-        ),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('프리셋 삭제'),
+        content: Text("'$name' 프리셋을 지웁니다. 지금 걸린 조건은 그대로 남습니다."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
       ),
     );
     return result ?? false;
@@ -258,36 +255,33 @@ class _PresetNameDialogState extends State<_PresetNameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: Text(widget.title),
-        content: dialogContentBox(
-          context,
-          width: 360,
-          child: TextField(
-            controller: _name,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: '이름',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _save(),
+    return AlertDialog(
+      title: Text(widget.title),
+      content: dialogContentBox(
+        context,
+        width: 360,
+        child: TextField(
+          controller: _name,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '이름',
+            border: OutlineInputBorder(),
+            isDense: true,
           ),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _save(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: _trimmed.isEmpty ? null : _save,
-            child: Text(widget.confirm),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _trimmed.isEmpty ? null : _save,
+          child: Text(widget.confirm),
+        ),
+      ],
     );
   }
 }
@@ -333,82 +327,79 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
     final overwrites =
         ref.read(queryPresetsProvider.notifier).indexOfName(_trimmed) != null;
 
-    return escDismissible(
-      context,
-      AlertDialog(
-        title: const Text('현재 조건·표시를 프리셋으로 저장'),
-        content: dialogContentBox(
-          context,
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _name,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: '이름',
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  helperText: overwrites ? '같은 이름의 프리셋을 덮어씁니다.' : null,
+    return AlertDialog(
+      title: const Text('현재 조건·표시를 프리셋으로 저장'),
+      content: dialogContentBox(
+        context,
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _name,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: '이름',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                helperText: overwrites ? '같은 이름의 프리셋을 덮어씁니다.' : null,
+              ),
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 16),
+            _preview('필터', [
+              for (final c in filter.conditions)
+                FilterConditionChip(
+                  condition: c,
+                  definition: defsById[c.tagDefinitionId],
                 ),
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _save(),
-              ),
-              const SizedBox(height: 16),
-              _preview('필터', [
-                for (final c in filter.conditions)
-                  FilterConditionChip(
-                    condition: c,
-                    definition: defsById[c.tagDefinitionId],
-                  ),
-              ]),
-              _preview('정렬', [
-                for (final k in sort.keys)
-                  SortKeyChip(
-                    sortKey: k,
-                    definition: defsById[k.tagDefinitionId],
-                  ),
-              ]),
-              _preview('그룹', [
-                for (final k in grouping.keys)
-                  GroupKeyChip(
-                    groupKey: k,
-                    definition: k is TagGroupKey
-                        ? defsById[k.tagDefinitionId]
-                        : null,
-                  ),
-              ]),
-              _preview(
-                '이름',
-                _sourceChips(nameSources, defsById),
-                emptyLabel: '파일 이름',
-              ),
-              _preview(
-                '부제',
-                _sourceChips(subtitleSources, defsById),
-                emptyLabel: '경로',
-              ),
-              _preview(
-                '썸네일',
-                _sourceChips(thumbnailSources, defsById),
-                emptyLabel: '기본',
-              ),
-            ],
-          ),
+            ]),
+            _preview('정렬', [
+              for (final k in sort.keys)
+                SortKeyChip(
+                  sortKey: k,
+                  definition: defsById[k.tagDefinitionId],
+                ),
+            ]),
+            _preview('그룹', [
+              for (final k in grouping.keys)
+                GroupKeyChip(
+                  groupKey: k,
+                  definition: k is TagGroupKey
+                      ? defsById[k.tagDefinitionId]
+                      : null,
+                ),
+            ]),
+            _preview(
+              '이름',
+              _sourceChips(nameSources, defsById),
+              emptyLabel: '파일 이름',
+            ),
+            _preview(
+              '부제',
+              _sourceChips(subtitleSources, defsById),
+              emptyLabel: '경로',
+            ),
+            _preview(
+              '썸네일',
+              _sourceChips(thumbnailSources, defsById),
+              emptyLabel: '기본',
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: _trimmed.isEmpty ? null : _save,
-            child: Text(overwrites ? '덮어쓰기' : '저장'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _trimmed.isEmpty ? null : _save,
+          child: Text(overwrites ? '덮어쓰기' : '저장'),
+        ),
+      ],
     );
   }
 

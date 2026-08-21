@@ -2,6 +2,7 @@ import 'package:filetagger/core/constants.dart';
 import 'package:filetagger/presentation/commands/app_commands.dart';
 import 'package:filetagger/presentation/widgets/app_about_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 정보 다이얼로그를 띄운 상태의 앱. 다이얼로그는 Navigator 아래에서만 열리므로
@@ -50,5 +51,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LicensePage), findsOneWidget);
+  });
+
+  testWidgets('라이선스 화면은 ESC로 닫히고 정보 다이얼로그가 남는다', (tester) async {
+    // 전체 화면 라우트라 프레임워크는 ESC를 받아 주지 않는다 — 그래서 이 자리는
+    // 프레임워크 헬퍼 대신 직접 라우트를 밀어 넣어 ESC로 닫는 길을 붙였다.
+    await pumpAbout(tester);
+    await tester.tap(find.text('오픈소스 라이선스'));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LicensePage), findsNothing);
+    expect(find.text(appDisplayName), findsOneWidget);
   });
 }

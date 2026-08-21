@@ -57,6 +57,7 @@ import '../shells/menu_model.dart';
 import '../shells/mobile_sheets.dart';
 import '../shells/mobile_shell.dart';
 import '../widgets/app_about_dialog.dart';
+import '../widgets/dialog_utils.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/folder_manage_menu.dart';
 import '../widgets/help_dialog.dart';
@@ -1656,7 +1657,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const TagManagementScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => escDismissiblePage(const TagManagementScreen()),
+      ),
     );
   }
 

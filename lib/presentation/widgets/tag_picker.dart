@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/tag_definition.dart';
 
+import '../../l10n/app_localizations.dart';
+
 /// 태그를 이름으로 검색·선택하는 편집 가능 콤보박스(텍스트박스+드롭다운).
 ///
 /// Flutter 기본 [DropdownMenu]를 그대로 쓴다(C#의 `DropDownStyle=DropDown`,
@@ -35,8 +37,8 @@ class TagPicker extends StatelessWidget {
       enableSearch: true,
       expandedInsets: EdgeInsets.zero,
       leadingIcon: const Icon(Icons.search),
-      label: const Text('태그'),
-      hintText: '태그 이름 검색',
+      label: Text(AppLocalizations.of(context).tagPickerLabel),
+      hintText: AppLocalizations.of(context).tagPickerSearchHint,
       menuHeight: 320,
       dropdownMenuEntries: [
         for (final d in definitions)

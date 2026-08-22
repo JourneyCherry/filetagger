@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/view_mode.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../widgets/file_toolbar.dart';
 
@@ -45,41 +46,46 @@ Future<FolderManageMode?> showFolderManageSheet(
     context: context,
     showDragHandle: true,
     useSafeArea: true,
-    builder: (sheetContext) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ListTile(
-          title: Text(folderName, overflow: TextOverflow.ellipsis),
-          subtitle: const Text('폴더 관리 방식'),
-        ),
-        const Divider(),
-        for (final mode in FolderManageMode.values)
+    builder: (sheetContext) {
+      final l10n = AppLocalizations.of(sheetContext);
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           ListTile(
-            leading: Icon(
-              mode == resolved
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-            ),
-            title: Text(_manageModeLabel(mode)),
-            subtitle: Text(_manageModeDescription(mode)),
-            onTap: () => Navigator.of(sheetContext).pop(mode),
+            title: Text(folderName, overflow: TextOverflow.ellipsis),
+            subtitle: Text(l10n.sheetFolderManageTitle),
           ),
-      ],
-    ),
+          const Divider(),
+          for (final mode in FolderManageMode.values)
+            ListTile(
+              leading: Icon(
+                mode == resolved
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+              ),
+              title: Text(_manageModeLabel(l10n, mode)),
+              subtitle: Text(_manageModeDescription(l10n, mode)),
+              onTap: () => Navigator.of(sheetContext).pop(mode),
+            ),
+        ],
+      );
+    },
   );
 }
 
-String _manageModeLabel(FolderManageMode mode) => switch (mode) {
-  FolderManageMode.opaque => '폴더만 관리',
-  FolderManageMode.managed => '내부 관리',
-  FolderManageMode.managedRecursive => '재귀적으로 관리',
-};
+String _manageModeLabel(AppLocalizations l10n, FolderManageMode mode) =>
+    switch (mode) {
+      FolderManageMode.opaque => l10n.sheetFolderOpaque,
+      FolderManageMode.managed => l10n.folderManageManaged,
+      FolderManageMode.managedRecursive => l10n.folderManageRecursive,
+    };
 
-String _manageModeDescription(FolderManageMode mode) => switch (mode) {
-  FolderManageMode.opaque => '폴더 하나로만 다루고 내부는 감춥니다.',
-  FolderManageMode.managed => '직속 내용만 인덱싱합니다.',
-  FolderManageMode.managedRecursive => '하위 폴더까지 이어서 인덱싱합니다.',
-};
+String _manageModeDescription(AppLocalizations l10n, FolderManageMode mode) =>
+    switch (mode) {
+      FolderManageMode.opaque => l10n.sheetFolderOpaqueDetail,
+      FolderManageMode.managed => l10n.sheetFolderManagedDetail,
+      FolderManageMode.managedRecursive => l10n.sheetFolderRecursiveDetail,
+    };
 
 /// 프리뷰를 화면 대부분을 덮는 시트로 띄운다(좁은 폭에서 분할 대신 쓰는 경로).
 Future<void> showPreviewSheet(BuildContext context, {required Widget preview}) {

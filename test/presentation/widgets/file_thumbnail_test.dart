@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
 import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/presentation/widgets/file_thumbnail.dart';
@@ -14,6 +15,9 @@ Future<double> _fallbackIconSize(WidgetTester tester, Size box) async {
   await tester.pumpWidget(
     ProviderScope(
       child: MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(
             child: SizedBox.fromSize(

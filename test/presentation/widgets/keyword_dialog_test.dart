@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/presentation/widgets/keyword_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 Future<void> _open(WidgetTester tester) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('ko'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(

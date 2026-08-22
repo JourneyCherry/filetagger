@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
 import 'package:filetagger/domain/entities/file_tree_node.dart';
@@ -59,6 +60,9 @@ Future<void> _pump(WidgetTester tester) async {
         tagChipVisibleProvider.overrideWithValue((_) => true),
       ],
       child: MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: CommandScope(
             handlers: CommandHandlers(

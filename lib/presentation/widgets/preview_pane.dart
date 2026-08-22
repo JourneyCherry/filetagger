@@ -6,6 +6,7 @@ import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/usecases/tag_display_order.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/system_tag_provider.dart';
 import 'file_thumbnail.dart';
 import 'tag_capsule.dart';
@@ -55,9 +56,10 @@ class PreviewPane extends ConsumerWidget {
 
   Widget _placeholder(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final text = selectedCount > 1
-        ? '$selectedCount개 선택됨'
-        : '항목을 선택하면 미리보기가 표시됩니다';
+        ? l10n.previewSelectedCount(selectedCount)
+        : l10n.previewEmpty;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -80,6 +82,7 @@ class PreviewPane extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final assignmentsByFile = ref.watch(effectiveAssignmentsByFileProvider);
+    final l10n = AppLocalizations.of(context);
     final isTagVisible = ref.watch(tagChipVisibleProvider);
     final all = target.id == null
         ? const <AssignedTag>[]
@@ -123,7 +126,7 @@ class PreviewPane extends ConsumerWidget {
         Text(
           // 키워드는 경로 계층에 속하지 않아 경로 자리에 이름이 그대로 들어간다 —
           // 이름 칸과 같은 글자를 두 번 보이느니 종류를 알린다.
-          target.isKeyword ? '키워드' : target.path,
+          target.isKeyword ? l10n.subtitleKeyword : target.path,
           style: theme.textTheme.bodySmall?.copyWith(color: scheme.outline),
         ),
         const SizedBox(height: 4),
@@ -131,12 +134,12 @@ class PreviewPane extends ConsumerWidget {
         if (target.isMissing) ...[
           const SizedBox(height: 6),
           Text(
-            '연결 끊김 — 원본 파일을 찾아 태그를 재연결하세요',
+            l10n.markMissing,
             style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
           ),
         ],
         const Divider(height: 24),
-        Text('태그', style: theme.textTheme.labelLarge),
+        Text(l10n.commonTag, style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         Expanded(
           flex: 2,
@@ -157,7 +160,10 @@ class PreviewPane extends ConsumerWidget {
                         ? null
                         : () => onRemoveAssignment(a),
                   ),
-                CapsuleAddButton(tooltip: '태그 추가', onPressed: onAddTag),
+                CapsuleAddButton(
+                  tooltip: l10n.commonAddTag,
+                  onPressed: onAddTag,
+                ),
               ],
             ),
           ),

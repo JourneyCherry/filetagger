@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/view_mode.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 
 /// 파일 목록 보기 모드(목록/아이콘/자세히)를 고르는 세그먼트 버튼.
@@ -25,7 +26,7 @@ class ViewModeSelector extends ConsumerWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       segments: [
-        for (final entry in _entries)
+        for (final entry in viewModeChoicesOf(AppLocalizations.of(context)))
           ButtonSegment(
             value: entry.mode,
             icon: Icon(entry.icon),
@@ -50,10 +51,12 @@ class ViewModeChoice {
 }
 
 /// 보기 모드 표시 정보의 단일 출처(세그먼트·메뉴 라디오가 같은 라벨·아이콘을 쓴다).
-const List<ViewModeChoice> viewModeChoices = [
-  ViewModeChoice(ViewMode.list, '목록', Icons.view_list_outlined),
-  ViewModeChoice(ViewMode.icon, '아이콘', Icons.grid_view_outlined),
-  ViewModeChoice(ViewMode.detail, '자세히', Icons.view_column_outlined),
+List<ViewModeChoice> viewModeChoicesOf(AppLocalizations l10n) => [
+  ViewModeChoice(ViewMode.list, l10n.viewModeList, Icons.view_list_outlined),
+  ViewModeChoice(ViewMode.icon, l10n.viewModeIcon, Icons.grid_view_outlined),
+  ViewModeChoice(
+    ViewMode.detail,
+    l10n.viewModeDetail,
+    Icons.view_column_outlined,
+  ),
 ];
-
-const List<ViewModeChoice> _entries = viewModeChoices;

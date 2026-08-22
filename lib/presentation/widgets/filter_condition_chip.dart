@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/file_filter.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../../l10n/app_localizations.dart';
 import '../tag_visuals.dart';
 import 'tag_capsule.dart';
-
-/// 정의가 사라진 태그를 가리키는 조건의 표시 문구.
-const String kDeletedTagChipText = '(삭제된 태그)';
 
 /// 필터 조건 하나를 나타내는 캡슐. 도구모음의 조건 칩과 텍스트 입력의 캡슐이 같은
 /// 모양으로 보이도록 겉모습을 공통 [TagCapsule]에 맡기고, 여기선 필터 문법에 딸린
@@ -45,14 +43,15 @@ class FilterConditionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final colors = filterChipColors(context, condition, definition);
     final def = definition;
-    final value = def == null ? null : conditionValueText(condition, def);
+    final value = def == null ? null : conditionValueText(l10n, condition, def);
 
     return TagCapsule(
       background: colors.background,
       foreground: colors.foreground,
-      name: def == null ? kDeletedTagChipText : def.name,
+      name: def == null ? l10n.chipDeletedTag : def.name,
       namePrefix: condition.exclude
           ? Icon(Icons.block, size: kCapsuleIconSize, color: colors.foreground)
           : null,
@@ -96,9 +95,13 @@ class FilterConditionChip extends StatelessWidget {
 /// 텍스트 입력의 조각 표현(`formatFilterCondition`)과는 목적이 다르다 — 이쪽은
 /// 키보드로 칠 수 없는 기호를 쓰는 **표시용**이고, 그쪽은 되펼쳐 고칠 수 있는
 /// **입력용**이다.
-String? conditionValueText(FilterCondition condition, TagDefinition def) {
+String? conditionValueText(
+  AppLocalizations l10n,
+  FilterCondition condition,
+  TagDefinition def,
+) {
   if (condition.operator == FilterOperator.exists) return null;
-  final op = filterOperatorLabel(condition.operator);
+  final op = filterOperatorLabel(l10n, condition.operator);
   final operand = def.valueType == TagValueType.date
       ? (formatTagValue(TagValueType.date, condition.operand) ??
             condition.operand ??

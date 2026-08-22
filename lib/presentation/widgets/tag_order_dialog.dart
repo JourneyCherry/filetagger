@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/usecases/tag_display_order.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../tag_visuals.dart';
@@ -25,8 +26,9 @@ class _TagOrderDialog extends ConsumerWidget {
         if (d.id != null) d,
     ], ref.watch(effectiveTagDisplayOrderProvider));
 
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('태그 표시 순서'),
+      title: Text(l10n.tagOrderTitle),
       content: dialogContentBox(
         context,
         width: 360,
@@ -35,8 +37,7 @@ class _TagOrderDialog extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '위에 있는 태그일수록 목록 행의 앞에 표시됩니다. 시스템 태그는 기본적으로 사용자 태그 '
-              '뒤에 놓이지만, 원하는 자리로 끌어 옮길 수 있습니다.',
+              l10n.tagOrderNote,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -59,7 +60,9 @@ class _TagOrderDialog extends ConsumerWidget {
                       alignment: Alignment.centerLeft,
                       child: TagChip(definition: definition),
                     ),
-                    subtitle: Text(tagValueTypeLabel(definition.valueType)),
+                    subtitle: Text(
+                      tagValueTypeLabel(l10n, definition.valueType),
+                    ),
                   );
                 },
               ),
@@ -70,7 +73,7 @@ class _TagOrderDialog extends ConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('닫기'),
+          child: Text(l10n.commonClose),
         ),
       ],
     );

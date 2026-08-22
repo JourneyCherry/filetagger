@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/platform/link_opener.dart';
 import '../../domain/entities/update_check_outcome.dart';
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../../domain/entities/scan_progress.dart';
@@ -47,6 +48,7 @@ class DesktopStatusBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final root = ref.watch(workspaceRootProvider);
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       color: scheme.surfaceContainerLow,
@@ -62,13 +64,18 @@ class DesktopStatusBar extends ConsumerWidget {
                 // 폴더를 열지 않았어도 설정 저장 실패는 알려야 한다(테마 변경이
                 // 그 상태에서도 저장된다).
                 ? [
-                    const Text('열린 폴더 없음'),
+                    Text(l10n.statusNoFolder),
                     const Spacer(),
-                    ..._settingsSaveStatus(ref, scheme),
+                    ..._settingsSaveStatus(l10n, ref, scheme),
                     // 오른쪽 끝이라 뒤에 올 것이 없다(구분자를 달지 않는다).
-                    ..._updateStatus(ref, scheme, trailingSeparator: false),
+                    ..._updateStatus(
+                      l10n,
+                      ref,
+                      scheme,
+                      trailingSeparator: false,
+                    ),
                   ]
-                : _workspaceStatus(context, ref, scheme),
+                : _workspaceStatus(context, ref, scheme, l10n),
           ),
         ),
       ),
@@ -79,6 +86,7 @@ class DesktopStatusBar extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ColorScheme scheme,
+    AppLocalizations l10n,
   ) {
     final database = ref.watch(databaseProvider);
     final selection = ref.watch(selectionControllerProvider);
@@ -94,13 +102,17 @@ class DesktopStatusBar extends ConsumerWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         const SizedBox(width: 8),
-        Text(scanProgressLabel(scanProgress)),
+        Text(scanProgressLabel(l10n, scanProgress)),
         const _Separator(),
       ],
-      Text(visibleCount == null ? '목록 불러오는 중…' : '항목 $visibleCount개'),
+      Text(
+        visibleCount == null
+            ? l10n.statusLoading
+            : l10n.statusItemCount(visibleCount),
+      ),
       if (selection.isNotEmpty) ...[
         const _Separator(),
-        Text('${selection.length}개 선택'),
+        Text(l10n.statusSelectedCount(selection.length)),
         const SizedBox(width: 4),
         TextButton(
           style: TextButton.styleFrom(
@@ -109,19 +121,19 @@ class DesktopStatusBar extends ConsumerWidget {
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           onPressed: handlers.clearSelection,
-          child: const Text('해제'),
+          child: Text(l10n.statusClearSelection),
         ),
       ],
       const Spacer(),
-      ..._updateStatus(ref, scheme),
-      ..._settingsSaveStatus(ref, scheme),
-      ..._externalCommandStatus(ref, scheme),
+      ..._updateStatus(l10n, ref, scheme),
+      ..._settingsSaveStatus(l10n, ref, scheme),
+      ..._externalCommandStatus(l10n, ref, scheme),
       if (!filter.isEmpty) ...[
-        Text('필터 ${filter.conditions.length}'),
+        Text(l10n.statusFilterCount(filter.conditions.length)),
         const _Separator(),
       ],
       if (!sort.isEmpty) ...[
-        Text('정렬 ${sort.keys.length}'),
+        Text(l10n.statusSortCount(sort.keys.length)),
         const _Separator(),
       ],
       Icon(
@@ -130,14 +142,18 @@ class DesktopStatusBar extends ConsumerWidget {
         color: database != null ? scheme.primary : scheme.error,
       ),
       const SizedBox(width: 4),
-      Text(database != null ? 'DB 연결됨' : 'DB 미연결'),
+      Text(
+        database != null ? l10n.statusDbConnected : l10n.statusDbDisconnected,
+      ),
       const SizedBox(width: 4),
       IconButton(
         iconSize: 16,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
         visualDensity: VisualDensity.compact,
-        tooltip: previewVisible ? '프리뷰 숨기기' : '프리뷰 보기',
+        tooltip: previewVisible
+            ? l10n.statusHidePreview
+            : l10n.statusShowPreview,
         onPressed: handlers.handlerOf(AppCommandId.togglePreview),
         icon: Icon(
           previewVisible ? Icons.view_sidebar : Icons.view_sidebar_outlined,
@@ -154,6 +170,7 @@ class DesktopStatusBar extends ConsumerWidget {
 /// 확인은 반대로 다이얼로그로 답한다). 새 버전이 없거나 확인하지 못했으면 자리를
 /// 차지하지 않는다.
 List<Widget> _updateStatus(
+  AppLocalizations l10n,
   WidgetRef ref,
   ColorScheme scheme, {
   bool trailingSeparator = true,
@@ -162,7 +179,7 @@ List<Widget> _updateStatus(
   if (outcome is! UpdateAvailable) return const [];
   return [
     Tooltip(
-      message: '눌러 릴리즈 페이지를 엽니다.',
+      message: l10n.statusUpdateHint,
       child: TextButton.icon(
         style: TextButton.styleFrom(
           minimumSize: Size.zero,
@@ -173,7 +190,7 @@ List<Widget> _updateStatus(
         ),
         onPressed: () => const LinkOpener().open(outcome.release.pageUrl),
         icon: const Icon(Icons.system_update_alt, size: 14),
-        label: Text('새 버전 ${outcome.release.version}'),
+        label: Text(l10n.statusNewVersion(outcome.release.version)),
       ),
     ),
     if (trailingSeparator) const _Separator(),
@@ -185,17 +202,24 @@ List<Widget> _updateStatus(
 /// 읽기 전용 매체에서 포터블판을 돌리거나 설정 폴더에 쓸 권한이 없는 경우다. 조용히
 /// 삼키면 최근 폴더가 안 남는 이유를 사용자가 알 수 없다. 정상일 때는 자리를
 /// 차지하지 않는다.
-List<Widget> _settingsSaveStatus(WidgetRef ref, ColorScheme scheme) {
+List<Widget> _settingsSaveStatus(
+  AppLocalizations l10n,
+  WidgetRef ref,
+  ColorScheme scheme,
+) {
   if (!ref.watch(settingsSaveFailedProvider)) return const [];
   return [
     Tooltip(
-      message: '설정 파일을 쓸 수 없어 테마와 최근 폴더 목록이 이번 실행 동안만 유지됩니다.',
+      message: l10n.statusSettingsUnsavedHint,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.sync_problem, size: 14, color: scheme.error),
           const SizedBox(width: 4),
-          Text('설정이 저장되지 않는 중', style: TextStyle(color: scheme.error)),
+          Text(
+            l10n.statusSettingsUnsaved,
+            style: TextStyle(color: scheme.error),
+          ),
         ],
       ),
     ),
@@ -206,22 +230,30 @@ List<Widget> _settingsSaveStatus(WidgetRef ref, ColorScheme scheme) {
 /// 외부 앱 연동(드롭인 큐)이 마지막으로 바꾼 건수. 성공을 다이얼로그로 알리지
 /// 않는 대칭을 지키되, **사용자가 하지 않은 태그 변경**과 **조용한 실패**는 보이게
 /// 하는 최소한이다. 아무 일도 없었으면 자리를 차지하지 않는다.
-List<Widget> _externalCommandStatus(WidgetRef ref, ColorScheme scheme) {
+List<Widget> _externalCommandStatus(
+  AppLocalizations l10n,
+  WidgetRef ref,
+  ColorScheme scheme,
+) {
   final outcome = ref.watch(lastCommandOutcomeProvider);
   if (outcome == null) return const [];
   return [
     Tooltip(
       message: outcome.failed > 0
-          ? '외부 앱이 요청한 태그 변경입니다. 실패한 항목은 큐 파일에 사유가 남아 있습니다.'
-          : '외부 앱이 요청한 태그 변경입니다.',
+          ? l10n.statusExternalHintWithFailures
+          : l10n.statusExternalHint,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (outcome.applied > 0) Text('외부 적용 ${outcome.applied}'),
+          if (outcome.applied > 0)
+            Text(l10n.statusExternalApplied(outcome.applied)),
           if (outcome.applied > 0 && outcome.failed > 0)
             const SizedBox(width: 6),
           if (outcome.failed > 0)
-            Text('실패 ${outcome.failed}', style: TextStyle(color: scheme.error)),
+            Text(
+              l10n.statusExternalFailed(outcome.failed),
+              style: TextStyle(color: scheme.error),
+            ),
         ],
       ),
     ),

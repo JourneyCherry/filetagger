@@ -1,0 +1,11 @@
+# ARB → AppLocalizations 코드 생성 설정(`flutter gen-l10n`, pubspec의 generate: true).
+# 원문(템플릿)은 한국어이고 다른 로케일은 번역본이다.
+arb-dir: lib/l10n
+template-arb-file: app_ko.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+# of(context)를 non-null로 받는다. 델리게이트를 앱 최상위에 항상 걸므로 null 검사가
+# 호출부마다 늘어날 이유가 없다.
+nullable-getter: false
+# 번역이 빠진 키를 빌드 로그로 알리지 않고 파일로 모은다(분석 대상 밖).
+untranslated-messages-file: .dart_tool/l10n_untranslated.json

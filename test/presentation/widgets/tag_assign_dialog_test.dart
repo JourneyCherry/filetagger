@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/tag_assignment.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
@@ -40,6 +41,9 @@ Future<void> _openDialog(WidgetTester tester) async {
         assignmentsProvider.overrideWith((ref) => Stream.value(_assignments)),
       ],
       child: MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/system_tag.dart';
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../help_topics.dart';
 import '../tag_visuals.dart';
@@ -38,11 +39,12 @@ class _HelpDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return DefaultTabController(
       length: HelpTab.values.length,
       initialIndex: initial.index,
       child: AlertDialog(
-        title: Text(commandOf(AppCommandId.help).label),
+        title: Text(commandOf(AppCommandId.help).label(l10n)),
         // 탭 막대가 제목과 본문 사이에 붙도록 본문 위쪽 여백을 걷어낸다.
         contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         content: dialogContentBox(
@@ -56,7 +58,9 @@ class _HelpDialog extends StatelessWidget {
                 // 탭이 넷이라 좁은 창에서는 이름이 눌린다. 늘려 두고 가로로 넘긴다.
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                tabs: [for (final tab in HelpTab.values) Tab(text: tab.label)],
+                tabs: [
+                  for (final tab in HelpTab.values) Tab(text: tab.label(l10n)),
+                ],
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -70,7 +74,7 @@ class _HelpDialog extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
+            child: Text(l10n.commonClose),
           ),
         ],
       ),
@@ -87,7 +91,7 @@ class _HowToTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        for (final topic in helpTopics) ...[
+        for (final topic in helpTopicsOf(AppLocalizations.of(context))) ...[
           _IconParagraph(
             icon: topic.icon,
             title: topic.title,
@@ -108,15 +112,12 @@ class _ShortcutsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return ListView(
       children: [
-        Text(
-          '메뉴·버튼으로 부를 수 있는 조작과, 있다면 그 단축키입니다. 지금 할 수 없는 '
-          '조작(고른 항목이 없을 때의 태그 부여 등)도 함께 싣습니다.',
-          style: theme.textTheme.bodySmall,
-        ),
+        Text(l10n.helpShortcutsIntro, style: theme.textTheme.bodySmall),
         const SizedBox(height: 16),
-        for (final group in helpCommandGroups) ...[
+        for (final group in helpCommandGroupsOf(l10n)) ...[
           _CommandGroupSection(group: group),
           const SizedBox(height: 16),
         ],
@@ -133,6 +134,7 @@ class _CommandGroupSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final note = group.note;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,12 +150,17 @@ class _CommandGroupSection extends StatelessWidget {
           Text(note, style: theme.textTheme.bodySmall),
         ],
         const SizedBox(height: 6),
-        for (final id in group.commands) _commandRow(theme, commandOf(id)),
+        for (final id in group.commands)
+          _commandRow(theme, l10n, commandOf(id)),
       ],
     );
   }
 
-  Widget _commandRow(ThemeData theme, AppCommand command) {
+  Widget _commandRow(
+    ThemeData theme,
+    AppLocalizations l10n,
+    AppCommand command,
+  ) {
     final shortcut = command.shortcut;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -171,7 +178,7 @@ class _CommandGroupSection extends StatelessWidget {
                   ),
           ),
           Expanded(
-            child: Text(command.label, style: theme.textTheme.bodyMedium),
+            child: Text(command.label(l10n), style: theme.textTheme.bodyMedium),
           ),
           if (shortcut != null) ShortcutBadge(label: shortcutLabel(shortcut)),
         ],
@@ -187,10 +194,11 @@ class _TipsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tips = usageTipsOf(AppLocalizations.of(context));
     return ListView.separated(
-      itemCount: usageTips.length,
+      itemCount: tips.length,
       separatorBuilder: (_, _) => const Divider(height: 24),
-      itemBuilder: (context, i) => _TipTile(tip: usageTips[i]),
+      itemBuilder: (context, i) => _TipTile(tip: tips[i]),
     );
   }
 }
@@ -203,6 +211,7 @@ class _TipTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final command = tip.command == null ? null : commandOf(tip.command!);
     final shortcut = command?.shortcut;
     return _IconParagraph(
@@ -217,7 +226,7 @@ class _TipTile extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  '관련 조작: ${command.label}',
+                  l10n.helpTipRelatedCommand(command.label(l10n)),
                   style: theme.textTheme.labelSmall,
                 ),
                 if (shortcut != null)
@@ -238,7 +247,10 @@ class _SystemTagTab extends StatelessWidget {
     final theme = Theme.of(context);
     return ListView(
       children: [
-        Text(systemTagOverview, style: theme.textTheme.bodySmall),
+        Text(
+          AppLocalizations.of(context).helpSystemTagOverview,
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: 16),
         for (final tag in SystemTag.values) ...[
           _SystemTagTile(tag: tag),
@@ -257,15 +269,16 @@ class _SystemTagTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            TagChip(definition: tag.definition),
+            TagChip(definition: systemTagDefinition(l10n, tag)),
             const SizedBox(width: 8),
             Text(
-              tagValueTypeLabel(tag.valueType),
+              tagValueTypeLabel(l10n, tag.valueType),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -274,7 +287,7 @@ class _SystemTagTile extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          systemTagDescription(tag),
+          systemTagDescription(l10n, tag),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

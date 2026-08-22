@@ -409,7 +409,7 @@ final folderResolvedModesProvider = Provider<Map<String, FolderManageMode>>((
 final definitionsByIdProvider = Provider<Map<int, TagDefinition>>((ref) {
   final defs = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
   return {
-    for (final d in systemTagDefinitions) d.id!: d,
+    for (final d in ref.watch(systemTagDefinitionsProvider)) d.id!: d,
     for (final d in defs)
       if (d.id != null) d.id!: d,
   };

@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/core/constants.dart';
 import 'package:filetagger/presentation/commands/app_commands.dart';
 import 'package:filetagger/presentation/widgets/app_about_dialog.dart';
@@ -5,11 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/l10n.dart';
+
 /// 정보 다이얼로그를 띄운 상태의 앱. 다이얼로그는 Navigator 아래에서만 열리므로
 /// 버튼을 거친다.
 Future<void> pumpAbout(WidgetTester tester) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('ko'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(
@@ -28,7 +34,10 @@ void main() {
   testWidgets('정보는 명령 라벨을 제목으로, 앱 이름을 본문에 보인다', (tester) async {
     await pumpAbout(tester);
 
-    expect(find.text(commandOf(AppCommandId.about).label), findsOneWidget);
+    expect(
+      find.text(commandOf(AppCommandId.about).label(koL10n)),
+      findsOneWidget,
+    );
     expect(find.text(appDisplayName), findsOneWidget);
   });
 

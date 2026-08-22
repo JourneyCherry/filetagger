@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
+import '../l10n/app_localizations.dart';
 import 'providers/database_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/update_provider.dart';
@@ -58,6 +59,8 @@ class _FileTaggerAppState extends ConsumerState<FileTaggerApp> {
     // 저장된 선택을 읽는 동안(첫 프레임)엔 시스템 밝기를 따른다.
     final themeMode =
         ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system;
+    // 표시 언어도 마찬가지로, 읽기 전에는 null이라 OS 설정 언어가 선다.
+    final locale = ref.watch(appLocaleProvider).valueOrNull;
     // 앱을 켜면 업데이트 확인이 한 번 돈다 — 구독을 여는 것이 곧 실행이다. 셸이
     // 무엇이든(데스크톱/모바일) 확인이 시작되도록 최상위에서 연다. watch가 아니라
     // listen인 것은 확인 결과로 앱 전체를 다시 그리지 않기 위함이며, 결과를 읽는
@@ -68,6 +71,11 @@ class _FileTaggerAppState extends ConsumerState<FileTaggerApp> {
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
       themeMode: themeMode,
+      // null이면 프레임워크가 OS 설정 언어를 지원 목록에 맞춰 고른다. 지원하지 않는
+      // 언어를 쓰는 기기에서는 목록의 첫 로케일로 떨어진다.
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const HomeScreen(),
     );
   }

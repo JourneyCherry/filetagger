@@ -6,6 +6,15 @@ import 'package:path/path.dart' as p;
 
 import 'workspace_path.dart';
 
+/// 이 플랫폼에는 띄울 파일 관리자가 없다. 문구가 아니라 사실만 알린다 — 사용자에게
+/// 무엇으로 보일지는 화면이 정한다(이 계층은 표시 언어를 모른다).
+class RevealUnsupportedError implements Exception {
+  const RevealUnsupportedError();
+
+  @override
+  String toString() => 'RevealUnsupportedError';
+}
+
 /// OS 파일 관리자를 띄워 해당 항목을 보이는 어댑터.
 ///
 /// 항목을 "선택된 채로" 여는 방법이 플랫폼마다 달라 여기 한 곳에서만 분기한다.
@@ -20,7 +29,8 @@ class FileManagerRevealer {
 
   /// 워크스페이스 루트 기준 '/' 상대 경로 [relPath]의 항목을 파일 관리자에서 연다.
   /// [isDirectory]면 그 폴더의 내용을 열고, 아니면 부모 폴더에서 그 항목을 고른다.
-  /// 실행할 수 없으면 [ProcessException], 지원하지 않는 플랫폼이면 [UnsupportedError].
+  /// 실행할 수 없으면 [ProcessException], 띄울 방법이 없는 플랫폼이면
+  /// [RevealUnsupportedError].
   Future<void> reveal({
     required String workspaceRoot,
     required String relPath,
@@ -43,7 +53,8 @@ class FileManagerRevealer {
       await _run('xdg-open', [isDirectory ? target : p.dirname(target)]);
       return;
     }
-    throw UnsupportedError('이 플랫폼에서는 파일 관리자를 열 수 없습니다.');
+    // 사유만 알린다 — 사용자에게 무엇으로 보일지는 화면이 정한다.
+    throw const RevealUnsupportedError();
   }
 
   Future<void> _run(String executable, List<String> arguments) async {
@@ -131,7 +142,7 @@ void _openInExplorer(String absolutePath, {required bool selectInParent}) {
       throw ProcessException(
         _explorerExecutable,
         [argument],
-        'ShellExecuteW 오류',
+        'ShellExecuteW failed',
         result,
       );
     }

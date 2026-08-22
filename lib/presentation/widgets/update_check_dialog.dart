@@ -5,6 +5,7 @@ import '../../core/build_info.dart';
 import '../../core/store_page.dart';
 import '../../data/platform/link_opener.dart';
 import '../../domain/entities/update_check_outcome.dart';
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../providers/update_provider.dart';
 import 'dialog_utils.dart';
@@ -41,8 +42,9 @@ class _UpdateCheckDialog extends StatelessWidget {
         final outcome = snapshot.hasError
             ? const UpdateCheckFailed()
             : snapshot.data;
+        final l10n = AppLocalizations.of(context);
         return AlertDialog(
-          title: Text(commandOf(AppCommandId.checkForUpdates).label),
+          title: Text(commandOf(AppCommandId.checkForUpdates).label(l10n)),
           content: dialogContentBox(
             context,
             width: 360,
@@ -51,10 +53,10 @@ class _UpdateCheckDialog extends StatelessWidget {
                 : _Result(outcome: outcome),
           ),
           actions: [
-            if (outcome != null) ..._actions(context, outcome),
+            if (outcome != null) ..._actions(context, l10n, outcome),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('닫기'),
+              child: Text(l10n.commonClose),
             ),
           ],
         );
@@ -66,19 +68,23 @@ class _UpdateCheckDialog extends StatelessWidget {
   ///
   /// 넘기지 못했을 때 할 말도 함께 고른다 — 릴리즈 페이지는 브라우저가, 스토어 스킴은
   /// 스토어 앱이 받으므로 못 열린 것이 서로 다르다.
-  List<Widget> _actions(BuildContext context, UpdateCheckOutcome outcome) {
+  List<Widget> _actions(
+    BuildContext context,
+    AppLocalizations l10n,
+    UpdateCheckOutcome outcome,
+  ) {
     final destination = switch (outcome) {
       UpdateAvailable(:final release) => (
-        label: '릴리즈 페이지 열기',
+        label: l10n.updateOpenReleasePage,
         url: release.pageUrl,
-        failure: '웹 브라우저를 열지 못했습니다.',
+        failure: l10n.aboutOpenBrowserFailed,
       ),
       UpdateCheckSkipped(reason: UpdateCheckSkipReason.managedByStore) =>
         switch (storePageUrl()) {
           final Uri url => (
-            label: '스토어에서 열기',
+            label: l10n.updateOpenStore,
             url: url,
-            failure: '스토어 앱을 열지 못했습니다.',
+            failure: l10n.updateOpenStoreFailed,
           ),
           null => null,
         },
@@ -118,16 +124,16 @@ class _Checking extends StatelessWidget {
   const _Checking();
 
   @override
-  Widget build(BuildContext context) => const Row(
+  Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      SizedBox(
+      const SizedBox(
         width: 16,
         height: 16,
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
-      SizedBox(width: 12),
-      Text('확인하는 중…'),
+      const SizedBox(width: 12),
+      Text(AppLocalizations.of(context).updateChecking),
     ],
   );
 }
@@ -140,7 +146,7 @@ class _Result extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final (icon, headline, detail) = _content;
+    final (icon, headline, detail) = _content(AppLocalizations.of(context));
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,27 +172,32 @@ class _Result extends StatelessWidget {
     );
   }
 
-  (IconData, String, String) get _content => switch (outcome) {
-    UpdateAvailable(:final release) => (
-      Icons.system_update_alt,
-      '새 업데이트가 있습니다.',
-      '현재 $appVersion · 최신 ${release.version}',
-    ),
-    UpToDate() => (Icons.check_circle_outline, '최신 버전입니다.', '현재 $appVersion'),
-    UpdateCheckSkipped(reason: UpdateCheckSkipReason.unknownVersion) => (
-      Icons.help_outline,
-      '버전을 알 수 없습니다.',
-      '이 실행의 버전을 확인할 수 없어 배포본과 견줄 수 없습니다.',
-    ),
-    UpdateCheckSkipped(reason: UpdateCheckSkipReason.managedByStore) => (
-      Icons.storefront_outlined,
-      '스토어가 업데이트를 관리합니다.',
-      '이 배포본은 스토어를 통해 갱신되므로 앱이 직접 받아 설치하지 않습니다.',
-    ),
-    UpdateCheckFailed() => (
-      Icons.cloud_off_outlined,
-      '업데이트를 확인하지 못했습니다.',
-      '네트워크 연결을 확인한 뒤 다시 시도해 주세요.',
-    ),
-  };
+  (IconData, String, String) _content(AppLocalizations l10n) =>
+      switch (outcome) {
+        UpdateAvailable(:final release) => (
+          Icons.system_update_alt,
+          l10n.updateAvailableHeadline,
+          l10n.updateAvailableDetail(appVersion, release.version),
+        ),
+        UpToDate() => (
+          Icons.check_circle_outline,
+          l10n.updateUpToDateHeadline,
+          l10n.updateUpToDateDetail(appVersion),
+        ),
+        UpdateCheckSkipped(reason: UpdateCheckSkipReason.unknownVersion) => (
+          Icons.help_outline,
+          l10n.updateUnknownVersionHeadline,
+          l10n.updateUnknownVersionDetail,
+        ),
+        UpdateCheckSkipped(reason: UpdateCheckSkipReason.managedByStore) => (
+          Icons.storefront_outlined,
+          l10n.updateManagedByStoreHeadline,
+          l10n.updateManagedByStoreDetail,
+        ),
+        UpdateCheckFailed() => (
+          Icons.cloud_off_outlined,
+          l10n.updateFailedHeadline,
+          l10n.updateFailedDetail,
+        ),
+      };
 }

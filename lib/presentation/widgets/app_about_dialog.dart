@@ -4,6 +4,7 @@ import '../../core/build_info.dart';
 import '../../core/constants.dart';
 import '../../core/repository_page.dart';
 import '../../data/platform/link_opener.dart';
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import 'dialog_utils.dart';
 
@@ -29,13 +30,15 @@ Future<void> showAppAboutDialog(BuildContext context) =>
 /// 쓰는 버전과 그것이 어떤 형태인지이지, 어떻게 컴파일되었는지가 아니다. 버전을 끝내
 /// 읽지 못했을 때만 그 사실을 밝히고, 배포 형태는 그때도 그대로 붙인다(둘은 서로
 /// 모르는 값이라, 하나를 몰랐다고 아는 쪽까지 감출 이유가 없다).
-String get _versionLine {
+String _versionLine(AppLocalizations l10n) {
   final kind = switch (distributionChannel) {
-    DistributionChannel.portable => '포터블',
-    DistributionChannel.package => '설치판',
+    DistributionChannel.portable => l10n.aboutChannelPortable,
+    DistributionChannel.package => l10n.aboutChannelPackage,
   };
-  final version = appVersion.isEmpty ? '버전을 알 수 없음' : '버전 $appVersion';
-  return '$version · $kind';
+  final version = appVersion.isEmpty
+      ? l10n.aboutVersionUnknown
+      : l10n.aboutVersion(appVersion);
+  return l10n.aboutVersionLine(version, kind);
 }
 
 /// 소스 코드 저장소를 브라우저로 넘긴다.
@@ -49,8 +52,9 @@ String get _versionLine {
 /// 때문이다.
 Future<void> _openRepository(BuildContext context) async {
   final messenger = ScaffoldMessenger.of(context);
+  final failed = AppLocalizations.of(context).aboutOpenBrowserFailed;
   if (await const LinkOpener().open(sourceRepositoryUrl())) return;
-  messenger.showSnackBar(const SnackBar(content: Text('웹 브라우저를 열지 못했습니다.')));
+  messenger.showSnackBar(SnackBar(content: Text(failed)));
 }
 
 /// 라이선스 화면을 연다.
@@ -59,7 +63,11 @@ Future<void> _openRepository(BuildContext context) async {
 /// 대신 직접 밀어 넣는다 — 그 헬퍼는 라우트를 감쌀 틈을 주지 않아 ESC로 닫는 길
 /// ([escDismissiblePage])을 붙일 수 없다. 헬퍼가 하던 테마 넘기기는 함께 옮긴다
 /// (다이얼로그가 얹은 테마가 새 라우트까지 따라가야 색이 어긋나지 않는다).
-void _openLicensePage(BuildContext context, ThemeData theme) {
+void _openLicensePage(
+  BuildContext context,
+  ThemeData theme,
+  AppLocalizations l10n,
+) {
   final themes = InheritedTheme.capture(
     from: context,
     to: Navigator.of(context).context,
@@ -70,7 +78,7 @@ void _openLicensePage(BuildContext context, ThemeData theme) {
         escDismissiblePage(
           LicensePage(
             applicationName: appDisplayName,
-            applicationVersion: _versionLine,
+            applicationVersion: _versionLine(l10n),
             applicationIcon: Padding(
               padding: const EdgeInsets.all(8),
               child: Icon(
@@ -91,8 +99,9 @@ class _AboutDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text(commandOf(AppCommandId.about).label),
+      title: Text(commandOf(AppCommandId.about).label(l10n)),
       content: dialogContentBox(
         context,
         width: 380,
@@ -112,7 +121,7 @@ class _AboutDialog extends StatelessWidget {
                   children: [
                     Text(appDisplayName, style: theme.textTheme.titleMedium),
                     Text(
-                      _versionLine,
+                      _versionLine(l10n),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -123,8 +132,7 @@ class _AboutDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '태그로 파일을 정리하고 찾는 앱입니다. 태그는 관리 폴더 안에 함께 저장되어 '
-              '폴더를 옮기면 따라갑니다.',
+              l10n.aboutSummary,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -138,7 +146,7 @@ class _AboutDialog extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 icon: const Icon(Icons.code),
-                label: const Text('소스 코드 저장소'),
+                label: Text(l10n.aboutSourceRepository),
                 onPressed: () => _openRepository(context),
               ),
             ),
@@ -146,11 +154,11 @@ class _AboutDialog extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 icon: const Icon(Icons.description_outlined),
-                label: const Text('오픈소스 라이선스'),
+                label: Text(l10n.aboutOpenSourceLicenses),
                 // 라이선스 화면은 다이얼로그가 아니라 전체 화면 라우트로 열린다.
                 // 목록을 훑는 자리라 좁은 다이얼로그에 가두지 않는 편이 낫고,
                 // 이 다이얼로그는 뒤에 남아 돌아오면 그대로 보인다.
-                onPressed: () => _openLicensePage(context, theme),
+                onPressed: () => _openLicensePage(context, theme, l10n),
               ),
             ),
           ],
@@ -159,7 +167,7 @@ class _AboutDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('닫기'),
+          child: Text(l10n.commonClose),
         ),
       ],
     );

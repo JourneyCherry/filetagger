@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/folder_manage_mode.dart';
+import '../../l10n/app_localizations.dart';
 import '../shells/menu_model.dart';
 
 /// 폴더 관리 방식 메뉴의 선택지. 라디오(불투명/관리)와 토글(재귀)이 섞여 있어
@@ -35,23 +36,24 @@ FolderManageMode? nextManageMode(
 /// 체크 상태는 상속까지 반영한 [resolved]를 그대로 보여 준다. 고른 조작은
 /// [onSelected]로 알린다.
 List<MenuNode> folderManageMenuNodes({
+  required AppLocalizations l10n,
   required FolderManageMode resolved,
   required ValueChanged<FolderManageAction> onSelected,
 }) {
   final managedFamily = resolved != FolderManageMode.opaque;
   return [
     MenuChecked(
-      '폴더만 관리 (내부 감춤)',
+      l10n.folderManageOpaque,
       checked: !managedFamily,
       onSelected: () => onSelected(FolderManageAction.opaque),
     ),
     MenuChecked(
-      '내부 관리',
+      l10n.folderManageManaged,
       checked: managedFamily,
       onSelected: () => onSelected(FolderManageAction.managed),
     ),
     MenuChecked(
-      '재귀적으로 관리',
+      l10n.folderManageRecursive,
       checked: resolved == FolderManageMode.managedRecursive,
       // 폴더만 관리(불투명)일 땐 재귀가 의미 없어 고를 수 없다.
       onSelected: managedFamily

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/tag_display_order.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../tag_visuals.dart';
@@ -32,8 +33,9 @@ class _TagManageDialog extends ConsumerWidget {
         if (d.id != null) d,
     ], ref.watch(effectiveTagDisplayOrderProvider));
 
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('태그 관리'),
+      title: Text(l10n.tagManageTitle),
       content: dialogContentBox(
         context,
         width: 520,
@@ -42,9 +44,7 @@ class _TagManageDialog extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '위에 있는 태그일수록 목록 행의 앞에 표시됩니다. 시스템 태그는 파일에서 자동으로 '
-              '파생되어 표시 여부만 켜고 끌 수 있고, 기본적으로 사용자 태그 뒤에 놓이지만 '
-              '원하는 자리로 끌어 옮길 수 있습니다.',
+              l10n.tagManageOrderNote,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -74,11 +74,11 @@ class _TagManageDialog extends ConsumerWidget {
         TextButton.icon(
           onPressed: () => openTagEditor(context),
           icon: const Icon(Icons.add),
-          label: const Text('새 태그'),
+          label: Text(l10n.commonNewTag),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('닫기'),
+          child: Text(l10n.commonClose),
         ),
       ],
     );
@@ -96,12 +96,13 @@ class _TagRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final id = definition.id!;
     final systemTag = definition.isSystem ? systemTagById(id) : null;
     final subtitle = [
-      tagValueTypeLabel(definition.valueType),
-      if (definition.allowMultiple) '다중 부여',
-      if (systemTag?.editable ?? false) '수정 가능',
+      tagValueTypeLabel(l10n, definition.valueType),
+      if (definition.allowMultiple) l10n.tagBadgeMultiple,
+      if (systemTag?.editable ?? false) l10n.tagBadgeEditable,
     ].join(' · ');
 
     return ListTile(

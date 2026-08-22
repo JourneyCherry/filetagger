@@ -4,7 +4,10 @@ import '../../data/queue/command_queue_store.dart';
 import '../../data/queue/file_command_environment.dart';
 import '../../data/watcher/command_queue_watcher.dart';
 import '../../domain/repositories/command_queue_repository.dart';
+import '../../domain/entities/system_tag.dart';
 import '../../domain/usecases/apply_external_commands.dart';
+import '../../l10n/app_localizations.dart';
+import '../tag_visuals.dart';
 import 'file_node_provider.dart';
 import 'tag_provider.dart';
 import 'workspace_provider.dart';
@@ -30,8 +33,20 @@ final applyExternalCommandsProvider = Provider<ApplyExternalCommands?>((ref) {
     nodes: nodes,
     tags: tags,
     environment: FileCommandEnvironment(root),
+    systemTagNames: _systemTagNamesInEveryLanguage,
   );
 });
+
+/// 지원하는 모든 언어에서 시스템 태그를 가리키는 이름들.
+///
+/// 큐 파일은 다른 앱이 쓴 것이고 그 앱이 어느 언어의 이름을 적었는지 알 수 없다.
+/// 지금 표시 언어의 이름만 보면 다른 언어로 적힌 시스템 태그 이름이 **일반 태그로
+/// 새로 만들어져** 버리므로, 언어를 가리지 않고 모두 막는다.
+final Set<String> _systemTagNamesInEveryLanguage = {
+  for (final locale in AppLocalizations.supportedLocales)
+    for (final tag in SystemTag.values)
+      systemTagName(lookupAppLocalizations(locale), tag),
+};
 
 /// 큐 폴더만 보는 감시자. 워크스페이스 감시자와 **다른 스트림**이며, 이 신호는
 /// 재스캔이 아니라 큐 처리로 간다(자세한 이유는 [CommandQueueWatcher]).

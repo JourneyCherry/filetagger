@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/file_types.dart';
 import '../../data/thumbnails/thumbnail_store.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/workspace_provider.dart';
 
 /// 커스텀 이미지 태그값을 정하는 공통 흐름: 외부 이미지 파일을 골라 워크스페이스
@@ -13,10 +14,11 @@ Future<String?> pickAndRegisterThumbnailImage(
   BuildContext context,
   WidgetRef ref,
 ) async {
+  final l10n = AppLocalizations.of(context);
   final root = ref.read(workspaceRootProvider);
   if (root == null) return null;
   final group = XTypeGroup(
-    label: '이미지',
+    label: l10n.pickerImageTypeLabel,
     extensions: imageFileExtensions.toList(),
   );
   final file = await openFile(acceptedTypeGroups: [group]);
@@ -25,7 +27,7 @@ Future<String?> pickAndRegisterThumbnailImage(
   if (key == null && context.mounted) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('이미지를 등록하지 못했습니다.')));
+    ).showSnackBar(SnackBar(content: Text(l10n.thumbnailRegisterFailed)));
   }
   return key;
 }

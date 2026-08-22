@@ -10,6 +10,7 @@ import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/tag_display_order.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../theme.dart';
@@ -202,10 +203,11 @@ class _FileListViewState extends ConsumerState<FileListView>
     final selection = ref.watch(selectionControllerProvider);
     final cursor = ref.watch(navigationCursorProvider);
     final scale = ref.watch(currentViewScaleProvider);
+    final l10n = AppLocalizations.of(context);
 
     return tree.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('목록을 불러오지 못했습니다: $e'),
+      error: (e, _) => Text(l10n.listLoadFailed('$e')),
       data: (flat) {
         final rows = flat.rows;
         _rows = rows;
@@ -216,7 +218,7 @@ class _FileListViewState extends ConsumerState<FileListView>
         }
         if (rows.isEmpty) {
           return Text(
-            filterActive ? '필터 조건에 맞는 파일이 없습니다.' : '이 폴더에는 표시할 파일이 없습니다.',
+            filterActive ? l10n.listEmptyFiltered : l10n.listEmptyFolder,
           );
         }
         // 범위 선택(shift)이 표시 순서로 동작하도록 편 노드 목록을 넘긴다(헤더 제외).
@@ -522,7 +524,9 @@ class FileNodeTile extends StatelessWidget {
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
                               iconSize: _caretIcon * scale,
-                              tooltip: expanded ? '접기' : '펼치기',
+                              tooltip: expanded
+                                  ? AppLocalizations.of(context).treeCollapse
+                                  : AppLocalizations.of(context).treeExpand,
                               icon: Icon(
                                 expanded
                                     ? Icons.expand_more
@@ -541,12 +545,12 @@ class FileNodeTile extends StatelessWidget {
                   ],
                 ),
                 trailing: trailing,
-                title: _titleRow(scheme),
+                title: _titleRow(context, scheme),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _subtitleText,
+                      _subtitleTextOf(context),
                       // 한 줄로 못박는다 — 경로가 깊거나 부제 태그 값이 길다고 행이
                       // 두꺼워지면 한 화면에 담기는 항목이 들쭉날쭉해진다.
                       maxLines: 1,
@@ -571,7 +575,8 @@ class FileNodeTile extends StatelessWidget {
 
   /// 이름 칸과 그 옆의 상태 표식. 상태를 **문장이 아니라 아이콘으로** 두는 것은, 줄로
   /// 쌓으면 노드마다 행 높이가 달라지고 목록이 난잡해지기 때문이다. 설명은 툴팁에 있다.
-  Widget _titleRow(ColorScheme scheme) {
+  Widget _titleRow(BuildContext context, ColorScheme scheme) {
+    final l10n = AppLocalizations.of(context);
     final title = Text(
       displayName ?? node.name,
       maxLines: 1,
@@ -580,16 +585,12 @@ class FileNodeTile extends StatelessWidget {
     );
     final marks = <Widget>[
       if (node.isMissing)
-        _statusMark(
-          Icons.link_off,
-          scheme.error,
-          '연결 끊김 — 원본 파일을 찾아 태그를 재연결하세요',
-        ),
+        _statusMark(Icons.link_off, scheme.error, l10n.markMissing),
       if (folderMode == FolderManageMode.opaque)
         _statusMark(
           Icons.visibility_off_outlined,
           scheme.onSurfaceVariant,
-          '내부 감춤 — 메뉴에서 ‘내부 관리’로 펼치기',
+          l10n.markOpaqueFolder,
         ),
     ];
     if (marks.isEmpty) return title;
@@ -615,8 +616,11 @@ class FileNodeTile extends StatelessWidget {
   ///
   /// 키워드는 경로 계층에 속하지 않아 경로 자리에 이름이 그대로 들어간다 — 이름 칸과
   /// 같은 글자를 두 번 보이느니 종류를 알린다.
-  String get _subtitleText =>
-      displaySubtitle ?? (node.isKeyword ? '키워드' : node.path);
+  String _subtitleTextOf(BuildContext context) =>
+      displaySubtitle ??
+      (node.isKeyword
+          ? AppLocalizations.of(context).subtitleKeyword
+          : node.path);
 
   /// 표시 전용 태그 줄. 칩이 많아도 줄바꿈하지 않고 가로로 스크롤해 행 높이를 지킨다
   /// (목록 수정 모드의 줄과 같은 결 — 거기엔 '+' 버튼만 스크롤 밖에 더 붙는다).
@@ -680,7 +684,10 @@ class FileNodeTile extends StatelessWidget {
         _maybeTagRing(
           visibleTags.length,
           ringColor,
-          CapsuleAddButton(tooltip: '태그 추가', onPressed: onAddTag),
+          CapsuleAddButton(
+            tooltip: AppLocalizations.of(context).commonAddTag,
+            onPressed: onAddTag,
+          ),
         ),
       ],
     );
@@ -820,7 +827,9 @@ class _GroupHeaderTile extends StatelessWidget {
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
                               iconSize: FileNodeTile._caretIcon * scale,
-                              tooltip: expanded ? '접기' : '펼치기',
+                              tooltip: expanded
+                                  ? AppLocalizations.of(context).treeCollapse
+                                  : AppLocalizations.of(context).treeExpand,
                               icon: Icon(
                                 expanded
                                     ? Icons.expand_more
@@ -856,18 +865,19 @@ class _GroupHeaderTile extends StatelessWidget {
   /// 헤더 라벨. 값 있는 버킷은 태그 칩(이름·값)으로, "(미분류)"는 태그 이름에
   /// 미분류 표시를 붙인 흐린 글자로 보인다. 정의를 못 찾으면 삭제된 태그로 표기.
   Widget _label(BuildContext context, ColorScheme scheme) {
+    final l10n = AppLocalizations.of(context);
     final def = definition;
     if (header.isUnclassified) {
-      final name = def?.name ?? '(삭제된 태그)';
+      final name = def?.name ?? l10n.chipDeletedTag;
       return Text(
-        '$name · (미분류)',
+        l10n.groupUnclassified(name),
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: scheme.onSurfaceVariant),
       );
     }
     if (def == null) {
       return Text(
-        '(삭제된 태그)',
+        l10n.chipDeletedTag,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: scheme.onSurfaceVariant),
       );

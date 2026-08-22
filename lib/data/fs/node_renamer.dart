@@ -2,6 +2,25 @@ import 'dart:io';
 
 import 'workspace_path.dart';
 
+/// 이름 변경이 막힌 사유. 문구가 아니라 사유만 알린다 — 사용자에게 무엇으로 보일지는
+/// 화면이 정한다(이 계층은 표시 언어를 모른다).
+enum NodeRenameError {
+  /// 그 자리에 같은 이름의 항목이 이미 있다.
+  targetExists,
+}
+
+/// [NodeRenameError]를 실어 나르는 예외. OS가 거부한 실패([FileSystemException])와
+/// 달리 **앱이 미리 막은** 실패라, 화면이 자기 문구로 옮길 수 있게 사유를 담는다.
+class NodeRenameException implements Exception {
+  const NodeRenameException(this.error, this.path);
+
+  final NodeRenameError error;
+  final String path;
+
+  @override
+  String toString() => 'NodeRenameException(${error.name}, $path)';
+}
+
 /// 파일/폴더 이름을 디스크에서 실제로 바꾸는 dart:io 어댑터. '파일 이름' 시스템
 /// 태그(수정 가능)의 값 편집이 이 rename으로 반영된다. 인덱스(DB)의 경로 재기록은
 /// 저장소(`FileNodeRepository.renameNode`)가 별도로 맡는다.
@@ -9,7 +28,7 @@ class NodeRenamer {
   const NodeRenamer();
 
   /// [oldRelPath]('/' 상대 경로)의 항목을 같은 부모 안에서 [newRelPath]로 옮긴다.
-  /// 대상 이름이 이미 있으면 덮어쓰지 않고 [FileSystemException]을 던진다.
+  /// 대상 이름이 이미 있으면 덮어쓰지 않고 [NodeRenameException]을 던진다.
   Future<void> rename({
     required String workspaceRoot,
     required String oldRelPath,
@@ -20,7 +39,7 @@ class NodeRenamer {
     final newAbs = workspaceAbsolutePath(workspaceRoot, newRelPath);
     if (oldAbs == newAbs) return;
     if (await FileSystemEntity.type(newAbs) != FileSystemEntityType.notFound) {
-      throw FileSystemException('같은 이름의 항목이 이미 있습니다.', newAbs);
+      throw NodeRenameException(NodeRenameError.targetExists, newAbs);
     }
     if (isDirectory) {
       await Directory(oldAbs).rename(newAbs);

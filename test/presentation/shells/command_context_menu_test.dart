@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/presentation/commands/app_commands.dart';
 import 'package:filetagger/presentation/commands/command_scope.dart';
 import 'package:filetagger/presentation/shells/command_context_menu.dart';
@@ -5,6 +6,8 @@ import 'package:filetagger/presentation/shells/menu_model.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/l10n.dart';
 
 /// 메뉴를 띄우는 버튼 하나짜리 화면. 컨텍스트 메뉴는 오버레이가 필요해
 /// [MaterialApp] 안에서 연다.
@@ -15,6 +18,9 @@ Future<void> _pumpMenu(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('ko'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Builder(
           builder: (context) => Align(
@@ -45,8 +51,8 @@ Future<void> _hover(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
-  final create = commandOf(AppCommandId.createKeyword).label;
-  final edit = commandOf(AppCommandId.editKeyword).label;
+  final create = commandOf(AppCommandId.createKeyword).label(koL10n);
+  final edit = commandOf(AppCommandId.editKeyword).label(koL10n);
 
   testWidgets('하위 메뉴는 호버만으로 펼쳐진다', (tester) async {
     await _pumpMenu(
@@ -78,7 +84,10 @@ void main() {
     await _hover(tester, find.text('키워드'));
     expect(find.text(create), findsOneWidget);
 
-    await _hover(tester, find.text(commandOf(AppCommandId.assignTags).label));
+    await _hover(
+      tester,
+      find.text(commandOf(AppCommandId.assignTags).label(koL10n)),
+    );
 
     expect(find.text(create), findsNothing);
     // 부모 메뉴는 그대로 열려 있다.
@@ -172,6 +181,9 @@ void main() {
     var closed = false;
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) => Align(

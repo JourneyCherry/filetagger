@@ -18,6 +18,7 @@ class AppSettings {
   const AppSettings({
     this.recentFolders = const [],
     this.themeMode = ThemeMode.system,
+    this.localeCode,
     this.customTagColors = const [],
   });
 
@@ -27,24 +28,36 @@ class AppSettings {
   /// 라이트/다크 테마 선택. 기본값(시스템)은 OS 밝기 설정을 그대로 따른다.
   final ThemeMode themeMode;
 
+  /// 앱 표시 언어의 로케일 코드. **null이면 OS 설정 언어를 따른다**(기본값) —
+  /// 테마의 시스템 모드와 같은 성격이라 별도의 '시스템' 열거값을 두지 않고 부재로
+  /// 나타낸다. 지원하지 않는 코드가 저장돼 있으면 표시 시점에 걸러진다.
+  final String? localeCode;
+
   /// 태그 색으로 직접 골라 둔 색 목록(최신이 앞). 프리셋 팔레트 옆에 함께 놓여
   /// 다음 태그에도 쓰인다. 폴더가 아니라 여기 있는 이유는 **편집 도구의 상태**라
   /// 사람에게 붙기 때문이다 — 색 자체는 태그 정의에 담겨 폴더와 함께 이동한다.
   final List<int> customTagColors;
 
+  /// [clearLocale]은 '시스템 설정 따르기'로 되돌리는 경로다. null을 그대로 넘기면
+  /// "바꾸지 않음"과 구별되지 않아, 부재로 표현되는 값은 별도 표시가 필요하다.
   AppSettings copyWith({
     List<String>? recentFolders,
     ThemeMode? themeMode,
+    String? localeCode,
+    bool clearLocale = false,
     List<int>? customTagColors,
   }) => AppSettings(
     recentFolders: recentFolders ?? this.recentFolders,
     themeMode: themeMode ?? this.themeMode,
+    localeCode: clearLocale ? null : (localeCode ?? this.localeCode),
     customTagColors: customTagColors ?? this.customTagColors,
   );
 
   Map<String, dynamic> toJson() => {
     'recentFolders': recentFolders,
     'themeMode': themeMode.name,
+    // OS 설정을 따르는 기본 상태는 키 자체를 적지 않는다(부재 = 시스템).
+    if (localeCode != null) 'localeCode': localeCode,
     // 사람이 열어 고칠 수 있는 파일이라 정수가 아니라 16진 표기로 남긴다.
     'customTagColors': [
       for (final argb in customTagColors) tagColorToHex(argb),
@@ -54,6 +67,7 @@ class AppSettings {
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
     recentFolders: (json['recentFolders'] as List?)?.cast<String>() ?? const [],
     themeMode: _themeModeByName(json['themeMode'] as String?),
+    localeCode: json['localeCode'] as String?,
     customTagColors: _colorsFromJson(json['customTagColors']),
   );
 }

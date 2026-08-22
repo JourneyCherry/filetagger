@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../commands/command_scope.dart';
 import 'menu_model.dart';
 
@@ -19,6 +20,7 @@ Future<void> showCommandContextMenu({
   required CommandHandlers handlers,
   required List<MenuNode> items,
 }) {
+  final l10n = AppLocalizations.of(context);
   final overlay = Overlay.of(context);
   final box = overlay.context.findRenderObject() as RenderBox;
   final done = Completer<void>();
@@ -39,7 +41,12 @@ Future<void> showCommandContextMenu({
       onClose: close,
       menuChildren: [
         for (final node in items)
-          materialMenuNode(node, handlers: handlers, showIcons: true),
+          materialMenuNode(
+            node,
+            l10n: l10n,
+            handlers: handlers,
+            showIcons: true,
+          ),
       ],
     ),
   );

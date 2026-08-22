@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
@@ -237,6 +238,9 @@ void main() {
     }) async {
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: FilterQueryField(
               filter: filter,
@@ -305,6 +309,9 @@ void main() {
       // 알림을 입력으로 오인하면 빌드 도중 자동완성 오버레이를 여닫아 죽는다.
       Future<void> pumpWith(List<TagDefinition> defs) => tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: FilterQueryField(
               filter: const FileFilter(

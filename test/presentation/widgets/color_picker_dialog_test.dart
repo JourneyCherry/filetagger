@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/presentation/tag_visuals.dart';
 import 'package:filetagger/presentation/widgets/color_picker_dialog.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,9 @@ Future<_Picked> _open(WidgetTester tester, {int? initialColor}) async {
   final picked = _Picked();
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('ko'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(

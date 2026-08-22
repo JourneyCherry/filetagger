@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/file_node.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'dialog_utils.dart';
 
 /// 재연결 다이얼로그의 결과.
@@ -103,8 +105,9 @@ class _ReconnectDialogState extends State<_ReconnectDialog> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('원본 파일 찾기'),
+      title: Text(l10n.reconnectTitle),
       content: dialogContentBox(
         context,
         width: 460,
@@ -113,28 +116,26 @@ class _ReconnectDialogState extends State<_ReconnectDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "'${widget.missing.name}'의 태그를 옮길 원본 파일을 고르세요. "
-              '이름이 비슷한 후보가 위에 옵니다. 원본이 없으면 "보존 취소"로 '
-              '태그를 제거할 수 있습니다.',
+              l10n.reconnectPrompt(widget.missing.name),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
             TextField(
               autofocus: true,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '경로로 검색',
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: l10n.reconnectSearchHint,
                 isDense: true,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               onChanged: (v) => setState(() => _query = v),
             ),
             const SizedBox(height: 12),
             Flexible(
               child: widget.candidates.isEmpty
-                  ? const Text('연결할 수 있는(태그 없는) 후보 노드가 없습니다.')
+                  ? Text(l10n.reconnectNoCandidates)
                   : filtered.isEmpty
-                  ? const Text('검색 결과가 없습니다.')
+                  ? Text(l10n.reconnectNoMatch)
                   : Scrollbar(
                       child: ListView.builder(
                         shrinkWrap: true,
@@ -164,14 +165,14 @@ class _ReconnectDialogState extends State<_ReconnectDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         TextButton(
           style: TextButton.styleFrom(
             foregroundColor: Theme.of(context).colorScheme.error,
           ),
           onPressed: () => Navigator.of(context).pop(const ReconnectRemove()),
-          child: const Text('보존 취소(제거)'),
+          child: Text(l10n.reconnectRemove),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/node_reveal_provider.dart';
 import '../tag_visuals.dart';
@@ -122,7 +123,7 @@ class AssignedTagChip extends ConsumerWidget {
     if (def.valueType == TagValueType.image) {
       return TagChip(
         definition: def,
-        tooltip: '커스텀 이미지',
+        tooltip: AppLocalizations.of(context).chipCustomImage,
         onPressed: onPressed,
         onDeleted: onDeleted,
       );
@@ -147,9 +148,13 @@ class AssignedTagChip extends ConsumerWidget {
       definition: def,
       // 미해결이라도 원문(경로·키워드 이름)이 있으면 그것을 보인다 — 사람이 읽을 수
       // 있어 무엇을 가리키려던 링크인지 알 수 있다. 떠 버린 id는 뜻이 없어 감춘다.
-      displayValue: tag.valueUnresolved ? raw : (target?.name ?? '(없음)'),
+      displayValue: tag.valueUnresolved
+          ? raw
+          : (target?.name ?? AppLocalizations.of(context).chipLinkNoTarget),
       unresolved: unresolved,
-      tooltip: unresolved ? _unresolvedHint : target?.path,
+      tooltip: unresolved
+          ? AppLocalizations.of(context).chipUnresolvedHint
+          : target?.path,
       onPressed: onPressed,
       // 갈 곳이 있으면 이동, 없으면 재연결. 재연결은 값 편집과 같은 경로다(대상을
       // 다시 고르면 저장소가 미해결 표식을 함께 내린다).
@@ -164,5 +169,3 @@ class AssignedTagChip extends ConsumerWidget {
     );
   }
 }
-
-const String _unresolvedHint = '가리키는 대상을 찾지 못했습니다. 더블클릭해 다시 연결하거나 x로 지웁니다.';

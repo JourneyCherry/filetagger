@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/tag_definition.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/tag_provider.dart';
 import '../tag_visuals.dart';
@@ -68,8 +69,9 @@ class _SubtitleTagDialogState extends ConsumerState<_SubtitleTagDialog> {
           d,
     ];
 
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('부제 태그'),
+      title: Text(l10n.subtitleTagTitle),
       content: dialogContentBox(
         context,
         width: 400,
@@ -78,9 +80,7 @@ class _SubtitleTagDialogState extends ConsumerState<_SubtitleTagDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '목록의 이름 아래 줄에 보일 값의 우선순위입니다. 위에서 아래로 훑어 처음으로 '
-              '글자를 내는 태그의 값을 씁니다. 어느 태그도 못 내면 경로를 씁니다. '
-              '이 설정은 조건 프리셋에 함께 담겨, 프리셋을 부르면 같이 바뀝니다.',
+              l10n.subtitleTagNote,
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -88,8 +88,7 @@ class _SubtitleTagDialogState extends ConsumerState<_SubtitleTagDialog> {
               child: _order.isEmpty
                   ? Center(
                       child: Text(
-                        '지정한 태그가 없습니다. 아래에서 태그를 추가하세요.\n'
-                        '(비우면 경로를 그대로 씁니다.)',
+                        l10n.subtitleTagEmpty,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -105,7 +104,10 @@ class _SubtitleTagDialogState extends ConsumerState<_SubtitleTagDialog> {
             ),
             if (candidates.isNotEmpty) ...[
               const Divider(height: 24),
-              Text('추가할 태그', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                l10n.commonTagToAdd,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 96,
@@ -131,7 +133,7 @@ class _SubtitleTagDialogState extends ConsumerState<_SubtitleTagDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('닫기'),
+          child: Text(l10n.commonClose),
         ),
       ],
     );
@@ -147,13 +149,13 @@ class _SubtitleTagDialogState extends ConsumerState<_SubtitleTagDialog> {
         child: const Icon(Icons.drag_handle),
       ),
       title: def == null
-          ? Text('(없는 태그 $tagId)')
+          ? Text(AppLocalizations.of(context).sourceMissingTag(tagId))
           : Align(
               alignment: Alignment.centerLeft,
               child: TagChip(definition: def),
             ),
       trailing: IconButton(
-        tooltip: '목록에서 빼기',
+        tooltip: AppLocalizations.of(context).commonRemoveFromList,
         icon: const Icon(Icons.close),
         onPressed: () => _remove(tagId),
       ),

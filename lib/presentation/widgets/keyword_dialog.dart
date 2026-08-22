@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+
 import 'dialog_utils.dart';
 
 /// 키워드 다이얼로그 본문의 폭(원하는 값 — 좁은 화면에선 깎인다).
@@ -59,6 +61,7 @@ class _KeywordDialogState extends State<_KeywordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       title: Text(widget.title),
       content: dialogContentBox(
@@ -67,9 +70,9 @@ class _KeywordDialogState extends State<_KeywordDialog> {
         child: TextField(
           controller: _name,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '이름',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.commonName,
+            border: const OutlineInputBorder(),
           ),
           onSubmitted: (_) => _submit(),
           // 확정 버튼의 잠금이 입력에 따라 풀리도록.
@@ -79,7 +82,7 @@ class _KeywordDialogState extends State<_KeywordDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _name.text.trim().isEmpty ? null : _submit,
@@ -94,19 +97,20 @@ class _KeywordDialogState extends State<_KeywordDialog> {
 /// 태그와 그것을 가리키던 링크까지 영향을 받으므로, 조건 프리셋 삭제와 같은 톤으로
 /// 한 번 묻는다.
 Future<bool> confirmKeywordDelete(BuildContext context, String name) async {
+  final l10n = AppLocalizations.of(context);
   final result = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('키워드 삭제'),
-      content: Text("'$name' 키워드와 그 태그를 지웁니다. 되돌릴 수 없습니다."),
+      title: Text(l10n.keywordDeleteTitle),
+      content: Text(l10n.keywordDeleteBody(name)),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('삭제'),
+          child: Text(l10n.commonDelete),
         ),
       ],
     ),

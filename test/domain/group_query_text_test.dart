@@ -31,8 +31,11 @@ const _defs = <TagDefinition>[_label, _text, _number, _spaced, _system];
 
 final _defsById = <int, TagDefinition>{for (final d in _defs) d.id!: d};
 
+/// 폴더 계층 키를 가리키는 이름. 화면이 정하는 값이라 테스트가 직접 준다.
+const _folderName = '폴더 계층';
+
 List<GroupQuerySegment> _parse(String text) =>
-    parseGroupQuery(text, definitions: _defs);
+    parseGroupQuery(text, definitions: _defs, folderHierarchyName: _folderName);
 
 /// 조각 하나짜리 입력이 단계로 접혔는지 확인하고 그 키를 돌려준다.
 GroupKey _key(String text) {
@@ -184,7 +187,7 @@ void main() {
     /// 되펼친 문자열을 다시 파싱하면 같은 키가 나와야 한다.
     void expectRoundTrip(GroupKey key) {
       final def = key is FolderHierarchyGroupKey
-          ? folderHierarchyDefinition
+          ? folderHierarchyDefinition(_folderName)
           : _defsById[(key as TagGroupKey).tagDefinitionId]!;
       final parsed = _key(formatGroupKey(key, def));
       expect(parsed, equals(key));
@@ -198,7 +201,7 @@ void main() {
       expect(
         formatGroupKey(
           const FolderHierarchyGroupKey(),
-          folderHierarchyDefinition,
+          folderHierarchyDefinition(_folderName),
         ),
         '"폴더 계층"',
       );
@@ -219,18 +222,29 @@ void main() {
       const grouping = FileGrouping(
         keys: [FolderHierarchyGroupKey(), TagGroupKey(3)],
       );
-      expect(formatGroupQuery(grouping, _defsById), '"폴더 계층" 평점');
+      expect(
+        formatGroupQuery(grouping, _defsById, folderHierarchyName: _folderName),
+        '"폴더 계층" 평점',
+      );
     });
 
     test('정의가 사라진 태그의 단계는 텍스트에서 빠진다', () {
       const grouping = FileGrouping(keys: [TagGroupKey(99), TagGroupKey(2)]);
-      expect(formatGroupQuery(grouping, _defsById), '메모');
+      expect(
+        formatGroupQuery(grouping, _defsById, folderHierarchyName: _folderName),
+        '메모',
+      );
     });
   });
 
   group('자동완성', () {
     GroupQueryCompletions completions(String text, int cursor) =>
-        groupQueryCompletions(text, cursor, definitions: _defs);
+        groupQueryCompletions(
+          text,
+          cursor,
+          definitions: _defs,
+          folderHierarchyName: _folderName,
+        );
 
     test('빈 자리는 모든 태그와 폴더 계층을 후보로 낸다', () {
       // 사용자·시스템 정의에 폴더 계층 정의가 더해진다.
@@ -245,7 +259,9 @@ void main() {
 
     test('폴더 계층도 이름으로 걸린다', () {
       final c = completions('폴더', 2);
-      expect(c.items.single.definition, folderHierarchyDefinition);
+      // 합성 정의는 부를 때마다 새로 만들어져 값이 같아도 같은 객체가 아니다 —
+      // 어느 키를 가리키는지는 예약 id가 말해 준다.
+      expect(c.items.single.definition.id, kFolderHierarchyGroupId);
       expect(c.items.single.insertText, '"폴더 계층"');
     });
 

@@ -10,6 +10,7 @@ import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/usecases/cell_value_edit.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
 import '../widgets/link_target_picker.dart';
@@ -192,12 +193,13 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
     final selection = ref.watch(selectionControllerProvider);
     final scale = ref.watch(currentViewScaleProvider);
     _displayNames = ref.watch(displayNameByIdProvider);
+    final l10n = AppLocalizations.of(context);
 
-    final columns = _columnsFrom(tagCols);
+    final columns = _columnsFrom(l10n, tagCols);
 
     return rows.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('목록을 불러오지 못했습니다: $e'),
+      error: (e, _) => Text(l10n.listLoadFailed('$e')),
       data: (list) {
         final total = columns.fold<double>(
           0,
@@ -262,24 +264,25 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
 
   /// 고정 '이름' 컬럼 + 태그 컬럼들의 서술자. build와 키보드 핸들러가 같은 컬럼
   /// 집합을 쓰도록 한곳에 둔다.
-  List<_Col> _columnsFrom(List<TagDefinition> tagCols) => [
-    _Col(
-      widthKey: kDetailNameColumnId,
-      sortId: SystemTag.fileName.id,
-      label: '이름',
-      valueType: TagValueType.text,
-      reorderable: false,
-      isName: true,
-    ),
-    for (final d in tagCols)
-      _Col(
-        widthKey: d.id!,
-        sortId: d.id!,
-        label: d.name,
-        valueType: d.valueType,
-        definition: d,
-      ),
-  ];
+  List<_Col> _columnsFrom(AppLocalizations l10n, List<TagDefinition> tagCols) =>
+      [
+        _Col(
+          widthKey: kDetailNameColumnId,
+          sortId: SystemTag.fileName.id,
+          label: l10n.commonName,
+          valueType: TagValueType.text,
+          reorderable: false,
+          isName: true,
+        ),
+        for (final d in tagCols)
+          _Col(
+            widthKey: d.id!,
+            sortId: d.id!,
+            label: d.name,
+            valueType: d.valueType,
+            definition: d,
+          ),
+      ];
 
   // ── 키보드 내비게이션 ──
 
@@ -401,7 +404,10 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
     if (rowId == null) return;
     final node = _nodeById(rowId);
     if (node == null) return;
-    final columns = _columnsFrom(ref.read(detailTagColumnsProvider));
+    final columns = _columnsFrom(
+      AppLocalizations.of(context),
+      ref.read(detailTagColumnsProvider),
+    );
     final col = columns[_cursorCol.clamp(0, columns.length - 1)];
     if (col.editable) {
       final byFile = ref.read(effectiveAssignmentsByFileProvider);
@@ -423,7 +429,10 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
   Future<void> _clearCell() async {
     final rowId = _cursorNodeId;
     if (rowId == null) return;
-    final columns = _columnsFrom(ref.read(detailTagColumnsProvider));
+    final columns = _columnsFrom(
+      AppLocalizations.of(context),
+      ref.read(detailTagColumnsProvider),
+    );
     final col = columns[_cursorCol.clamp(0, columns.length - 1)];
     if (!col.editable) return;
     await ref
@@ -443,7 +452,10 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
   void _revealCol(int colIndex) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_horizontal.hasClients) return;
-      final columns = _columnsFrom(ref.read(detailTagColumnsProvider));
+      final columns = _columnsFrom(
+        AppLocalizations.of(context),
+        ref.read(detailTagColumnsProvider),
+      );
       if (colIndex < 0 || colIndex >= columns.length) return;
       var before = 0.0;
       for (var i = 0; i < colIndex; i++) {
@@ -476,10 +488,11 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
   }
 
   Widget _empty(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final filterActive = !ref.watch(fileFilterProvider).isEmpty;
     return Center(
       child: Text(
-        filterActive ? '필터 조건에 맞는 파일이 없습니다.' : '이 폴더에는 표시할 파일이 없습니다.',
+        filterActive ? l10n.listEmptyFiltered : l10n.listEmptyFolder,
         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
@@ -810,7 +823,8 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
           if (t.tagDefinitionId == col.sortId && t.value != null)
             t.valueUnresolved
                 ? t.value!
-                : byId[int.tryParse(t.value!)]?.name ?? '(없음)',
+                : byId[int.tryParse(t.value!)]?.name ??
+                      AppLocalizations.of(context).chipLinkNoTarget,
       ];
       return names.join(', ');
     }
@@ -1055,8 +1069,15 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
         Offset.zero & overlay.size,
       ),
       items: [
-        const PopupMenuItem(value: 'add', child: Text('추가…')),
-        if (present) const PopupMenuItem(value: 'remove', child: Text('제거')),
+        PopupMenuItem(
+          value: 'add',
+          child: Text(AppLocalizations.of(context).detailColumnAdd),
+        ),
+        if (present)
+          PopupMenuItem(
+            value: 'remove',
+            child: Text(AppLocalizations.of(context).detailColumnRemove),
+          ),
       ],
     );
     if (!mounted) return;

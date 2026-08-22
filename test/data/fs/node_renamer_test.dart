@@ -76,7 +76,7 @@ void main() {
           newRelPath: 'b.txt',
           isDirectory: false,
         ),
-        throwsA(isA<FileSystemException>()),
+        throwsA(isA<NodeRenameException>()),
       );
       // 기존 파일이 보존된다.
       expect(await File(p.join(root.path, 'b.txt')).readAsString(), 'b');

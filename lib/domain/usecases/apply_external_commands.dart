@@ -2,7 +2,6 @@ import '../entities/assigned_tag.dart';
 import '../entities/external_tag_command.dart';
 import '../entities/file_node.dart';
 import '../entities/folder_manage_mode.dart';
-import '../entities/system_tag.dart';
 import '../entities/tag_value_format.dart';
 import '../entities/tag_value_type.dart';
 import '../repositories/command_environment.dart';
@@ -23,6 +22,7 @@ class ApplyExternalCommands {
     required this.nodes,
     required this.tags,
     required this.environment,
+    this.systemTagNames = const {},
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -30,6 +30,11 @@ class ApplyExternalCommands {
   final FileNodeRepository nodes;
   final TagRepository tags;
   final CommandEnvironment environment;
+
+  /// 시스템 태그를 가리키는 이름들. 시스템 태그는 자동 파생이라 외부에서 부여할 수
+  /// 없으므로 이름으로 걸러 낸다 — 이름이 표시 언어를 타는 데다 큐 파일은 어느
+  /// 언어로도 쓰일 수 있어, **지원하는 모든 언어의 이름**을 받아 둔다.
+  final Set<String> systemTagNames;
   final DateTime Function() _now;
 
   /// [rootManageMode]는 루트 폴더의 관리 방식(뷰 설정에 저장된 값)이다. 대상이
@@ -101,7 +106,7 @@ class ApplyExternalCommands {
 
     // 시스템 태그는 자동 파생이라 부여 대상이 아니고, 특히 이름 태그는 편집이
     // 디스크 rename이라 큐가 파일을 옮기는 통로가 된다.
-    if (SystemTag.values.any((t) => t.displayName == command.tagName)) {
+    if (systemTagNames.contains(command.tagName)) {
       return const _Failed(CommandFailureReason.systemTag, _msgSystemTag);
     }
 
@@ -271,7 +276,7 @@ class ApplyExternalCommands {
         id: null,
         failure: _Failed(
           CommandFailureReason.malformed,
-          normalized.error?.message,
+          _keywordNameMessage(normalized.error),
         ),
       );
     }
@@ -295,7 +300,7 @@ class ApplyExternalCommands {
         id: null,
         failure: _Failed(
           CommandFailureReason.targetMissing,
-          created.error?.message ?? _msgNoKeyword,
+          _keywordNameMessage(created.error),
         ),
       );
     }
@@ -368,7 +373,7 @@ class ApplyExternalCommands {
       final name = normalized.name;
       if (name == null) {
         // 이름 자체가 잘못됐다면(구분자가 든 이름 등) 남겨 둘 원문도 없다.
-        return _Resolved(error: normalized.error?.message);
+        return _Resolved(error: _keywordNameMessage(normalized.error));
       }
       final resolved = await _resolveKeyword(
         name,
@@ -474,3 +479,9 @@ const String _msgNoKeyword = '그 이름의 키워드가 없습니다.';
 const String _msgNoLinkKeyword = '링크 대상 키워드를 찾을 수 없습니다: ';
 const String _msgNoLinkTarget = '링크 대상 노드를 찾을 수 없습니다: ';
 const String _msgNoImage = '이미지를 등록하지 못했습니다: ';
+const String _msgBadKeywordName = '키워드 이름 규칙 위반: ';
+
+/// 큐 파일에 남길 키워드 이름 사유. 파일에 적히는 기록이라 화면 문구가 아니라
+/// **사유의 이름**을 붙인다 — 읽는 쪽이 표시 언어를 알 수 없기 때문이다.
+String _keywordNameMessage(KeywordNameError? error) =>
+    error == null ? _msgNoKeyword : '$_msgBadKeywordName${error.name}';

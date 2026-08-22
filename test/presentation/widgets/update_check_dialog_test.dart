@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/app_release.dart';
 import 'package:filetagger/domain/repositories/release_repository.dart';
 import 'package:filetagger/presentation/commands/app_commands.dart';
@@ -6,6 +7,8 @@ import 'package:filetagger/presentation/widgets/update_check_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/l10n.dart';
 
 /// 정해진 릴리즈를 내는 저장소 대역.
 class _FakeReleases implements ReleaseRepository {
@@ -34,6 +37,9 @@ Future<void> _pumpDialog(WidgetTester tester, {String? latest}) async {
         releaseRepositoryProvider.overrideWithValue(_FakeReleases(latest)),
       ],
       child: MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Consumer(
             builder: (context, ref, _) => TextButton(
@@ -54,7 +60,7 @@ void main() {
     await _pumpDialog(tester);
 
     expect(
-      find.text(commandOf(AppCommandId.checkForUpdates).label),
+      find.text(commandOf(AppCommandId.checkForUpdates).label(koL10n)),
       findsOneWidget,
     );
     // 버전이 채워지지 않은 실행이라 견줄 것이 없다는 답이 나와야 한다.

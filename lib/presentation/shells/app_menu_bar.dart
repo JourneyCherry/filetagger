@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform.dart';
 import '../../domain/entities/folder_manage_mode.dart';
 import '../../domain/entities/view_mode.dart';
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../help_topics.dart';
@@ -54,18 +55,22 @@ class AppMenuBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recent = ref.watch(recentFoldersProvider).valueOrNull ?? const [];
+    final l10n = AppLocalizations.of(context);
     final menus = _buildMenus(
+      l10n,
       recent,
       ref.watch(rootManageModeProvider),
       ref.watch(viewModeProvider),
       ref.read(viewSettingsProvider.notifier).updateViewMode,
       ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system,
       ref.read(themeModeProvider.notifier).set,
+      ref.watch(appLocaleProvider).valueOrNull,
+      ref.read(appLocaleProvider.notifier).set,
     );
 
     if (isMacOS) {
       return PlatformMenuBar(
-        menus: [for (final menu in menus) _platformSubmenu(menu)],
+        menus: [for (final menu in menus) _platformSubmenu(menu, l10n)],
         child: child,
       );
     }
@@ -78,7 +83,7 @@ class AppMenuBar extends ConsumerWidget {
               elevation: WidgetStatePropertyAll(0),
               backgroundColor: WidgetStatePropertyAll(Colors.transparent),
             ),
-            children: [for (final menu in menus) _materialNode(menu)],
+            children: [for (final menu in menus) _materialNode(menu, l10n)],
           ),
         ),
         const Divider(),
@@ -90,17 +95,20 @@ class AppMenuBar extends ConsumerWidget {
   /// 메뉴바의 최상위 메뉴들. 최근 폴더·루트 관리 방식은 상태에 따라 달라져 여기서
   /// 조립한다.
   List<MenuSubmenu> _buildMenus(
+    AppLocalizations l10n,
     List<String> recentFolders,
     FolderManageMode rootMode,
     ViewMode viewMode,
     ValueChanged<ViewMode> onSelectViewMode,
     ThemeMode themeMode,
     ValueChanged<ThemeMode> onSelectThemeMode,
+    Locale? locale,
+    ValueChanged<Locale?> onSelectLocale,
   ) {
     return [
-      MenuSubmenu('파일', [
+      MenuSubmenu(l10n.menuFile, [
         const MenuCommand(AppCommandId.openFolder),
-        MenuSubmenu('최근 연 폴더', _recentItems(recentFolders)),
+        MenuSubmenu(l10n.menuRecentFolders, _recentItems(l10n, recentFolders)),
         const MenuDivider(),
         const MenuCommand(AppCommandId.rescan),
         const MenuCommand(AppCommandId.closeFolder),
@@ -109,7 +117,7 @@ class AppMenuBar extends ConsumerWidget {
         const MenuDivider(),
         const MenuCommand(AppCommandId.exitApp),
       ]),
-      MenuSubmenu('편집', [
+      MenuSubmenu(l10n.menuEdit, [
         const MenuCommand(AppCommandId.selectAll),
         const MenuCommand(AppCommandId.clearSelection),
         const MenuDivider(),
@@ -120,17 +128,27 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.toggleExpand),
         const MenuCommand(AppCommandId.revealInFileManager),
         const MenuDivider(),
-        const MenuSubmenu('키워드', [
+        MenuSubmenu(l10n.menuKeyword, const [
           MenuCommand(AppCommandId.createKeyword),
           MenuCommand(AppCommandId.editKeyword),
           MenuCommand(AppCommandId.deleteKeyword),
         ]),
         const MenuDivider(),
-        MenuSubmenu('루트 폴더 관리 방식', _rootManageItems(rootMode)),
+        MenuSubmenu(l10n.menuRootManageMode, _rootManageItems(l10n, rootMode)),
       ]),
-      MenuSubmenu('보기', [
-        MenuSubmenu('보기 모드', _viewModeItems(viewMode, onSelectViewMode)),
-        MenuSubmenu('테마', _themeItems(themeMode, onSelectThemeMode)),
+      MenuSubmenu(l10n.menuView, [
+        MenuSubmenu(
+          l10n.menuViewMode,
+          _viewModeItems(l10n, viewMode, onSelectViewMode),
+        ),
+        MenuSubmenu(
+          l10n.menuTheme,
+          _themeItems(l10n, themeMode, onSelectThemeMode),
+        ),
+        MenuSubmenu(
+          l10n.menuLanguage,
+          _languageItems(l10n, locale, onSelectLocale),
+        ),
         const MenuDivider(),
         const MenuCommand(AppCommandId.togglePreview),
         const MenuDivider(),
@@ -140,15 +158,15 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.toggleSortBar),
         const MenuCommand(AppCommandId.toggleListEdit),
       ]),
-      MenuSubmenu('태그', [
+      MenuSubmenu(l10n.menuTag, [
         const MenuCommand(AppCommandId.manageTags),
         const MenuCommand(AppCommandId.manageNameTags),
         const MenuCommand(AppCommandId.manageSubtitleTags),
         const MenuCommand(AppCommandId.manageThumbnailTags),
       ]),
-      MenuSubmenu('도움말', [
+      MenuSubmenu(l10n.menuHelp, [
         const MenuCommand(AppCommandId.help),
-        MenuSubmenu('항목별 보기', _helpTabItems()),
+        MenuSubmenu(l10n.menuHelpTopics, _helpTabItems(l10n)),
         const MenuDivider(),
         const MenuCommand(AppCommandId.checkForUpdates),
         const MenuCommand(AppCommandId.about),
@@ -159,11 +177,12 @@ class AppMenuBar extends ConsumerWidget {
   /// 파일 목록 보기 모드 선택지(목록/아이콘/자세히). 현재 모드를 체크로 보인다.
   /// 세그먼트 버튼과 라벨·순서를 [viewModeChoices]에서 함께 가져온다.
   List<MenuNode> _viewModeItems(
+    AppLocalizations l10n,
     ViewMode current,
     ValueChanged<ViewMode> onSelect,
   ) {
     return [
-      for (final choice in viewModeChoices)
+      for (final choice in viewModeChoicesOf(l10n))
         MenuChecked(
           choice.label,
           checked: choice.mode == current,
@@ -182,13 +201,14 @@ class AppMenuBar extends ConsumerWidget {
 
   /// 라이트/다크 테마 선택지(시스템/밝게/어둡게). 현재 모드를 체크로 보인다.
   List<MenuNode> _themeItems(
+    AppLocalizations l10n,
     ThemeMode current,
     ValueChanged<ThemeMode> onSelect,
   ) {
-    const labels = {
-      ThemeMode.system: '시스템 설정',
-      ThemeMode.light: '밝게',
-      ThemeMode.dark: '어둡게',
+    final labels = {
+      ThemeMode.system: l10n.themeSystem,
+      ThemeMode.light: l10n.themeLight,
+      ThemeMode.dark: l10n.themeDark,
     };
     return [
       for (final entry in labels.entries)
@@ -200,18 +220,52 @@ class AppMenuBar extends ConsumerWidget {
     ];
   }
 
+  /// 앱 표시 언어 선택지. 첫 항목(시스템 설정)은 OS 설정 언어를 따르는 갈래라 로케일
+  /// 부재로 나타내고, 나머지는 지원 로케일을 그 언어의 자기 이름으로 늘어놓는다.
+  List<MenuNode> _languageItems(
+    AppLocalizations l10n,
+    Locale? current,
+    ValueChanged<Locale?> onSelect,
+  ) {
+    return [
+      MenuChecked(
+        l10n.languageSystem,
+        checked: current == null,
+        onSelected: () => onSelect(null),
+      ),
+      for (final locale in AppLocalizations.supportedLocales)
+        MenuChecked(
+          _languageName(l10n, locale),
+          checked: locale.languageCode == current?.languageCode,
+          onSelected: () => onSelect(locale),
+        ),
+    ];
+  }
+
+  /// 지원 로케일이 스스로를 부르는 이름. 목록에 없는 로케일이 늘면 언어 코드를 그대로
+  /// 보여 항목이 조용히 사라지지 않게 한다.
+  String _languageName(AppLocalizations l10n, Locale locale) =>
+      switch (locale.languageCode) {
+        'ko' => l10n.languageKorean,
+        'en' => l10n.languageEnglish,
+        _ => locale.languageCode,
+      };
+
   /// 루트 폴더의 관리 방식 선택지(재귀 여부). 루트는 불투명이 없어 두 갈래다.
-  List<MenuNode> _rootManageItems(FolderManageMode rootMode) {
+  List<MenuNode> _rootManageItems(
+    AppLocalizations l10n,
+    FolderManageMode rootMode,
+  ) {
     final recursive = rootMode == FolderManageMode.managedRecursive;
     final onSet = onSetRootRecursive;
     return [
       MenuChecked(
-        '직속 항목만 관리',
+        l10n.rootManageDirectOnly,
         checked: !recursive,
         onSelected: onSet == null ? null : () => onSet(false),
       ),
       MenuChecked(
-        '전체 재귀 관리',
+        l10n.rootManageRecursive,
         checked: recursive,
         onSelected: onSet == null ? null : () => onSet(true),
       ),
@@ -222,16 +276,19 @@ class AppMenuBar extends ConsumerWidget {
   ///
   /// 도움말 메뉴에 펼쳐 두지 않고 하위 메뉴로 접는다 — 탭이 늘어도 메뉴가 길어지지 않고,
   /// 도움말 메뉴의 첫 층은 성격이 다른 항목(버전 정보 등)의 자리로 남는다.
-  List<MenuNode> _helpTabItems() {
+  List<MenuNode> _helpTabItems(AppLocalizations l10n) {
     final open = onOpenHelpTab;
     return [
       for (final tab in HelpTab.values)
-        MenuAction(tab.label, open == null ? null : () => open(tab)),
+        MenuAction(tab.label(l10n), open == null ? null : () => open(tab)),
     ];
   }
 
-  List<MenuNode> _recentItems(List<String> recentFolders) {
-    if (recentFolders.isEmpty) return const [MenuAction('없음', null)];
+  List<MenuNode> _recentItems(
+    AppLocalizations l10n,
+    List<String> recentFolders,
+  ) {
+    if (recentFolders.isEmpty) return [MenuAction(l10n.commonNone, null)];
     return [
       for (final folder in recentFolders)
         MenuAction(
@@ -242,21 +299,29 @@ class AppMenuBar extends ConsumerWidget {
   }
 
   /// 메뉴바는 라벨·단축키와, 토글 명령이면 체크만 보인다(아이콘은 툴바의 몫).
-  Widget _materialNode(MenuNode node) =>
-      materialMenuNode(node, handlers: handlers, commandChecks: commandChecks);
+  Widget _materialNode(MenuNode node, AppLocalizations l10n) =>
+      materialMenuNode(
+        node,
+        l10n: l10n,
+        handlers: handlers,
+        commandChecks: commandChecks,
+      );
 
   // ── PlatformMenuBar 렌더(macOS) ──
 
-  PlatformMenu _platformSubmenu(MenuSubmenu submenu) {
+  PlatformMenu _platformSubmenu(MenuSubmenu submenu, AppLocalizations l10n) {
     return PlatformMenu(
       label: submenu.label,
-      menus: _platformGroups(submenu.children),
+      menus: _platformGroups(submenu.children, l10n),
     );
   }
 
   /// 네이티브 메뉴는 구분선을 항목이 아니라 **그룹 경계**로 표현한다. 구분선을
   /// 기준으로 항목들을 잘라 그룹으로 묶는다.
-  List<PlatformMenuItem> _platformGroups(List<MenuNode> nodes) {
+  List<PlatformMenuItem> _platformGroups(
+    List<MenuNode> nodes,
+    AppLocalizations l10n,
+  ) {
     final groups = <PlatformMenuItem>[];
     var current = <PlatformMenuItem>[];
 
@@ -271,12 +336,12 @@ class AppMenuBar extends ConsumerWidget {
         case MenuDivider():
           flush();
         case MenuSubmenu():
-          current.add(_platformSubmenu(node));
+          current.add(_platformSubmenu(node, l10n));
         case MenuCommand(:final id):
           final command = commandOf(id);
           current.add(
             PlatformMenuItem(
-              label: _platformLabel(command.label, commandChecks[id]),
+              label: _platformLabel(command.label(l10n), commandChecks[id]),
               shortcut: command.shortcut,
               onSelected: handlers.handlerOf(id),
             ),

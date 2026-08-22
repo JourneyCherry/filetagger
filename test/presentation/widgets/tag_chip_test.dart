@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
 import 'package:filetagger/domain/entities/node_kind.dart';
@@ -43,6 +44,9 @@ Future<void> _pump(
             ],
           ),
       child: MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(
             child: AssignedTagChip(tag: tag, onPressed: onPressed),

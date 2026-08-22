@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/file_node.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_node_provider.dart';
 import 'dialog_utils.dart';
 import 'file_thumbnail.dart';
@@ -56,9 +57,10 @@ class _LinkTargetPickerState extends ConsumerState<_LinkTargetPicker> {
           ];
 
     final initialId = int.tryParse(widget.initial ?? '');
+    final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: const Text('링크 대상 선택'),
+      title: Text(l10n.linkTargetPickerTitle),
       content: dialogContentBox(
         context,
         width: 420,
@@ -68,10 +70,10 @@ class _LinkTargetPickerState extends ConsumerState<_LinkTargetPicker> {
             TextField(
               controller: _search,
               autofocus: true,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '파일 이름으로 검색',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: l10n.linkTargetSearchHint,
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               onChanged: (v) => setState(() => _query = v),
@@ -79,7 +81,7 @@ class _LinkTargetPickerState extends ConsumerState<_LinkTargetPicker> {
             const SizedBox(height: 8),
             Expanded(
               child: matches.isEmpty
-                  ? const Center(child: Text('일치하는 파일이 없습니다.'))
+                  ? Center(child: Text(l10n.linkTargetNoMatch))
                   : ListView.builder(
                       itemCount: matches.length,
                       itemBuilder: (context, i) =>
@@ -92,7 +94,7 @@ class _LinkTargetPickerState extends ConsumerState<_LinkTargetPicker> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
       ],
     );

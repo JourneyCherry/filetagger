@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../tag_visuals.dart';
 import 'dialog_utils.dart';
 
@@ -126,8 +127,9 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
   @override
   Widget build(BuildContext context) {
     final color = Color(_argb);
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('색 고르기'),
+      title: Text(l10n.colorPickerTitle),
       content: dialogContentBox(
         context,
         width: _dialogWidth,
@@ -171,9 +173,9 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text('확인')),
+        FilledButton(onPressed: _submit, child: Text(l10n.commonOk)),
       ],
     );
   }

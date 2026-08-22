@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../../l10n/app_localizations.dart';
 import '../tag_visuals.dart';
 import 'link_target_picker.dart';
 import 'thumbnail_image_picker.dart';
@@ -95,7 +96,9 @@ class _TextValueDialogState extends State<_TextValueDialog> {
         return;
       }
       if (num.tryParse(text) == null) {
-        setState(() => _error = '숫자를 입력해주세요.');
+        setState(
+          () => _error = AppLocalizations.of(context).tagValueNumberRequired,
+        );
         return;
       }
       Navigator.of(context).pop(TagValueResult(text));
@@ -107,8 +110,9 @@ class _TextValueDialogState extends State<_TextValueDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text('‘${widget.definition.name}’ 값'),
+      title: Text(l10n.tagValuePromptTitle(widget.definition.name)),
       content: TextField(
         controller: _controller,
         autofocus: true,
@@ -119,18 +123,20 @@ class _TextValueDialogState extends State<_TextValueDialog> {
             ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]'))]
             : null,
         decoration: InputDecoration(
-          labelText: '값',
+          labelText: l10n.tagValueField,
           errorText: _error,
-          helperText: _isNumber ? '비워두면 기본값이 채워집니다.' : '빈 값도 저장할 수 있습니다.',
+          helperText: _isNumber
+              ? l10n.tagValueNumberHelper
+              : l10n.tagValueTextHelper,
         ),
         onSubmitted: (_) => _save(),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
-        FilledButton(onPressed: _save, child: const Text('확인')),
+        FilledButton(onPressed: _save, child: Text(l10n.commonOk)),
       ],
     );
   }

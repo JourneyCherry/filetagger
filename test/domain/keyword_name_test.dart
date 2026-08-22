@@ -21,9 +21,12 @@ void main() {
     expect(normalizeKeywordName(r'a\b').error, KeywordNameError.separator);
   });
 
-  test('사유마다 사용자에게 보일 문구가 있다', () {
-    for (final e in KeywordNameError.values) {
-      expect(e.message, isNotEmpty);
-    }
+  test('사유는 서로 구별된다', () {
+    // 문구 자체는 화면(번역본)의 몫이라 여기서 보지 않는다. 사유가 겹치면 화면이
+    // 무엇을 알려야 할지 가릴 수 없으므로 그것만 지킨다.
+    expect(
+      KeywordNameError.values.map((e) => e.name).toSet().length,
+      KeywordNameError.values.length,
+    );
   });
 }

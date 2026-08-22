@@ -8,6 +8,7 @@ import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../../l10n/app_localizations.dart';
 import '../common/capsule_text_field.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/query_preset_provider.dart';
@@ -66,6 +67,7 @@ class FileToolbar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 필터·정렬·그룹은 사용자 태그 + 시스템 태그를 모두 대상으로 고를 수 있다.
+    final l10n = AppLocalizations.of(context);
     final definitions = ref.watch(pickableTagDefinitionsProvider);
     final defsById = ref.watch(definitionsByIdProvider);
     final filter = ref.watch(fileFilterProvider);
@@ -81,7 +83,8 @@ class FileToolbar extends ConsumerWidget {
     final groupCandidates = [
       for (final d in definitions)
         if (d.id != null && !grouping.containsTag(d.id!)) d,
-      if (!grouping.hasFolderHierarchy) folderHierarchyDefinition,
+      if (!grouping.hasFolderHierarchy)
+        folderHierarchyDefinition(l10n.groupFolderHierarchy),
     ];
 
     return Column(
@@ -92,10 +95,10 @@ class FileToolbar extends ConsumerWidget {
         if (showPresets)
           _buildRow(
             context: context,
-            label: '프리셋',
+            label: l10n.rowPresets,
             content: _buildPresetContent(context, ref),
             onAdd: () => showQueryPresetSaveDialog(context, ref),
-            addTooltip: '현재 조건을 프리셋으로 저장',
+            addTooltip: l10n.presetSaveTooltip,
             // 프리셋은 지금 걸린 조건이 아니라 저장해 둔 자산이라, 줄 단위로 한꺼번에
             // 지우는 버튼을 두지 않는다(삭제는 캡슐마다 컨텍스트 메뉴로).
             showClear: false,
@@ -104,7 +107,7 @@ class FileToolbar extends ConsumerWidget {
           if (showPresets) const SizedBox(height: 8),
           _buildRow(
             context: context,
-            label: '필터',
+            label: l10n.rowFilter,
             content: _buildFilterContent(
               context,
               ref,
@@ -115,20 +118,20 @@ class FileToolbar extends ConsumerWidget {
             onAdd: definitions.isEmpty
                 ? null
                 : () => showFilterConditionDialog(context, ref, definitions),
-            addTooltip: '필터 조건 추가',
+            addTooltip: l10n.filterAddTooltip,
             onClear: filter.isEmpty
                 ? null
                 : () => ref
                       .read(viewSettingsProvider.notifier)
                       .updateFilter(const FileFilter()),
-            clearTooltip: '필터 조건 모두 지우기',
+            clearTooltip: l10n.filterClearTooltip,
           ),
         ],
         if (showSort) ...[
           if (showPresets || showFilter) const SizedBox(height: 8),
           _buildRow(
             context: context,
-            label: '정렬',
+            label: l10n.rowSort,
             content: _buildSortContent(
               context,
               ref,
@@ -139,20 +142,20 @@ class FileToolbar extends ConsumerWidget {
             onAdd: sortCandidates.isEmpty
                 ? null
                 : () => _openSortDialog(context, ref, sortCandidates),
-            addTooltip: '정렬 기준 추가',
+            addTooltip: l10n.sortAddTooltip,
             onClear: sort.isEmpty
                 ? null
                 : () => ref
                       .read(viewSettingsProvider.notifier)
                       .updateSort(const FileSortOrder()),
-            clearTooltip: '정렬 기준 모두 지우기',
+            clearTooltip: l10n.sortClearTooltip,
           ),
         ],
         if (showGroup) ...[
           if (showPresets || showFilter || showSort) const SizedBox(height: 8),
           _buildRow(
             context: context,
-            label: '그룹',
+            label: l10n.rowGroup,
             content: _buildGroupContent(
               context,
               ref,
@@ -163,13 +166,13 @@ class FileToolbar extends ConsumerWidget {
             onAdd: groupCandidates.isEmpty
                 ? null
                 : () => _openGroupDialog(context, ref, groupCandidates),
-            addTooltip: '그룹 기준 추가',
+            addTooltip: l10n.groupAddTooltip,
             onClear: grouping.isEmpty
                 ? null
                 : () => ref
                       .read(viewSettingsProvider.notifier)
                       .updateGrouping(const FileGrouping()),
-            clearTooltip: '그룹 기준 모두 지우기',
+            clearTooltip: l10n.groupClearTooltip,
           ),
         ],
       ],
@@ -257,7 +260,7 @@ class FileToolbar extends ConsumerWidget {
     return _buildListContent(
       context,
       isEmpty: presets.isEmpty,
-      emptyHint: kEmptyQueryLabel,
+      emptyHint: emptyQueryLabel(AppLocalizations.of(context)),
       list: QueryPresetRow(presets: presets),
     );
   }
@@ -290,7 +293,7 @@ class FileToolbar extends ConsumerWidget {
     return _buildListContent(
       context,
       isEmpty: filter.isEmpty,
-      emptyHint: kEmptyQueryLabel,
+      emptyHint: emptyQueryLabel(AppLocalizations.of(context)),
       list: _buildFilterList(context, ref, filter, defsById),
     );
   }
@@ -361,7 +364,7 @@ class FileToolbar extends ConsumerWidget {
     return _buildListContent(
       context,
       isEmpty: sort.isEmpty,
-      emptyHint: kEmptyQueryLabel,
+      emptyHint: emptyQueryLabel(AppLocalizations.of(context)),
       list: _buildSortList(context, ref, sort, defsById),
     );
   }
@@ -446,7 +449,7 @@ class FileToolbar extends ConsumerWidget {
     return _buildListContent(
       context,
       isEmpty: grouping.isEmpty,
-      emptyHint: kEmptyQueryLabel,
+      emptyHint: emptyQueryLabel(AppLocalizations.of(context)),
       list: _buildGroupList(context, ref, grouping, defsById),
     );
   }
@@ -776,14 +779,18 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
     if (_needsOperand) {
       if (_type == TagValueType.date) {
         if (_date == null) {
-          setState(() => _error = '날짜를 선택하세요.');
+          setState(
+            () => _error = AppLocalizations.of(context).filterDateRequired,
+          );
           return;
         }
         operand = dateToStoredValue(_date!);
       } else {
         final text = _operand.text.trim();
         if (_type == TagValueType.number && num.tryParse(text) == null) {
-          setState(() => _error = '숫자를 입력하세요.');
+          setState(
+            () => _error = AppLocalizations.of(context).filterNumberRequired,
+          );
           return;
         }
         operand = text;
@@ -802,8 +809,13 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
   @override
   Widget build(BuildContext context) {
     final type = _type;
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text(widget.initial == null ? '필터 조건 추가' : '필터 조건 편집'),
+      title: Text(
+        widget.initial == null
+            ? l10n.filterConditionAddTitle
+            : l10n.filterConditionEditTitle,
+      ),
       content: dialogContentBox(
         context,
         width: 360,
@@ -820,9 +832,15 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
               const SizedBox(height: 16),
               SegmentedButton<bool>(
                 showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: false, label: Text('표시')),
-                  ButtonSegment(value: true, label: Text('제외')),
+                segments: [
+                  ButtonSegment(
+                    value: false,
+                    label: Text(l10n.filterIncludeSegment),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text(l10n.filterExcludeSegment),
+                  ),
                 ],
                 selected: {_exclude},
                 onSelectionChanged: (s) => setState(() => _exclude = s.first),
@@ -833,16 +851,16 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
                 // 만들어(initialValue 재적용) 무효한 선택이 남지 않게 한다.
                 key: ValueKey(_tagId),
                 initialValue: _operator,
-                decoration: const InputDecoration(
-                  labelText: '연산',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.filterOperatorField,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 items: [
                   for (final op in operatorsForType(type))
                     DropdownMenuItem(
                       value: op,
-                      child: Text(filterOperatorMenuLabel(op)),
+                      child: Text(filterOperatorMenuLabel(l10n, op)),
                     ),
                 ],
                 onChanged: (v) {
@@ -851,7 +869,7 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
               ),
               if (_needsOperand) ...[
                 const SizedBox(height: 16),
-                _buildOperandField(type),
+                _buildOperandField(l10n, type),
               ],
             ],
           ],
@@ -860,20 +878,20 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _tagId == null ? null : _save,
-          child: const Text('확인'),
+          child: Text(l10n.commonOk),
         ),
       ],
     );
   }
 
-  Widget _buildOperandField(TagValueType type) {
+  Widget _buildOperandField(AppLocalizations l10n, TagValueType type) {
     if (type == TagValueType.date) {
       final label = _date == null
-          ? '날짜 선택'
+          ? l10n.filterPickDate
           : (formatTagValue(TagValueType.date, dateToStoredValue(_date!)) ??
                 '');
       return Row(
@@ -881,7 +899,7 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
           Expanded(child: Text(label)),
           OutlinedButton.icon(
             icon: const Icon(Icons.calendar_today, size: 16),
-            label: const Text('선택'),
+            label: Text(l10n.filterPickDateButton),
             onPressed: () async {
               final picked = await showDatePicker(
                 context: context,
@@ -914,7 +932,7 @@ class _FilterConditionEditorState extends State<_FilterConditionEditor> {
           ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]'))]
           : null,
       decoration: InputDecoration(
-        labelText: '값',
+        labelText: l10n.filterValueField,
         border: const OutlineInputBorder(),
         isDense: true,
         errorText: _error,
@@ -966,8 +984,9 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('정렬 기준 추가'),
+      title: Text(l10n.sortKeyAddTitle),
       content: dialogContentBox(
         context,
         width: 360,
@@ -984,27 +1003,27 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
               const SizedBox(height: 16),
               if (_isLabel)
                 Text(
-                  '라벨 태그는 정렬 방법과 무관하게 부여된 항목을 위로 정렬합니다.',
+                  l10n.sortLabelNote,
                   style: Theme.of(context).textTheme.bodySmall,
                 )
               else ...[
                 SegmentedButton<SortDirection>(
                   showSelectedIcon: false,
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: SortDirection.ascending,
-                      label: Text('오름차순'),
-                      icon: Icon(Icons.arrow_upward, size: 16),
+                      label: Text(l10n.sortAscending),
+                      icon: const Icon(Icons.arrow_upward, size: 16),
                     ),
                     ButtonSegment(
                       value: SortDirection.descending,
-                      label: Text('내림차순'),
-                      icon: Icon(Icons.arrow_downward, size: 16),
+                      label: Text(l10n.sortDescending),
+                      icon: const Icon(Icons.arrow_downward, size: 16),
                     ),
                     ButtonSegment(
                       value: SortDirection.random,
-                      label: Text('무작위'),
-                      icon: Icon(Icons.shuffle, size: 16),
+                      label: Text(l10n.sortRandom),
+                      icon: const Icon(Icons.shuffle, size: 16),
                     ),
                   ],
                   selected: {_direction},
@@ -1014,8 +1033,7 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
                 if (_direction == SortDirection.random) ...[
                   const SizedBox(height: 8),
                   Text(
-                    '값의 순서 대신 무작위로 섞습니다. 값이 같은 항목끼리는 흐트러지지 않아 '
-                    '뒤 단계의 정렬이 그대로 적용됩니다.',
+                    l10n.sortRandomNote,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -1027,13 +1045,13 @@ class _SortKeyEditorState extends State<_SortKeyEditor> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _tagId == null
               ? null
               : () => Navigator.of(context).pop(_result),
-          child: const Text('추가'),
+          child: Text(l10n.commonAdd),
         ),
       ],
     );
@@ -1057,8 +1075,9 @@ class _GroupKeyEditorState extends State<_GroupKeyEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('그룹 기준 추가'),
+      title: Text(l10n.groupKeyAddTitle),
       content: dialogContentBox(
         context,
         width: 360,
@@ -1071,13 +1090,13 @@ class _GroupKeyEditorState extends State<_GroupKeyEditor> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _tagId == null
               ? null
               : () => Navigator.of(context).pop(groupKeyFromId(_tagId!)),
-          child: const Text('추가'),
+          child: Text(l10n.commonAdd),
         ),
       ],
     );

@@ -26,6 +26,23 @@ FileNode _file({
   missingSince: missingSince,
 );
 
+/// 표시용 정의는 화면 계층이 짓는다(이름이 표시 언어를 타기 때문). 이 테스트는 값
+/// 계산과 id·유형만 보므로 이름 자리에 열거 이름을 넣어 한 벌 만들어 쓴다.
+final _defs = {
+  for (final t in SystemTag.values)
+    t: TagDefinition(
+      id: t.id,
+      name: t.name,
+      valueType: t.valueType,
+      isSystem: true,
+    ),
+};
+
+List<AssignedTag> _systemTags(
+  FileNode node, {
+  List<AssignedTag> assignments = const [],
+}) => systemAssignmentsFor(node, definitions: _defs, assignments: assignments);
+
 void main() {
   test('시스템 태그 id는 안정적인 음수이며 서로 겹치지 않는다', () {
     final ids = SystemTag.values.map((t) => t.id).toList();
@@ -115,9 +132,9 @@ void main() {
       kind: NodeKind.directory,
       modifiedAt: DateTime(2024, 1, 1),
     );
-    final dirTags = systemAssignmentsFor(dir).map((t) => t.tagDefinitionId);
+    final dirTags = _systemTags(dir).map((t) => t.tagDefinitionId);
     expect(dirTags, contains(SystemTag.childFileCount.id));
-    final fileTags = systemAssignmentsFor(
+    final fileTags = _systemTags(
       _file(path: 'a/README'),
     ).map((t) => t.tagDefinitionId);
     expect(fileTags, isNot(contains(SystemTag.childFileCount.id)));
@@ -129,7 +146,7 @@ void main() {
       imageWidth: 4,
       imageHeight: 2,
     ); // 이미지 파일 → 폴더 전용 태그만 빼고 전부
-    final tags = systemAssignmentsFor(node);
+    final tags = _systemTags(node);
     expect(tags.map((t) => t.tagDefinitionId).toSet(), {
       // 노드 종류를 가르는 태그(내부 파일 수량·키워드)는 파일에 붙지 않고, 미해결
       // 링크는 부여 목록에서 나오는 태그라 부여를 넘기지 않으면 붙지 않는다.
@@ -144,7 +161,7 @@ void main() {
     expect(tags.every((t) => t.definition.isSystem), isTrue);
 
     // 이미지가 아니고 확장자도 없는 파일 → 크기·수정시각·이름만.
-    final plain = systemAssignmentsFor(_file(path: 'a/README'));
+    final plain = _systemTags(_file(path: 'a/README'));
     expect(plain.map((t) => t.tagDefinitionId).toSet(), {
       SystemTag.fileSize.id,
       SystemTag.modifiedTime.id,
@@ -204,7 +221,7 @@ void main() {
     });
 
     test('해결된 링크만 있으면 붙지 않는다', () {
-      final tags = systemAssignmentsFor(_file(), assignments: [link('12')]);
+      final tags = _systemTags(_file(), assignments: [link('12')]);
       expect(
         tags.map((t) => t.tagDefinitionId),
         isNot(contains(SystemTag.unresolvedLink.id)),
@@ -212,7 +229,7 @@ void main() {
     });
 
     test('미해결이 하나라도 있으면 노드에 붙는다', () {
-      final tags = systemAssignmentsFor(
+      final tags = _systemTags(
         _file(),
         assignments: [link('12'), link('작가/홍길동', unresolved: true)],
       );
@@ -224,15 +241,13 @@ void main() {
   });
 
   test('systemAssignmentsFor: 미싱 노드와 저장 전(id 없음) 노드는 제외', () {
-    expect(systemAssignmentsFor(_file(missingSince: DateTime(2024))), isEmpty);
-    expect(systemAssignmentsFor(_file(id: null)), isEmpty);
+    expect(_systemTags(_file(missingSince: DateTime(2024))), isEmpty);
+    expect(_systemTags(_file(id: null)), isEmpty);
   });
 
   test('isEditableAssignment: 파일 이름만 편집 가능, 나머지 시스템 태그는 불가', () {
     final tags = {
-      for (final t in systemAssignmentsFor(
-        _file(imageWidth: 4, imageHeight: 2),
-      ))
+      for (final t in _systemTags(_file(imageWidth: 4, imageHeight: 2)))
         t.tagDefinitionId: t,
     };
     expect(isEditableAssignment(tags[SystemTag.fileName.id]!), isTrue);
@@ -243,9 +258,9 @@ void main() {
 
   test('시스템 태그 정의는 회색용(isSystem)·색 미지정이다', () {
     for (final t in SystemTag.values) {
-      expect(t.definition.isSystem, isTrue);
-      expect(t.definition.color, isNull);
-      expect(t.definition.id, t.id);
+      expect(_defs[t]!.isSystem, isTrue);
+      expect(_defs[t]!.color, isNull);
+      expect(_defs[t]!.id, t.id);
     }
     expect(SystemTag.fileSize.valueType, TagValueType.number);
     expect(SystemTag.modifiedTime.valueType, TagValueType.date);

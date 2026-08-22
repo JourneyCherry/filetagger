@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/usecases/merge_tags.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/tag_provider.dart';
@@ -32,7 +33,9 @@ class TagVisibilityToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: visible ? '목록에서 감추기' : '목록에 표시하기',
+      tooltip: visible
+          ? AppLocalizations.of(context).tagVisibilityHide
+          : AppLocalizations.of(context).tagVisibilityShow,
       icon: Icon(
         visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
       ),
@@ -59,6 +62,7 @@ class TagDefinitionActions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // 이 태그로 흡수할 수 있는 다른 태그(값 유형·다중 허용이 같은)가 있을 때만 연다.
+    final l10n = AppLocalizations.of(context);
     final allDefs = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
     final canMerge = mergeTargetsFor(definition, allDefs).isNotEmpty;
     final id = definition.id;
@@ -71,18 +75,18 @@ class TagDefinitionActions extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: canMerge ? '다른 태그를 여기에 합치기' : '합칠 수 있는 태그가 없습니다',
+          tooltip: canMerge ? l10n.tagMergeIntoThis : l10n.tagMergeNoCandidates,
           icon: const Icon(Icons.merge_outlined),
           onPressed: canMerge ? () => openTagMerge(context, definition) : null,
         ),
         IconButton(
-          tooltip: '편집',
+          tooltip: l10n.commonEdit,
           icon: const Icon(Icons.edit_outlined),
           onPressed: () => openTagEditor(context, existing: definition),
         ),
         if (showDelete)
           IconButton(
-            tooltip: '삭제',
+            tooltip: l10n.commonDelete,
             icon: const Icon(Icons.delete_outline),
             onPressed: () => confirmTagDelete(context, ref, definition),
           ),
@@ -164,19 +168,19 @@ class _DeleteConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
       icon: Icon(Icons.warning_amber_rounded, color: scheme.error),
-      title: const Text('태그 삭제'),
+      title: Text(l10n.tagDeleteTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('‘$tagName’ 태그를 삭제합니다.'),
+          Text(l10n.tagDeleteTarget(tagName)),
           const SizedBox(height: 12),
           Text(
-            '$assignedNodes개 파일에 부여된 이 태그의 값이 모두 함께 제거되며, '
-            '되돌릴 수 없습니다.',
+            l10n.tagDeleteWarning(assignedNodes),
             style: TextStyle(color: scheme.error),
           ),
         ],
@@ -184,7 +188,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -192,7 +196,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
             foregroundColor: scheme.onError,
           ),
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('삭제'),
+          child: Text(l10n.commonDelete),
         ),
       ],
     );
@@ -219,6 +223,7 @@ class _MergeDialogState extends ConsumerState<_MergeDialog> {
   @override
   Widget build(BuildContext context) {
     final target = widget.target;
+    final l10n = AppLocalizations.of(context);
     final allDefs = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
     final sources = mergeTargetsFor(target, allDefs);
     // 목록에서 후보가 사라졌으면(다른 곳에서 삭제/편집) 선택에서 걸러낸다.
@@ -226,16 +231,13 @@ class _MergeDialogState extends ConsumerState<_MergeDialog> {
     final selectedValid = _selected.where(sourceIds.contains).toSet();
 
     return AlertDialog(
-      title: Text('‘${target.name}’에 합치기'),
+      title: Text(l10n.tagMergeTitle(target.name)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '아래에서 고른 태그의 부여 기록을 ‘${target.name}’ 태그로 옮기고, 고른 '
-              '태그들은 제거합니다. ‘${target.name}’의 이름과 색이 유지됩니다.',
-            ),
+            Text(l10n.tagMergeDescription(target.name)),
             const SizedBox(height: 12),
             for (final s in sources)
               CheckboxListTile(
@@ -260,8 +262,7 @@ class _MergeDialogState extends ConsumerState<_MergeDialog> {
             if (!target.allowMultiple) ...[
               const SizedBox(height: 8),
               Text(
-                '같은 파일에 두 태그가 모두 있으면 ‘${target.name}’의 값을 유지하고 '
-                '합쳐지는 태그 쪽 값은 버립니다.',
+                l10n.tagMergeSingleValueNote(target.name),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -278,19 +279,20 @@ class _MergeDialogState extends ConsumerState<_MergeDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _saving || selectedValid.isEmpty
               ? null
               : () => _merge(selectedValid),
-          child: const Text('합치기'),
+          child: Text(l10n.tagMergeConfirm),
         ),
       ],
     );
   }
 
   Future<void> _merge(Set<int> sourceIds) async {
+    final l10n = AppLocalizations.of(context);
     final targetId = widget.target.id;
     if (targetId == null || sourceIds.isEmpty) return;
     final repo = ref.read(tagRepositoryProvider);
@@ -308,7 +310,7 @@ class _MergeDialogState extends ConsumerState<_MergeDialog> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        setState(() => _error = '합치지 못했습니다: $e');
+        setState(() => _error = l10n.tagMergeFailed('$e'));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -354,9 +356,10 @@ class _DefinitionEditorDialogState
   }
 
   Future<void> _save() async {
+    final l10n = AppLocalizations.of(context);
     final name = _name.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = '이름을 입력해주세요.');
+      setState(() => _error = l10n.tagNameRequired);
       return;
     }
     final repo = ref.read(tagRepositoryProvider);
@@ -389,7 +392,7 @@ class _DefinitionEditorDialogState
     } catch (e) {
       // 이름 유니크 제약 위반 등.
       if (mounted) {
-        setState(() => _error = '저장하지 못했습니다(이름이 중복일 수 있습니다).');
+        setState(() => _error = l10n.tagSaveFailed);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -398,8 +401,9 @@ class _DefinitionEditorDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text(_isEdit ? '태그 편집' : '새 태그'),
+      title: Text(_isEdit ? l10n.tagEditTitle : l10n.commonNewTag),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -408,23 +412,26 @@ class _DefinitionEditorDialogState
             TextField(
               controller: _name,
               autofocus: true,
-              decoration: const InputDecoration(labelText: '이름'),
+              decoration: InputDecoration(labelText: l10n.commonName),
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<TagValueType>(
               initialValue: _valueType,
-              decoration: const InputDecoration(labelText: '값 유형'),
+              decoration: InputDecoration(labelText: l10n.tagValueTypeField),
               items: [
                 for (final t in TagValueType.values)
-                  DropdownMenuItem(value: t, child: Text(tagValueTypeLabel(t))),
+                  DropdownMenuItem(
+                    value: t,
+                    child: Text(tagValueTypeLabel(l10n, t)),
+                  ),
               ],
               onChanged: _saving
                   ? null
                   : (v) => setState(() => _valueType = v ?? _valueType),
             ),
             const SizedBox(height: 16),
-            const Text('색상'),
+            Text(l10n.tagColorField),
             const SizedBox(height: 8),
             _ColorPicker(
               selected: _color,
@@ -433,8 +440,8 @@ class _DefinitionEditorDialogState
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('다중 부여 허용'),
-              subtitle: const Text('한 파일에 이 태그를 여러 번 붙일 수 있게 합니다.'),
+              title: Text(l10n.tagAllowMultiple),
+              subtitle: Text(l10n.tagAllowMultipleDetail),
               value: _allowMultiple,
               onChanged: _saving
                   ? null
@@ -453,11 +460,11 @@ class _DefinitionEditorDialogState
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _saving ? null : _save,
-          child: const Text('저장'),
+          child: Text(l10n.commonSave),
         ),
       ],
     );
@@ -518,7 +525,7 @@ class _ColorPicker extends ConsumerWidget {
         ? selected
         : null;
     return Tooltip(
-      message: '직접 고르기',
+      message: AppLocalizations.of(context).tagColorCustom,
       child: _swatch(
         context,
         color: unlisted,

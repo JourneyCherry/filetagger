@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/constants.dart';
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../common/pointer_presence.dart';
@@ -69,13 +70,14 @@ class MobileShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return PointerPresenceDetector(
       child: CommandScope(
         handlers: handlers,
         onCharacter: onCharacter,
         child: Scaffold(
-          appBar: _selecting ? _selectionAppBar(context) : _normalAppBar(),
-          floatingActionButton: _floatingAction(),
+          appBar: _selecting ? _selectionAppBar(l10n) : _normalAppBar(l10n),
+          floatingActionButton: _floatingAction(l10n),
           body: SafeArea(child: body),
         ),
       ),
@@ -91,7 +93,7 @@ class MobileShell extends StatelessWidget {
         )
       : null;
 
-  AppBar _normalAppBar() {
+  AppBar _normalAppBar(AppLocalizations l10n) {
     final root = workspaceRoot;
     return AppBar(
       title: Text(root == null ? appDisplayName : p.basename(root)),
@@ -100,53 +102,58 @@ class MobileShell extends StatelessWidget {
         if (root != null) ...[
           IconButton(
             icon: const Icon(Icons.tune),
-            tooltip: '필터 · 정렬',
+            tooltip: l10n.mobileFilterSort,
             onPressed: onOpenFilterSheet,
           ),
         ],
-        _overflowMenu(),
+        _overflowMenu(l10n),
       ],
     );
   }
 
   /// 선택이 있을 때의 컨텍스트 AppBar. 닫기(해제) · 선택 수 · 일괄 액션을 보인다.
-  AppBar _selectionAppBar(BuildContext context) {
+  AppBar _selectionAppBar(AppLocalizations l10n) {
     final reconnect = commandOf(AppCommandId.reconnect);
     final selectAll = commandOf(AppCommandId.selectAll);
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.close),
-        tooltip: commandOf(AppCommandId.clearSelection).label,
+        tooltip: commandOf(AppCommandId.clearSelection).label(l10n),
         onPressed: handlers.clearSelection,
       ),
-      title: Text('$selectionCount개 선택'),
+      title: Text(l10n.mobileSelectedCount(selectionCount)),
       bottom: _progress,
       actions: [
         // 연결 끊긴 노드 하나면 태그 부여(FAB) 대신 원본 찾기로 안내한다.
         if (handlers.reconnect != null)
           IconButton(
             icon: Icon(reconnect.icon),
-            tooltip: reconnect.label,
+            tooltip: reconnect.label(l10n),
             onPressed: handlers.reconnect,
           ),
         IconButton(
           icon: Icon(selectAll.icon),
-          tooltip: selectAll.label,
+          tooltip: selectAll.label(l10n),
           onPressed: handlers.selectAll,
         ),
       ],
     );
   }
 
-  Widget _overflowMenu() {
+  Widget _overflowMenu(AppLocalizations l10n) {
     return MenuAnchor(
       menuChildren: [
         for (final node in _overflowCommands)
-          materialMenuNode(node, handlers: handlers, showIcons: true),
+          materialMenuNode(
+            node,
+            l10n: l10n,
+            handlers: handlers,
+            showIcons: true,
+          ),
       ],
       builder: (_, controller, _) => IconButton(
         icon: const Icon(Icons.more_vert),
-        tooltip: '더 보기',
+        tooltip: l10n.mobileMore,
         onPressed: () =>
             controller.isOpen ? controller.close() : controller.open(),
       ),
@@ -155,12 +162,12 @@ class MobileShell extends StatelessWidget {
 
   /// 선택이 있으면 태그 부여, 빈 상태면 폴더 열기. 그 밖에는 FAB를 두지 않는다
   /// (목록만 보는 동안 마지막 행을 가리지 않도록).
-  Widget? _floatingAction() {
+  Widget? _floatingAction(AppLocalizations l10n) {
     if (_selecting) {
       final assign = commandOf(AppCommandId.assignTags);
       return FloatingActionButton(
         onPressed: handlers.assignTags,
-        tooltip: assign.label,
+        tooltip: assign.label(l10n),
         child: Icon(assign.icon),
       );
     }
@@ -169,7 +176,7 @@ class MobileShell extends StatelessWidget {
       return FloatingActionButton.extended(
         onPressed: handlers.openFolder,
         icon: Icon(open.icon),
-        label: Text(open.label),
+        label: Text(open.label(l10n)),
       );
     }
     return null;

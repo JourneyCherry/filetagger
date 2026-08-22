@@ -9,18 +9,25 @@ import '../../domain/usecases/tag_display_order.dart';
 import '../tag_visuals.dart';
 import 'file_node_provider.dart';
 import 'file_view_provider.dart';
+import 'l10n_provider.dart';
 import 'tag_provider.dart';
 
-/// 모든 시스템 태그의 표시용 정의(정적). 선택기·정의맵 병합에 쓴다.
+/// 시스템 태그 → 표시용 정의. 이름이 표시 언어를 타므로 번역본에서 파생한다.
+final systemTagDefinitionsByTagProvider =
+    Provider<Map<SystemTag, TagDefinition>>(
+      (ref) => systemTagDefinitionsByTag(ref.watch(appLocalizationsProvider)),
+    );
+
+/// 모든 시스템 태그의 표시용 정의 목록. 선택기·정의맵 병합에 쓴다.
 final systemTagDefinitionsProvider = Provider<List<TagDefinition>>(
-  (ref) => systemTagDefinitions,
+  (ref) => ref.watch(systemTagDefinitionsByTagProvider).values.toList(),
 );
 
 /// 사용자 정의 태그 + 시스템 태그를 합친, 필터·정렬에서 **고를 수 있는** 태그 목록.
 /// 관리 화면의 CRUD 목록([tagDefinitionsProvider])과 달리 시스템 태그를 포함한다.
 final pickableTagDefinitionsProvider = Provider<List<TagDefinition>>((ref) {
   final user = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
-  return [...user, ...systemTagDefinitions];
+  return [...user, ...ref.watch(systemTagDefinitionsProvider)];
 });
 
 /// 표시할 시스템 태그 id 집합(보기 설정 파생). 목록·프리뷰 칩 렌더 필터에 쓴다.
@@ -79,12 +86,14 @@ final _systemAssignmentsByFileProvider = Provider<Map<int, List<AssignedTag>>>((
 ) {
   final nodes = ref.watch(fileNodesProvider).valueOrNull ?? const [];
   final resolvedUser = ref.watch(_resolvedUserAssignmentsProvider);
+  final definitions = ref.watch(systemTagDefinitionsByTagProvider);
   final result = <int, List<AssignedTag>>{};
   for (final node in nodes) {
     final id = node.id;
     if (id == null) continue;
     final system = systemAssignmentsFor(
       node,
+      definitions: definitions,
       assignments: resolvedUser[id] ?? const [],
     );
     if (system.isNotEmpty) result[id] = system;

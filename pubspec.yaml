@@ -30,6 +30,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # 로컬라이제이션 델리게이트(Material/Cupertino/Widgets 기본 문자열 + 날짜·숫자
+  # 형식의 로케일 자료). Flutter SDK 자체가 내는 공식 패키지다.
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -52,7 +56,9 @@ dependencies:
   # 목록 값 동등성(ListEquality). Dart 팀 공식 패키지(publisher dart.dev).
   collection: ^1.19.1
   # 날짜 표시 형식(DateFormat). Dart 팀 공식(publisher dart.dev).
-  intl: ^0.20.3
+  # 상한이 아니라 하한만 두는 이유: flutter_localizations가 SDK에 실린 버전으로
+  # intl을 고정하므로, 그보다 높은 하한을 걸면 해석이 실패한다.
+  intl: ^0.20.2
   # 내용 해시(md5). Dart 팀 공식(publisher dart.dev).
   crypto: ^3.0.7
   # 업데이트 확인의 릴리즈 조회(HTTP). Dart 팀 공식(publisher dart.dev).
@@ -93,6 +99,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # ARB에서 `AppLocalizations`를 생성한다(설정은 l10n.yaml).
+  generate: true
 
   # 앱 자신의 라이선스 원문. 정보 다이얼로그의 라이선스 목록이 읽는다(의존 패키지의
   # 라이선스는 빌드가 자동으로 모으지만 앱 자신의 것은 실리지 않는다).

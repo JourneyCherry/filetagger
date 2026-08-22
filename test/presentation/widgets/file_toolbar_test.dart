@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/file_grouping.dart';
 import 'package:filetagger/domain/entities/file_sort.dart';
@@ -7,13 +8,14 @@ import 'package:filetagger/domain/entities/workspace_view_settings.dart';
 import 'package:filetagger/domain/repositories/view_settings_repository.dart';
 import 'package:filetagger/presentation/providers/file_view_provider.dart';
 import 'package:filetagger/presentation/providers/tag_provider.dart';
-import 'package:filetagger/presentation/tag_visuals.dart';
 import 'package:filetagger/presentation/widgets/file_toolbar.dart';
 import 'package:filetagger/presentation/widgets/filter_condition_chip.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/l10n.dart';
 
 const _rating = TagDefinition(
   id: 1,
@@ -48,6 +50,9 @@ Future<void> pumpToolbar(WidgetTester tester, FileFilter filter) async {
         tagDefinitionsProvider.overrideWith((ref) => Stream.value([_rating])),
       ],
       child: const MaterialApp(
+        locale: Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -84,6 +89,9 @@ Future<void> pumpGroupToolbar(
         tagDefinitionsProvider.overrideWith((ref) => Stream.value([_rating])),
       ],
       child: const MaterialApp(
+        locale: Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -123,6 +131,9 @@ Future<ProviderContainer> pumpFullToolbar(WidgetTester tester) async {
     UncontrolledProviderScope(
       container: container,
       child: const MaterialApp(
+        locale: Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -206,7 +217,7 @@ void main() {
     await pumpToolbar(tester, const FileFilter());
 
     expect(isEditing(tester), isTrue);
-    expect(find.text(kEmptyQueryLabel), findsOneWidget);
+    expect(find.text(koL10n.queryEmpty), findsOneWidget);
   });
 
   desktopTestWidgets('그룹 줄은 기본(폴더 계층) 키를 칩으로 그린다', (tester) async {
@@ -214,7 +225,7 @@ void main() {
 
     // 폴더 계층 키 하나가 칩(손잡이·x 포함)으로 보이고 텍스트 입력은 아니다.
     expect(isEditing(tester), isFalse);
-    expect(find.text('폴더 계층'), findsOneWidget);
+    expect(find.text(koL10n.groupFolderHierarchy), findsOneWidget);
     expect(find.byIcon(Icons.drag_indicator), findsOneWidget);
     expect(find.byIcon(Icons.cancel), findsOneWidget);
   });
@@ -223,7 +234,7 @@ void main() {
     await pumpGroupToolbar(tester, grouping: const FileGrouping());
 
     expect(isEditing(tester), isTrue);
-    expect(find.text(kEmptyQueryLabel), findsOneWidget);
+    expect(find.text(koL10n.queryEmpty), findsOneWidget);
   });
 
   desktopTestWidgets('모두 지우기는 그 줄만 비운다', (tester) async {

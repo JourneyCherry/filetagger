@@ -10,6 +10,7 @@ import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/usecases/thumbnail_cache.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/workspace_provider.dart';
@@ -139,6 +140,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final repo = ref.watch(tagRepositoryProvider);
     final definitions =
         ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
@@ -156,10 +158,10 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('부여된 태그', style: Theme.of(context).textTheme.labelLarge),
+        Text(l10n.assignedTags, style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
         if (selectedAssignments.isEmpty)
-          const Text('아직 부여된 태그가 없습니다.')
+          Text(l10n.assignedTagsEmpty)
         else if (_isSingle)
           _buildSingleFileTags(selectedAssignments)
         else
@@ -172,10 +174,10 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 32),
-        Text('태그 추가', style: Theme.of(context).textTheme.labelLarge),
+        Text(l10n.commonAddTag, style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
         if (definitions.isEmpty)
-          const Text('먼저 태그 관리에서 태그를 만들어주세요.')
+          Text(l10n.assignNoDefinitions)
         else
           _buildAddSection(definitions),
       ],
@@ -200,7 +202,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       actions: [
         TextButton(
           onPressed: repo == null ? null : () => Navigator.of(context).pop(),
-          child: const Text('닫기'),
+          child: Text(l10n.commonClose),
         ),
       ],
     );
@@ -274,9 +276,10 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
         : null;
     final mixedValue = def.hasValue && distinctValues.length > 1;
 
+    final l10n = AppLocalizations.of(context);
     final subtitleParts = <String>[
-      '$fileCount/$totalFiles 파일',
-      if (mixedValue) '값 혼합',
+      l10n.assignFileCount(fileCount, totalFiles),
+      if (mixedValue) l10n.assignMixedValue,
     ];
 
     return ListTile(
@@ -294,12 +297,12 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
         children: [
           if (def.hasValue && !def.allowMultiple)
             IconButton(
-              tooltip: '값을 모두 이 값으로 설정',
+              tooltip: l10n.assignSetValueForAll,
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => _setValueForAll(def, initial: commonValue),
             ),
           IconButton(
-            tooltip: '모두 해제',
+            tooltip: l10n.assignUnassignAll,
             icon: const Icon(Icons.delete_outline),
             onPressed: () => _unassignAll(def),
           ),
@@ -336,7 +339,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           alignment: Alignment.centerRight,
           child: FilledButton(
             onPressed: def == null ? null : () => _addSelected(def),
-            child: const Text('부여'),
+            child: Text(AppLocalizations.of(context).assignConfirm),
           ),
         ),
       ],
@@ -349,7 +352,8 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       final target = _addLinkId == null
           ? null
           : byId[int.tryParse(_addLinkId!)];
-      final label = target?.name ?? '대상 미선택';
+      final label =
+          target?.name ?? AppLocalizations.of(context).assignLinkNoTarget;
       return Row(
         children: [
           Expanded(
@@ -364,7 +368,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           ),
           OutlinedButton.icon(
             icon: const Icon(Icons.link, size: 16),
-            label: const Text('대상 선택'),
+            label: Text(AppLocalizations.of(context).assignLinkPick),
             onPressed: () async {
               final picked = await pickLinkTarget(context, initial: _addLinkId);
               if (picked != null) setState(() => _addLinkId = picked);
@@ -398,14 +402,14 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
             padding: const EdgeInsets.all(4),
             child: preview == null
                 ? Text(
-                    '이미지 없음',
+                    AppLocalizations.of(context).assignNoImage,
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   )
                 : Image.file(
                     File(preview),
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => Text(
-                      '이미지 없음',
+                      AppLocalizations.of(context).assignNoImage,
                       style: TextStyle(color: scheme.onSurfaceVariant),
                     ),
                   ),
@@ -415,7 +419,11 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
             alignment: Alignment.centerRight,
             child: OutlinedButton.icon(
               icon: const Icon(Icons.image_outlined, size: 16),
-              label: Text(_addImageKey == null ? '이미지 선택' : '이미지 변경'),
+              label: Text(
+                _addImageKey == null
+                    ? AppLocalizations.of(context).assignImagePick
+                    : AppLocalizations.of(context).assignImageChange,
+              ),
               onPressed: () async {
                 final key = await pickAndRegisterThumbnailImage(context, ref);
                 if (key != null) setState(() => _addImageKey = key);
@@ -428,7 +436,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
 
     if (def.valueType == TagValueType.date) {
       final label = _addDate == null
-          ? '오늘 (미선택)'
+          ? AppLocalizations.of(context).assignDateToday
           : (formatTagValue(TagValueType.date, dateToStoredValue(_addDate!)) ??
                 '');
       return Row(
@@ -436,7 +444,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           Expanded(child: Text(label)),
           OutlinedButton.icon(
             icon: const Icon(Icons.calendar_today, size: 16),
-            label: const Text('날짜 선택'),
+            label: Text(AppLocalizations.of(context).filterPickDate),
             onPressed: () async {
               final picked = await showDatePicker(
                 context: context,
@@ -451,6 +459,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
       );
     }
 
+    final l10n = AppLocalizations.of(context);
     final isNumber = def.valueType == TagValueType.number;
     return TextField(
       controller: _addValue,
@@ -461,11 +470,13 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]'))]
           : null,
       decoration: InputDecoration(
-        labelText: '값',
+        labelText: l10n.tagValueField,
         border: const OutlineInputBorder(),
         isDense: true,
         errorText: _addError,
-        helperText: isNumber ? '비워두면 기본값이 채워집니다.' : '빈 값도 저장할 수 있습니다.',
+        helperText: isNumber
+            ? l10n.tagValueNumberHelper
+            : l10n.tagValueTextHelper,
       ),
       onSubmitted: (_) => _addSelected(def),
     );
@@ -481,6 +492,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   }
 
   Future<void> _addSelected(TagDefinition def) async {
+    final l10n = AppLocalizations.of(context);
     final id = def.id;
     if (id == null) return;
     String? value;
@@ -494,7 +506,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           if (text.isEmpty) {
             value = '0'; // 미입력 시 기본값(빈 값 방지).
           } else if (num.tryParse(text) == null) {
-            setState(() => _addError = '숫자를 입력하세요.');
+            setState(() => _addError = l10n.filterNumberRequired);
             return;
           } else {
             value = text;
@@ -503,13 +515,13 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
           value = _addValue.text.trim(); // 빈 문자열도 유효.
         case TagValueType.link:
           if (_addLinkId == null) {
-            setState(() => _addError = '링크 대상을 선택하세요.');
+            setState(() => _addError = l10n.assignLinkRequired);
             return;
           }
           value = _addLinkId;
         case TagValueType.image:
           if (_addImageKey == null) {
-            setState(() => _addError = '이미지를 선택하세요.');
+            setState(() => _addError = l10n.assignImageRequired);
             return;
           }
           value = _addImageKey;

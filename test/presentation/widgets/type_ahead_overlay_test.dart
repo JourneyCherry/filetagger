@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/presentation/common/type_ahead.dart';
 import 'package:filetagger/presentation/widgets/type_ahead_overlay.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +35,12 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: TypeAheadOverlay(child: _Probe())),
+        child: const MaterialApp(
+          locale: Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: TypeAheadOverlay(child: _Probe()),
+        ),
       ),
     );
     expect(_probeInits, 1);

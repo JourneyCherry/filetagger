@@ -16,9 +16,12 @@ const int kFolderHierarchyGroupId = -100;
 ///
 /// 필터·정렬 피커엔 나오지 않고 그룹 피커에서만 후보가 된다. 값이 없는 구조적
 /// 키라 label로 두고, 시스템 소유로 표시해 사용자 CRUD 대상에서 뺀다.
-const TagDefinition folderHierarchyDefinition = TagDefinition(
+///
+/// 이름은 표시 언어에 따라 갈려 이 계층이 스스로 짓지 못한다 — 사용자가 조건 줄에
+/// 그 이름을 그대로 치기도 하므로, 화면이 쓰는 것과 **같은 이름**을 받아야 한다.
+TagDefinition folderHierarchyDefinition(String name) => TagDefinition(
   id: kFolderHierarchyGroupId,
-  name: '폴더 계층',
+  name: name,
   valueType: TagValueType.label,
   isSystem: true,
 );

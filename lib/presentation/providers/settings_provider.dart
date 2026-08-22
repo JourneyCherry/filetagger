@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart' show ThemeMode;
+import 'package:flutter/material.dart' show Locale, ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/settings/app_settings_store.dart';
+import '../../l10n/app_localizations.dart';
 import '../tag_visuals.dart';
 
 /// 머신 단위 전역 설정 저장소(배포 형태별 위치의 JSON).
@@ -140,4 +141,42 @@ class ThemeModeNotifier extends AsyncNotifier<ThemeMode> {
     state = AsyncData(mode);
     await _updateSettings(ref, (s) => s.copyWith(themeMode: mode));
   }
+}
+
+/// 앱 표시 언어. **null이면 OS 설정 언어를 따른다**(기본값). 테마와 같은 머신 단위
+/// 전역 설정으로 [appSettingsStoreProvider]에 영속화된다 — 사람에게 붙는 설정이라
+/// 관리 폴더가 아니라 여기 있다.
+final appLocaleProvider = AsyncNotifierProvider<AppLocaleNotifier, Locale?>(
+  AppLocaleNotifier.new,
+);
+
+class AppLocaleNotifier extends AsyncNotifier<Locale?> {
+  AppSettingsStore get _store => ref.read(appSettingsStoreProvider);
+
+  @override
+  Future<Locale?> build() async =>
+      _supportedLocale((await _store.load()).localeCode);
+
+  /// 표시 언어를 바꾸고 저장한다. null은 '시스템 설정 따르기'로 되돌리는 것이라
+  /// 저장에서도 값을 지운다.
+  Future<void> set(Locale? locale) async {
+    state = AsyncData(locale);
+    await _updateSettings(
+      ref,
+      (s) => locale == null
+          ? s.copyWith(clearLocale: true)
+          : s.copyWith(localeCode: locale.languageCode),
+    );
+  }
+}
+
+/// 저장된 언어 코드를 지원 로케일 하나로 되돌린다. 지원하지 않는 코드(손으로 고쳤거나
+/// 지원이 빠진 언어)는 null로 눕혀 OS 설정을 따르게 한다 — 뜻을 알 수 없는 값 때문에
+/// 앱이 빈 화면을 보이는 것보다 낫다.
+Locale? _supportedLocale(String? code) {
+  if (code == null) return null;
+  for (final locale in AppLocalizations.supportedLocales) {
+    if (locale.languageCode == code) return locale;
+  }
+  return null;
 }

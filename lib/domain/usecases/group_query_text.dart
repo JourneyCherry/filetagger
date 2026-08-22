@@ -64,8 +64,13 @@ final class GroupQueryFragment extends GroupQuerySegment {
 
 /// 이름 해석의 대상 표. 폴더 계층 정의를 **항상** 끼워 넣어 폴더 키가 늘 유효한
 /// 그룹 키로 해석되게 한다(사용자가 같은 이름의 태그를 만들어도 폴더 키가 이긴다).
-Map<String, TagDefinition> _groupNames(Iterable<TagDefinition> definitions) =>
-    tagsByName([...definitions, folderHierarchyDefinition]);
+Map<String, TagDefinition> _groupNames(
+  Iterable<TagDefinition> definitions,
+  String folderHierarchyName,
+) => tagsByName([
+  ...definitions,
+  folderHierarchyDefinition(folderHierarchyName),
+]);
 
 /// 텍스트 한 줄을 조각 목록으로 읽는다. [definitions]는 이름 해석의 대상이며,
 /// 시스템 태그(음수 id)도 함께 넘겨야 이름으로 찾을 수 있다. 폴더 계층 정의는
@@ -73,8 +78,9 @@ Map<String, TagDefinition> _groupNames(Iterable<TagDefinition> definitions) =>
 List<GroupQuerySegment> parseGroupQuery(
   String text, {
   required Iterable<TagDefinition> definitions,
+  required String folderHierarchyName,
 }) {
-  final byName = _groupNames(definitions);
+  final byName = _groupNames(definitions, folderHierarchyName);
   // 폴더 키는 최대 1회다 — 두 번째부터는 유효한 이름이라도 무효 조각으로 남긴다.
   // 태그 키의 중복은 결과를 바꾸지 않는 no-op이라 접힌 채 두고 저장에서만 버린다.
   var seenFolder = false;
@@ -154,11 +160,12 @@ String formatGroupKey(GroupKey key, TagDefinition def) => groupTagToken(def);
 /// 합성 정의로 늘 되돌릴 수 있다.
 String formatGroupQuery(
   FileGrouping grouping,
-  Map<int, TagDefinition> definitionsById,
-) {
+  Map<int, TagDefinition> definitionsById, {
+  required String folderHierarchyName,
+}) {
   final parts = <String>[];
   for (final key in grouping.keys) {
-    final def = _definitionFor(key, definitionsById);
+    final def = _definitionFor(key, definitionsById, folderHierarchyName);
     if (def != null) parts.add(groupTagToken(def));
   }
   return parts.join(kQuerySeparator);
@@ -167,8 +174,9 @@ String formatGroupQuery(
 TagDefinition? _definitionFor(
   GroupKey key,
   Map<int, TagDefinition> definitionsById,
+  String folderHierarchyName,
 ) => switch (key) {
-  FolderHierarchyGroupKey() => folderHierarchyDefinition,
+  FolderHierarchyGroupKey() => folderHierarchyDefinition(folderHierarchyName),
   TagGroupKey(:final tagDefinitionId) => definitionsById[tagDefinitionId],
 };
 
@@ -219,6 +227,7 @@ GroupQueryCompletions groupQueryCompletions(
   String text,
   int cursor, {
   required Iterable<TagDefinition> definitions,
+  required String folderHierarchyName,
 }) {
   final at = cursor.clamp(0, text.length);
 
@@ -238,7 +247,7 @@ GroupQueryCompletions groupQueryCompletions(
     items: [
       for (final d in matchTagsByName([
         ...definitions,
-        folderHierarchyDefinition,
+        folderHierarchyDefinition(folderHierarchyName),
       ], query))
         GroupTagCompletion(d),
     ],

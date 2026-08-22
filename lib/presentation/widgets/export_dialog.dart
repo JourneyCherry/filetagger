@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'dialog_utils.dart';
 import 'tag_chip.dart';
 
@@ -65,8 +67,9 @@ class _ExportDialogState extends State<_ExportDialog> {
       for (final d in widget.candidates)
         if (d.id != null) d.id!,
     };
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('태그 내보내기'),
+      title: Text(l10n.exportTitle),
       content: dialogContentBox(
         context,
         width: 460,
@@ -75,32 +78,34 @@ class _ExportDialogState extends State<_ExportDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${widget.nodeCount}개 항목의 태그를 요청함 파일 하나로 내보냅니다. '
-              '받는 쪽은 그 파일을 자기 폴더의 요청함에 넣기만 하면 됩니다.',
+              l10n.exportPrompt(widget.nodeCount),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Text('내보낼 태그', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  l10n.exportTagsToSend,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
                 const Spacer(),
                 TextButton(
                   onPressed: _selected.length == all.length
                       ? null
                       : () => setState(() => _selected = {...all}),
-                  child: const Text('모두'),
+                  child: Text(l10n.exportSelectAll),
                 ),
                 TextButton(
                   onPressed: _selected.isEmpty
                       ? null
                       : () => setState(_selected.clear),
-                  child: const Text('해제'),
+                  child: Text(l10n.exportSelectNone),
                 ),
               ],
             ),
             Expanded(
               child: widget.candidates.isEmpty
-                  ? const Center(child: Text('고른 항목에 붙은 태그가 없습니다.'))
+                  ? Center(child: Text(l10n.exportNoCandidates))
                   : ListView(
                       children: [
                         for (final d in widget.candidates)
@@ -113,8 +118,8 @@ class _ExportDialogState extends State<_ExportDialog> {
               contentPadding: EdgeInsets.zero,
               value: _includeValues,
               onChanged: (v) => setState(() => _includeValues = v),
-              title: const Text('태그값 포함'),
-              subtitle: const Text('끄면 태그만 붙고 값은 비어 갑니다.'),
+              title: Text(l10n.exportIncludeValues),
+              subtitle: Text(l10n.exportIncludeValuesDetail),
             ),
             // 값을 담지 않으면 이미지도 담을 것이 없다.
             if (_hasImageTag && _includeValues)
@@ -122,8 +127,8 @@ class _ExportDialogState extends State<_ExportDialog> {
                 contentPadding: EdgeInsets.zero,
                 value: _includeImages,
                 onChanged: (v) => setState(() => _includeImages = v),
-                title: const Text('이미지 파일 포함'),
-                subtitle: const Text('커스텀 썸네일 이미지를 요청 파일 옆에 함께 씁니다.'),
+                title: Text(l10n.exportIncludeImages),
+                subtitle: Text(l10n.exportIncludeImagesDetail),
               ),
           ],
         ),
@@ -131,7 +136,7 @@ class _ExportDialogState extends State<_ExportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _selected.isEmpty
@@ -143,7 +148,7 @@ class _ExportDialogState extends State<_ExportDialog> {
                     includeImages: _includeImages,
                   ),
                 ),
-          child: const Text('내보내기…'),
+          child: Text(l10n.exportConfirm),
         ),
       ],
     );

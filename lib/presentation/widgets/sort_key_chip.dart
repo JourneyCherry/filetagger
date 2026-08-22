@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/sort_query_text.dart';
-import 'filter_condition_chip.dart' show kDeletedTagChipText;
+import '../../l10n/app_localizations.dart';
 import 'tag_capsule.dart';
 
 /// 정렬 단계 하나를 나타내는 캡슐(태그 + 정렬 방법). 도구모음의 정렬 칩과 텍스트
@@ -50,7 +50,7 @@ class SortKeyChip extends StatelessWidget {
     return TagCapsule(
       background: colors.background,
       foreground: colors.foreground,
-      name: def?.name ?? kDeletedTagChipText,
+      name: def?.name ?? AppLocalizations.of(context).chipDeletedTag,
       value: Icon(
         !hasDirection
             ? Icons.check_circle_outline

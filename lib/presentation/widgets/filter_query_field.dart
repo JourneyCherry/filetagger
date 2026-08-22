@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/file_filter.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/filter_query_text.dart';
+import '../../l10n/app_localizations.dart';
 import '../common/capsule_text_field.dart';
 import '../tag_visuals.dart';
 import 'filter_condition_chip.dart';
@@ -121,6 +122,7 @@ class _FilterQueryFieldState extends State<FilterQueryField> {
   }
 
   CapsuleCompletions _completionsAt(String text, int cursor) {
+    final l10n = AppLocalizations.of(context);
     final completions = filterQueryCompletions(
       text,
       cursor,
@@ -134,7 +136,7 @@ class _FilterQueryFieldState extends State<FilterQueryField> {
           CapsuleCompletion(
             insertText: item.insertText,
             title: _title(item),
-            description: _description(item),
+            description: _description(l10n, item),
           ),
       ],
     );
@@ -145,11 +147,16 @@ class _FilterQueryFieldState extends State<FilterQueryField> {
     FilterOperatorCompletion(:final insertText) => insertText,
   };
 
-  static String _description(FilterQueryCompletion item) => switch (item) {
+  static String _description(
+    AppLocalizations l10n,
+    FilterQueryCompletion item,
+  ) => switch (item) {
     FilterTagCompletion(:final definition) => tagValueTypeLabel(
+      l10n,
       definition.valueType,
     ),
     FilterOperatorCompletion(:final operator) => filterOperatorMenuLabel(
+      l10n,
       operator,
     ),
   };
@@ -164,7 +171,7 @@ class _FilterQueryFieldState extends State<FilterQueryField> {
       onChanged: (conditions) =>
           widget.onChanged(FileFilter(conditions: conditions)),
       completionsAt: (text, cursor, _) => _completionsAt(text, cursor),
-      hintText: kEmptyQueryLabel,
+      hintText: emptyQueryLabel(AppLocalizations.of(context)),
     );
   }
 }

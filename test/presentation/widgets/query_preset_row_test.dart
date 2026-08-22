@@ -1,3 +1,4 @@
+import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/file_sort.dart';
 import 'package:filetagger/domain/entities/query_preset.dart';
@@ -9,11 +10,12 @@ import 'package:filetagger/domain/repositories/view_settings_repository.dart';
 import 'package:filetagger/presentation/providers/file_view_provider.dart';
 import 'package:filetagger/presentation/providers/query_preset_provider.dart';
 import 'package:filetagger/presentation/providers/tag_provider.dart';
-import 'package:filetagger/presentation/tag_visuals.dart';
 import 'package:filetagger/presentation/widgets/file_toolbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/l10n.dart';
 
 const _rating = TagDefinition(
   id: 1,
@@ -88,6 +90,9 @@ Future<ProviderContainer> pumpPresetRow(WidgetTester tester) async {
     UncontrolledProviderScope(
       container: container,
       child: const MaterialApp(
+        locale: Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -163,6 +168,9 @@ void main() {
           tagDefinitionsProvider.overrideWith((ref) => Stream.value([_rating])),
         ],
         child: const MaterialApp(
+          locale: Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SizedBox(
               width: 600,
@@ -178,6 +186,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(kEmptyQueryLabel), findsOneWidget);
+    expect(find.text(koL10n.queryEmpty), findsOneWidget);
   });
 }

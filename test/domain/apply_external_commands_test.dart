@@ -20,11 +20,16 @@ void main() {
   late _FakeTags tags;
   late _FakeEnv env;
 
+  /// 시스템 태그를 가리키는 이름들. 실제로는 화면이 지원 언어 전체의 이름을 모아
+  /// 넘기지만, 여기서는 이 테스트가 쓰는 이름 하나면 충분하다.
+  const systemTagNames = {'파일 이름'};
+
   ApplyExternalCommands applier() => ApplyExternalCommands(
     queue: queue,
     nodes: nodes,
     tags: tags,
     environment: env,
+    systemTagNames: systemTagNames,
     now: () => DateTime(2026, 8, 1),
   );
 

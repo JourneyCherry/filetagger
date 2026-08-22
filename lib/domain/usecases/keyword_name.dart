@@ -1,14 +1,14 @@
 /// 키워드 이름의 규칙과 그 위반. 키워드는 이름을 경로 자리에 담으므로, 이름이 곧
 /// 노드의 식별자다.
 enum KeywordNameError {
-  empty('키워드 이름을 입력하세요.'),
-  separator('이름에 경로 구분자(/ \\)는 쓸 수 없습니다.'),
-  duplicate('같은 이름의 키워드가 이미 있습니다.');
+  /// 이름이 비었다.
+  empty,
 
-  const KeywordNameError(this.message);
+  /// 이름에 경로 구분자가 섞였다.
+  separator,
 
-  /// 사용자에게 그대로 보이는 사유.
-  final String message;
+  /// 같은 이름의 키워드가 이미 있다.
+  duplicate,
 }
 
 /// 사용자가 친 이름을 다듬어 돌려준다. 규칙을 어기면 이름 없이 사유만 돌려준다.

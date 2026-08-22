@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../tag_visuals.dart';
-import 'filter_condition_chip.dart' show kDeletedTagChipText;
+import '../../l10n/app_localizations.dart';
 import 'tag_capsule.dart';
 
 /// 그룹 단계 하나를 나타내는 캡슐(태그 하나로 묶는 축). 도구모음의 그룹 칩과 텍스트
@@ -44,16 +44,17 @@ class GroupKeyChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     // 폴더 계층 키는 정의맵에 없으므로 합성 정의로 이름·색을 해석한다.
     final def = groupKey is FolderHierarchyGroupKey
-        ? folderHierarchyDefinition
+        ? folderHierarchyDefinition(l10n.groupFolderHierarchy)
         : definition;
     final colors = groupChipColors(context, def);
 
     return TagCapsule(
       background: colors.background,
       foreground: colors.foreground,
-      name: def?.name ?? kDeletedTagChipText,
+      name: def?.name ?? l10n.chipDeletedTag,
       onTap: onTap,
       dragIndex: dragIndex,
       onDelete: onDelete,

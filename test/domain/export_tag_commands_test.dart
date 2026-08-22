@@ -107,7 +107,13 @@ void main() {
   });
 
   test('시스템 태그는 후보에도 명령에도 들지 않는다', () {
-    final system = SystemTag.fileName.definition;
+    // 표시용 정의는 화면 계층이 짓는다 — 여기선 id·유형만 있으면 된다.
+    final system = TagDefinition(
+      id: SystemTag.fileName.id,
+      name: SystemTag.fileName.name,
+      valueType: SystemTag.fileName.valueType,
+      isSystem: true,
+    );
     final assignments = {
       1: [_tag(_file, system, '01.png'), _tag(_file, rating, '5')],
     };

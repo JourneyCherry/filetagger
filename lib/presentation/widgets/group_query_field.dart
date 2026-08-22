@@ -11,13 +11,14 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/file_grouping.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/group_query_text.dart';
+import '../../l10n/app_localizations.dart';
 import '../common/capsule_text_field.dart';
 import '../tag_visuals.dart';
 import 'group_key_chip.dart';
 
 /// 조각↔그룹 단계 변환과 그룹 칩 그리기. 태그 정의가 바뀌면 새로 만든다(불변).
 class GroupCapsuleSyntax extends CapsuleSyntax<GroupKey> {
-  GroupCapsuleSyntax(Iterable<TagDefinition> definitions)
+  GroupCapsuleSyntax(Iterable<TagDefinition> definitions, this.folderName)
     : definitions = List.unmodifiable(definitions),
       _byId = {
         for (final d in definitions)
@@ -27,13 +28,21 @@ class GroupCapsuleSyntax extends CapsuleSyntax<GroupKey> {
   /// 이름으로 고를 수 있는 태그(사용자 + 시스템). 폴더 계층 정의는 문법이 자동으로
   /// 더하므로 여기 담지 않아도 된다.
   final List<TagDefinition> definitions;
+
+  /// 폴더 계층 키를 가리키는 이름. 문법이 후보·해석에 함께 쓴다.
+  final String folderName;
+
   final Map<int, TagDefinition> _byId;
 
   /// 조각 하나가 통째로 단계여야 접는다 — 인용부호가 닫히지 않아 조각이 둘로
   /// 갈리는 문자열은 아직 확정되지 않은 입력이다.
   @override
   GroupKey? parse(String chunk) {
-    final segments = parseGroupQuery(chunk, definitions: definitions);
+    final segments = parseGroupQuery(
+      chunk,
+      definitions: definitions,
+      folderHierarchyName: folderName,
+    );
     if (segments.length != 1) return null;
     final segment = segments.first;
     return segment is GroupQueryKey ? segment.key : null;
@@ -42,7 +51,7 @@ class GroupCapsuleSyntax extends CapsuleSyntax<GroupKey> {
   @override
   String? format(GroupKey item) {
     final def = switch (item) {
-      FolderHierarchyGroupKey() => folderHierarchyDefinition,
+      FolderHierarchyGroupKey() => folderHierarchyDefinition(folderName),
       TagGroupKey(:final tagDefinitionId) => _byId[tagDefinitionId],
     };
     return def == null ? null : formatGroupKey(item, def);
@@ -50,7 +59,11 @@ class GroupCapsuleSyntax extends CapsuleSyntax<GroupKey> {
 
   @override
   bool isInvalid(String chunk) {
-    final segments = parseGroupQuery(chunk, definitions: definitions);
+    final segments = parseGroupQuery(
+      chunk,
+      definitions: definitions,
+      folderHierarchyName: folderName,
+    );
     return segments.length == 1 && segments.first is GroupQueryFragment;
   }
 
@@ -58,7 +71,7 @@ class GroupCapsuleSyntax extends CapsuleSyntax<GroupKey> {
   Widget chip(GroupKey item) => GroupKeyChip(
     groupKey: item,
     definition: switch (item) {
-      FolderHierarchyGroupKey() => folderHierarchyDefinition,
+      FolderHierarchyGroupKey() => folderHierarchyDefinition(folderName),
       TagGroupKey(:final tagDefinitionId) => _byId[tagDefinitionId],
     },
     margin: EdgeInsets.zero,
@@ -99,18 +112,27 @@ class GroupQueryField extends StatefulWidget {
 class _GroupQueryFieldState extends State<GroupQueryField> {
   late GroupCapsuleSyntax _syntax;
 
+  /// 문법은 폴더 계층 키의 **이름**을 품으므로 표시 언어가 바뀌면 다시 세워야 한다.
+  /// initState가 아니라 여기서 세우는 것은 그 때문이다(번역본은 의존이다).
   @override
-  void initState() {
-    super.initState();
-    _syntax = GroupCapsuleSyntax(widget.definitions);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rebuildSyntax();
   }
 
   @override
   void didUpdateWidget(GroupQueryField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.definitions, widget.definitions)) {
-      setState(() => _syntax = GroupCapsuleSyntax(widget.definitions));
+      setState(_rebuildSyntax);
     }
+  }
+
+  void _rebuildSyntax() {
+    _syntax = GroupCapsuleSyntax(
+      widget.definitions,
+      AppLocalizations.of(context).groupFolderHierarchy,
+    );
   }
 
   /// 이미 접힌 단계는 후보에서 뺀다(태그당 한 단계, 폴더 키 최대 1회). 텍스트만
@@ -120,12 +142,14 @@ class _GroupQueryFieldState extends State<GroupQueryField> {
     int cursor,
     List<GroupKey> keys,
   ) {
+    final l10n = AppLocalizations.of(context);
     final usedTags = {
       for (final key in keys)
         if (key is TagGroupKey) key.tagDefinitionId,
     };
     final folderUsed = keys.any((k) => k is FolderHierarchyGroupKey);
     final completions = groupQueryCompletions(
+      folderHierarchyName: l10n.groupFolderHierarchy,
       text,
       cursor,
       definitions: [
@@ -144,8 +168,8 @@ class _GroupQueryFieldState extends State<GroupQueryField> {
               insertText: item.insertText,
               title: item.definition.name,
               description: item.definition.id == kFolderHierarchyGroupId
-                  ? '경로 계층'
-                  : tagValueTypeLabel(item.definition.valueType),
+                  ? l10n.groupFolderHierarchyDesc
+                  : tagValueTypeLabel(l10n, item.definition.valueType),
             ),
       ],
     );
@@ -160,7 +184,7 @@ class _GroupQueryFieldState extends State<GroupQueryField> {
       items: widget.grouping.keys,
       onChanged: (keys) => widget.onChanged(groupFromKeys(keys)),
       completionsAt: _completionsAt,
-      hintText: kEmptyQueryLabel,
+      hintText: emptyQueryLabel(AppLocalizations.of(context)),
     );
   }
 }

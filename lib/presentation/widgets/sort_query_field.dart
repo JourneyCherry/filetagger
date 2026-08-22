@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/file_sort.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/sort_query_text.dart';
+import '../../l10n/app_localizations.dart';
 import '../common/capsule_text_field.dart';
 import '../tag_visuals.dart';
 import 'sort_key_chip.dart';
@@ -128,6 +129,7 @@ class _SortQueryFieldState extends State<SortQueryField> {
     int cursor,
     List<SortKey> keys,
   ) {
+    final l10n = AppLocalizations.of(context);
     final used = {for (final key in keys) key.tagDefinitionId};
     final completions = sortQueryCompletions(
       text,
@@ -145,7 +147,7 @@ class _SortQueryFieldState extends State<SortQueryField> {
           CapsuleCompletion(
             insertText: item.insertText,
             title: item.definition.name,
-            description: tagValueTypeLabel(item.definition.valueType),
+            description: tagValueTypeLabel(l10n, item.definition.valueType),
           ),
       ],
     );
@@ -160,7 +162,7 @@ class _SortQueryFieldState extends State<SortQueryField> {
       items: widget.sort.keys,
       onChanged: (keys) => widget.onChanged(sortFromKeys(keys)),
       completionsAt: _completionsAt,
-      hintText: kEmptyQueryLabel,
+      hintText: emptyQueryLabel(AppLocalizations.of(context)),
     );
   }
 }

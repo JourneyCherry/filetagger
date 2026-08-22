@@ -8,11 +8,15 @@ import 'package:flutter/material.dart';
 
 import '../domain/entities/assigned_tag.dart';
 import '../domain/entities/file_filter.dart';
+import '../domain/entities/system_tag.dart';
+import '../domain/entities/tag_definition.dart';
 import '../domain/entities/tag_value_type.dart';
+import '../domain/usecases/keyword_name.dart';
 
 // 저장 형식은 domain이 단일 출처다. 표시 헬퍼와 함께 쓰이므로 여기서 다시 내보낸다.
 import '../domain/entities/tag_value_format.dart';
 
+import '../l10n/app_localizations.dart';
 export '../domain/entities/tag_color_format.dart'
     show opaqueTagColorBits, parseTagColorHex, tagColorToHex;
 export '../domain/entities/tag_value_format.dart' show dateToStoredValue;
@@ -21,8 +25,8 @@ export '../domain/entities/tag_value_format.dart' show dateToStoredValue;
 ///
 /// 빈 자리마다 다른 말로 무슨 뜻인지 설명하지 않고 한 낱말로 통일한다 — 네 줄이 나란히
 /// 놓여 있어, 설명이 저마다 다르면 무엇이 없는지보다 문구가 먼저 읽힌다. 칩 줄과 텍스트
-/// 입력의 빈 자리, 프리셋 저장 미리보기가 모두 이 값을 쓴다.
-const String kEmptyQueryLabel = '없음';
+/// 입력의 빈 자리, 프리셋 저장 미리보기가 모두 이 한 문구를 쓴다.
+String emptyQueryLabel(AppLocalizations l10n) => l10n.queryEmpty;
 
 /// 태그 정의 색으로 고를 수 있는 프리셋 팔레트(ARGB).
 const List<int> tagColorPalette = <int>[
@@ -75,29 +79,66 @@ Color hoverOn(Color background) => Color.alphaBlend(
 /// 호버 덧칠의 세기. 색이 바뀐 것은 알아채되 태그 색을 잃지 않을 만큼만.
 const double _hoverOverlayAlpha = 0.2;
 
+/// 키워드 이름 규칙을 어긴 사유의 사용자 문구.
+String keywordNameErrorMessage(AppLocalizations l10n, KeywordNameError error) =>
+    switch (error) {
+      KeywordNameError.empty => l10n.keywordNameEmpty,
+      KeywordNameError.separator => l10n.keywordNameSeparator,
+      KeywordNameError.duplicate => l10n.keywordNameDuplicate,
+    };
+
+/// 시스템 태그의 이름. domain은 순수 Dart라 번역본을 얻을 길이 없어, 이름은 여기가
+/// 단일 출처다 — 칩·피커·조건 텍스트가 모두 이 이름으로 그 태그를 가리킨다.
+String systemTagName(AppLocalizations l10n, SystemTag tag) => switch (tag) {
+  SystemTag.fileSize => l10n.systemTagFileSize,
+  SystemTag.modifiedTime => l10n.systemTagModifiedTime,
+  SystemTag.extension => l10n.systemTagExtension,
+  SystemTag.imageWidth => l10n.systemTagImageWidth,
+  SystemTag.imageHeight => l10n.systemTagImageHeight,
+  SystemTag.fileName => l10n.systemTagFileName,
+  SystemTag.childFileCount => l10n.systemTagChildFileCount,
+  SystemTag.keyword => l10n.systemTagKeyword,
+  SystemTag.unresolvedLink => l10n.systemTagUnresolvedLink,
+};
+
+/// 시스템 태그 하나의 표시용 정의(항상 회색·시스템 소유).
+TagDefinition systemTagDefinition(AppLocalizations l10n, SystemTag tag) =>
+    TagDefinition(
+      id: tag.id,
+      name: systemTagName(l10n, tag),
+      valueType: tag.valueType,
+      isSystem: true,
+    );
+
+/// 시스템 태그 → 표시용 정의. 노드마다 되풀이해 묻는 자리라
+/// ([systemAssignmentsFor]) 한 벌을 만들어 나눠 쓴다.
+Map<SystemTag, TagDefinition> systemTagDefinitionsByTag(
+  AppLocalizations l10n,
+) => {for (final t in SystemTag.values) t: systemTagDefinition(l10n, t)};
+
 /// 값 유형의 사용자 표시 라벨.
-String tagValueTypeLabel(TagValueType type) {
+String tagValueTypeLabel(AppLocalizations l10n, TagValueType type) {
   switch (type) {
     case TagValueType.label:
-      return '라벨';
+      return l10n.valueTypeLabel;
     case TagValueType.text:
-      return '텍스트';
+      return l10n.valueTypeText;
     case TagValueType.number:
-      return '숫자';
+      return l10n.valueTypeNumber;
     case TagValueType.date:
-      return '날짜';
+      return l10n.valueTypeDate;
     case TagValueType.link:
-      return '링크';
+      return l10n.valueTypeLink;
     case TagValueType.image:
-      return '이미지';
+      return l10n.valueTypeImage;
   }
 }
 
 /// 필터 연산자의 짧은 표시 라벨(칩·드롭다운용).
-String filterOperatorLabel(FilterOperator op) {
+String filterOperatorLabel(AppLocalizations l10n, FilterOperator op) {
   switch (op) {
     case FilterOperator.exists:
-      return '있음';
+      return l10n.filterOpExists;
     case FilterOperator.equals:
       return '=';
     case FilterOperator.notEquals:
@@ -111,33 +152,33 @@ String filterOperatorLabel(FilterOperator op) {
     case FilterOperator.greaterOrEqual:
       return '≥';
     case FilterOperator.contains:
-      return '포함';
+      return l10n.filterOpContains;
     case FilterOperator.notContains:
-      return '미포함';
+      return l10n.filterOpNotContains;
   }
 }
 
 /// 필터 연산자의 설명이 붙은 라벨(연산 선택 목록·자동완성 목록용).
-String filterOperatorMenuLabel(FilterOperator op) {
+String filterOperatorMenuLabel(AppLocalizations l10n, FilterOperator op) {
   switch (op) {
     case FilterOperator.exists:
-      return '있음 (존재)';
+      return l10n.filterOpMenuExists;
     case FilterOperator.equals:
-      return '= 같음';
+      return l10n.filterOpMenuEquals;
     case FilterOperator.notEquals:
-      return '≠ 다름';
+      return l10n.filterOpMenuNotEquals;
     case FilterOperator.lessThan:
-      return '< 미만';
+      return l10n.filterOpMenuLessThan;
     case FilterOperator.lessOrEqual:
-      return '≤ 이하';
+      return l10n.filterOpMenuLessOrEqual;
     case FilterOperator.greaterThan:
-      return '> 초과';
+      return l10n.filterOpMenuGreaterThan;
     case FilterOperator.greaterOrEqual:
-      return '≥ 이상';
+      return l10n.filterOpMenuGreaterOrEqual;
     case FilterOperator.contains:
-      return '포함';
+      return l10n.filterOpMenuContains;
     case FilterOperator.notContains:
-      return '미포함';
+      return l10n.filterOpMenuNotContains;
   }
 }
 

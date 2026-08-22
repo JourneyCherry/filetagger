@@ -21,55 +21,45 @@ import 'tag_value_type.dart';
 /// [imageWidth]·[imageHeight]로 갈라졌다).
 enum SystemTag {
   /// 파일 크기(바이트). 폴더는 값 없음.
-  fileSize(id: -1, displayName: '크기', valueType: TagValueType.number),
+  fileSize(id: -1, valueType: TagValueType.number),
 
   /// 마지막 수정 시각.
-  modifiedTime(id: -2, displayName: '수정 시각', valueType: TagValueType.date),
+  modifiedTime(id: -2, valueType: TagValueType.date),
 
   /// 파일 확장자(점 제외, 소문자). 폴더·확장자 없는 파일은 값 없음.
-  extension(id: -3, displayName: '확장자', valueType: TagValueType.text),
+  extension(id: -3, valueType: TagValueType.text),
 
   /// 이미지의 가로 픽셀 수. 이미지가 아니거나 크기를 못 읽으면 값 없음.
   ///
   /// [imageHeight]와 **따로 서는 것이 요점**이다 — 합쳐 두면 글자로 비교되어 크기순
   /// 정렬도, "너비가 얼마 이상" 같은 조건도 설 수 없다.
-  imageWidth(id: -9, displayName: '이미지 너비', valueType: TagValueType.number),
+  imageWidth(id: -9, valueType: TagValueType.number),
 
   /// 이미지의 세로 픽셀 수. 붙는 조건은 [imageWidth]와 같다(둘은 늘 함께 붙거나
   /// 함께 없다).
-  imageHeight(id: -10, displayName: '이미지 높이', valueType: TagValueType.number),
+  imageHeight(id: -10, valueType: TagValueType.number),
 
   /// 노드 이름. **수정 가능** — 디스크 노드는 값 편집 시 실제 rename되고, 키워드는
   /// 디스크에 실체가 없어 저장된 이름만 바뀐다.
-  fileName(
-    id: -5,
-    displayName: '파일 이름',
-    valueType: TagValueType.text,
-    editable: true,
-  ),
+  fileName(id: -5, valueType: TagValueType.text, editable: true),
 
   /// 폴더가 직속으로 담은 파일 수. **폴더에만 붙으므로 디렉토리 표식을 겸한다** —
   /// 파일·키워드는 값 없음이라 '있음'으로 폴더만, '제외'로 파일만 걸러낼 수 있다.
   /// 빈 폴더도 0을 값으로 가져(값 없음이 아니다) 그 갈래가 수량과 무관하게 선다.
-  childFileCount(
-    id: -6,
-    displayName: '내부 파일 수량',
-    valueType: TagValueType.number,
-  ),
+  childFileCount(id: -6, valueType: TagValueType.number),
 
   /// 키워드 표식(label). 디스크에 실체가 없는 노드에만 붙는다. [childFileCount]가
   /// 폴더에 대해 그러하듯 노드 종류를 가르는 층위이며, '제외'로 키워드를 목록에서
   /// 감추는 것이 이 태그의 주 용도다.
-  keyword(id: -7, displayName: '키워드', valueType: TagValueType.label),
+  keyword(id: -7, valueType: TagValueType.label),
 
   /// 미해결 링크 표식(label). 대상을 가리키지 못하는 링크 태그를 **하나라도** 가진
   /// 노드에 붙는다. 다른 시스템 태그와 달리 노드 자신이 아니라 그 노드의 **부여
   /// 목록**에서 나오며, 사라진 대상을 찾아 재연결하거나 지우는 자리를 찾는 수단이다.
-  unresolvedLink(id: -8, displayName: '미해결 링크', valueType: TagValueType.label);
+  unresolvedLink(id: -8, valueType: TagValueType.label);
 
   const SystemTag({
     required this.id,
-    required this.displayName,
     required this.valueType,
     this.editable = false,
   });
@@ -77,17 +67,10 @@ enum SystemTag {
   /// 안정적 음수 식별자(저장·직렬화용).
   final int id;
 
-  /// 사용자에게 보이는 태그 이름.
-  final String displayName;
-
   final TagValueType valueType;
 
   /// 값 편집이 원본(파일명 등)에 반영되어 실제로 바뀌는지. false면 읽기 전용.
   final bool editable;
-
-  /// 이 시스템 태그의 표시용 정의(항상 회색·시스템 소유). 노드마다 되풀이해 묻는
-  /// 자리라([systemAssignmentsFor]) 태그당 한 벌만 만들어 나눠 쓴다.
-  TagDefinition get definition => _definitionsByTag[this]!;
 
   /// [node]에 대한 이 시스템 태그의 값. 해당 노드에 의미가 없으면(폴더의 크기 등)
   /// null을 돌려 "그 노드엔 이 시스템 태그가 없음"을 나타낸다.
@@ -134,17 +117,6 @@ String? _extensionOf(String name) {
   return name.substring(dot + 1).toLowerCase();
 }
 
-/// 시스템 태그 → 그 표시용 정의. [SystemTag.definition]이 나눠 쓴다.
-final Map<SystemTag, TagDefinition> _definitionsByTag = {
-  for (final t in SystemTag.values)
-    t: TagDefinition(
-      id: t.id,
-      name: t.displayName,
-      valueType: t.valueType,
-      isSystem: true,
-    ),
-};
-
 /// 식별자 → 시스템 태그. [systemTagById]가 나눠 쓴다.
 final Map<int, SystemTag> _tagsById = {
   for (final t in SystemTag.values) t.id: t,
@@ -165,11 +137,6 @@ bool isEditableAssignment(AssignedTag tag) {
 /// 식별자로 시스템 태그를 찾는다. 없으면 null.
 SystemTag? systemTagById(int id) => _tagsById[id];
 
-/// 모든 시스템 태그의 표시용 정의 목록(선택기·정의맵 병합용).
-final List<TagDefinition> systemTagDefinitions = [
-  for (final t in SystemTag.values) t.definition,
-];
-
 /// [node]가 가지는 시스템 태그의 부여 기록(값 있는 것만). 실제 존재하는 저장된
 /// 노드에만 붙인다 — 연결 끊김(미싱) 노드와 아직 저장 전(id 없음) 노드는 제외한다.
 /// 합성 부여이므로 [TagAssignment.id]는 null이다.
@@ -177,8 +144,12 @@ final List<TagDefinition> systemTagDefinitions = [
 /// [assignments]는 그 노드의 **사용자 태그 부여 목록**이다. 시스템 태그 대부분은
 /// 노드 하나만 보고 계산되지만 [SystemTag.unresolvedLink]는 부여를 봐야 알 수 있어,
 /// 계산 경로가 여기까지 넓다. 넘기지 않으면 그런 태그는 붙지 않는다.
+///
+/// [definitions]는 표시용 정의다. 이름이 표시 언어에 따라 갈리므로 이 계층이 스스로
+/// 짓지 않고 받는다 — 순수 Dart라 번역본을 얻을 길이 없기 때문이다.
 List<AssignedTag> systemAssignmentsFor(
   FileNode node, {
+  required Map<SystemTag, TagDefinition> definitions,
   List<AssignedTag> assignments = const [],
 }) {
   final nodeId = node.id;
@@ -194,7 +165,7 @@ List<AssignedTag> systemAssignmentsFor(
           tagDefinitionId: t.id,
           value: value,
         ),
-        definition: t.definition,
+        definition: definitions[t]!,
       ),
     );
   }

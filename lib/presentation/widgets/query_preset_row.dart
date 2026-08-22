@@ -7,6 +7,7 @@ import '../../domain/entities/tag_definition.dart';
 import '../../domain/usecases/filter_query_text.dart';
 import '../../domain/usecases/group_query_text.dart';
 import '../../domain/usecases/sort_query_text.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/query_preset_provider.dart';
 import '../tag_visuals.dart';
@@ -31,6 +32,7 @@ class QueryPresetRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final defsById = ref.watch(definitionsByIdProvider);
     final active = ref.watch(activeQueryPresetProvider);
 
@@ -55,7 +57,7 @@ class QueryPresetRow extends ConsumerWidget {
             child: QueryPresetChip(
               name: preset.name,
               active: index == active,
-              tooltip: presetSummary(preset, defsById),
+              tooltip: presetSummary(l10n, preset, defsById),
               dragIndex: index,
               onTap: () => _apply(context, ref, preset),
               onDelete: () => _delete(context, ref, index),
@@ -68,10 +70,11 @@ class QueryPresetRow extends ConsumerWidget {
 
   /// 프리셋을 걸고, 태그가 사라져 걸 수 없던 조각이 있으면 알린다.
   void _apply(BuildContext context, WidgetRef ref, QueryPreset preset) {
+    final l10n = AppLocalizations.of(context);
     final dropped = ref.read(viewSettingsProvider.notifier).applyPreset(preset);
     if (dropped == 0 || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('없는 태그를 가리키는 항목 $dropped개는 빼고 불러왔습니다.')),
+      SnackBar(content: Text(l10n.presetAppliedWithDropped(dropped))),
     );
   }
 
@@ -81,6 +84,7 @@ class QueryPresetRow extends ConsumerWidget {
     int index,
     Offset globalPosition,
   ) async {
+    final l10n = AppLocalizations.of(context);
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final chosen = await showMenu<_PresetMenuAction>(
       context: context,
@@ -95,7 +99,7 @@ class QueryPresetRow extends ConsumerWidget {
             child: Row(
               children: [
                 SizedBox(width: 28, child: Icon(action.icon, size: 18)),
-                Text(action.label),
+                Text(action.label(l10n)),
               ],
             ),
           ),
@@ -107,9 +111,9 @@ class QueryPresetRow extends ConsumerWidget {
       case _PresetMenuAction.rename:
         final name = await showPresetNameDialog(
           context,
-          title: '프리셋 이름 변경',
+          title: l10n.presetRenameTitle,
           initial: presets[index].name,
-          confirmLabel: '변경',
+          confirmLabel: l10n.renameConfirm,
         );
         if (name == null) return;
         notifier.renameAt(index, name);
@@ -127,19 +131,20 @@ class QueryPresetRow extends ConsumerWidget {
   }
 
   Future<bool> _confirmDelete(BuildContext context, String name) async {
+    final l10n = AppLocalizations.of(context);
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('프리셋 삭제'),
-        content: Text("'$name' 프리셋을 지웁니다. 지금 걸린 조건은 그대로 남습니다."),
+        title: Text(l10n.presetDeleteTitle),
+        content: Text(l10n.presetDeleteBody(name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('삭제'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -150,14 +155,19 @@ class QueryPresetRow extends ConsumerWidget {
 
 /// 프리셋 캡슐의 컨텍스트 메뉴 항목.
 enum _PresetMenuAction {
-  rename('이름 변경…', Icons.edit_outlined),
-  overwrite('현재 조건·표시로 덮어쓰기', Icons.save_as_outlined),
-  delete('삭제', Icons.delete_outline);
+  rename(Icons.edit_outlined),
+  overwrite(Icons.save_as_outlined),
+  delete(Icons.delete_outline);
 
-  const _PresetMenuAction(this.label, this.icon);
+  const _PresetMenuAction(this.icon);
 
-  final String label;
   final IconData icon;
+
+  String label(AppLocalizations l10n) => switch (this) {
+    _PresetMenuAction.rename => l10n.presetMenuRename,
+    _PresetMenuAction.overwrite => l10n.presetMenuOverwrite,
+    _PresetMenuAction.delete => l10n.commonDelete,
+  };
 }
 
 /// 프리셋이 담은 것을 한눈에 보는 여러 줄 요약(툴팁용). 조건 줄의 텍스트 표현을
@@ -165,17 +175,33 @@ enum _PresetMenuAction {
 ///
 /// 이름·부제·썸네일 출처도 함께 적는다. 눌렀을 때 조건만 바뀌는 것이 아니므로, 무엇이
 /// 갈아끼워지는지 미리 보이지 않으면 표시가 바뀐 이유를 알 수 없다.
-String presetSummary(QueryPreset preset, Map<int, TagDefinition> defsById) {
+String presetSummary(
+  AppLocalizations l10n,
+  QueryPreset preset,
+  Map<int, TagDefinition> defsById,
+) {
   final filter = formatFilterQuery(preset.filter, defsById);
   final sort = formatSortQuery(preset.sort, defsById);
-  final group = formatGroupQuery(preset.grouping, defsById);
+  final group = formatGroupQuery(
+    preset.grouping,
+    defsById,
+    folderHierarchyName: l10n.groupFolderHierarchy,
+  );
   return [
-    '필터: ${filter.isEmpty ? '없음' : filter}',
-    '정렬: ${sort.isEmpty ? '기본(이름순)' : sort}',
-    '그룹: ${group.isEmpty ? '묶지 않음' : group}',
-    '이름: ${_sourceNames(preset.nameSources, defsById) ?? '파일 이름'}',
-    '부제: ${_sourceNames(preset.subtitleSources, defsById) ?? '경로'}',
-    '썸네일: ${_sourceNames(preset.thumbnailSources, defsById) ?? '기본'}',
+    l10n.presetSummaryFilter(filter.isEmpty ? l10n.queryEmpty : filter),
+    l10n.presetSummarySort(sort.isEmpty ? l10n.sortDefaultByName : sort),
+    l10n.presetSummaryGroup(group.isEmpty ? l10n.groupNotGrouped : group),
+    l10n.presetSummaryName(
+      _sourceNames(preset.nameSources, defsById) ?? l10n.sourceDefaultName,
+    ),
+    l10n.presetSummarySubtitle(
+      _sourceNames(preset.subtitleSources, defsById) ??
+          l10n.sourceDefaultSubtitle,
+    ),
+    l10n.presetSummaryThumbnail(
+      _sourceNames(preset.thumbnailSources, defsById) ??
+          l10n.sourceDefaultThumbnail,
+    ),
   ].join('\n');
 }
 
@@ -255,6 +281,7 @@ class _PresetNameDialogState extends State<_PresetNameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       title: Text(widget.title),
       content: dialogContentBox(
@@ -263,9 +290,9 @@ class _PresetNameDialogState extends State<_PresetNameDialog> {
         child: TextField(
           controller: _name,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '이름',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.commonName,
+            border: const OutlineInputBorder(),
             isDense: true,
           ),
           onChanged: (_) => setState(() {}),
@@ -275,7 +302,7 @@ class _PresetNameDialogState extends State<_PresetNameDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _trimmed.isEmpty ? null : _save,
@@ -317,6 +344,7 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final defsById = ref.watch(definitionsByIdProvider);
     final filter = ref.watch(fileFilterProvider);
     final sort = ref.watch(fileSortProvider);
@@ -328,7 +356,7 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
         ref.read(queryPresetsProvider.notifier).indexOfName(_trimmed) != null;
 
     return AlertDialog(
-      title: const Text('현재 조건·표시를 프리셋으로 저장'),
+      title: Text(l10n.presetSaveTitle),
       content: dialogContentBox(
         context,
         width: 420,
@@ -340,30 +368,30 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
               controller: _name,
               autofocus: true,
               decoration: InputDecoration(
-                labelText: '이름',
+                labelText: l10n.commonName,
                 border: const OutlineInputBorder(),
                 isDense: true,
-                helperText: overwrites ? '같은 이름의 프리셋을 덮어씁니다.' : null,
+                helperText: overwrites ? l10n.presetOverwriteHelper : null,
               ),
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 16),
-            _preview('필터', [
+            _preview(l10n.rowFilter, [
               for (final c in filter.conditions)
                 FilterConditionChip(
                   condition: c,
                   definition: defsById[c.tagDefinitionId],
                 ),
             ]),
-            _preview('정렬', [
+            _preview(l10n.rowSort, [
               for (final k in sort.keys)
                 SortKeyChip(
                   sortKey: k,
                   definition: defsById[k.tagDefinitionId],
                 ),
             ]),
-            _preview('그룹', [
+            _preview(l10n.rowGroup, [
               for (final k in grouping.keys)
                 GroupKeyChip(
                   groupKey: k,
@@ -373,19 +401,19 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
                 ),
             ]),
             _preview(
-              '이름',
+              l10n.commonName,
               _sourceChips(nameSources, defsById),
-              emptyLabel: '파일 이름',
+              emptyLabel: l10n.sourceDefaultName,
             ),
             _preview(
-              '부제',
+              l10n.rowSubtitle,
               _sourceChips(subtitleSources, defsById),
-              emptyLabel: '경로',
+              emptyLabel: l10n.sourceDefaultSubtitle,
             ),
             _preview(
-              '썸네일',
+              l10n.rowThumbnail,
               _sourceChips(thumbnailSources, defsById),
-              emptyLabel: '기본',
+              emptyLabel: l10n.sourceDefaultThumbnail,
             ),
           ],
         ),
@@ -393,11 +421,11 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _trimmed.isEmpty ? null : _save,
-          child: Text(overwrites ? '덮어쓰기' : '저장'),
+          child: Text(overwrites ? l10n.presetSaveOverwrite : l10n.commonSave),
         ),
       ],
     );
@@ -422,7 +450,7 @@ class _PresetSaveDialogState extends ConsumerState<_PresetSaveDialog> {
           Expanded(
             child: chips.isEmpty
                 ? Text(
-                    emptyLabel ?? kEmptyQueryLabel,
+                    emptyLabel ?? emptyQueryLabel(AppLocalizations.of(context)),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

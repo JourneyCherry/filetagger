@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/system_tag.dart';
 import '../../domain/entities/tag_definition.dart';
+import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
@@ -22,14 +23,15 @@ class TagManagementScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final definitions = ref.watch(tagDefinitionsProvider);
     final repo = ref.watch(tagRepositoryProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('태그 관리'),
+        title: Text(l10n.tagManageTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.image_outlined),
-            tooltip: '썸네일 태그',
+            tooltip: l10n.thumbnailTagTitle,
             onPressed: repo == null
                 ? null
                 : () => showThumbnailTagDialog(context),
@@ -41,19 +43,20 @@ class TagManagementScreen extends ConsumerWidget {
           : FloatingActionButton.extended(
               onPressed: () => openTagEditor(context),
               icon: const Icon(Icons.add),
-              label: const Text('새 태그'),
+              label: Text(l10n.commonNewTag),
             ),
       body: repo == null
-          ? const Center(child: Text('폴더를 먼저 열어주세요.'))
+          ? Center(child: Text(l10n.tagManageOpenFolderFirst))
           : definitions.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('태그를 불러오지 못했습니다: $e')),
+              error: (e, _) =>
+                  Center(child: Text(l10n.tagManageLoadFailed('$e'))),
               data: (items) => ListView(
                 children: [
                   if (items.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: Text('아직 만든 태그가 없습니다.')),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(child: Text(l10n.tagManageEmpty)),
                     )
                   else
                     for (final d in items) ...[
@@ -75,9 +78,10 @@ class _DefinitionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final subtitle = [
-      tagValueTypeLabel(definition.valueType),
-      if (definition.allowMultiple) '다중 부여',
+      tagValueTypeLabel(l10n, definition.valueType),
+      if (definition.allowMultiple) l10n.tagBadgeMultiple,
     ].join(' · ');
 
     return ListTile(
@@ -102,17 +106,18 @@ class _SystemTagSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = ref.watch(visibleSystemTagIdsProvider);
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
-          child: Text('시스템 태그', style: theme.textTheme.titleSmall),
+          child: Text(l10n.systemTagSection, style: theme.textTheme.titleSmall),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Text(
-            '파일에서 자동으로 파생되는 태그입니다. 표시 여부만 켜고 끌 수 있습니다.',
+            l10n.systemTagSectionNote,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -122,12 +127,14 @@ class _SystemTagSection extends ConsumerWidget {
           ListTile(
             title: Align(
               alignment: Alignment.centerLeft,
-              child: TagChip(definition: tag.definition),
+              child: TagChip(definition: systemTagDefinition(l10n, tag)),
             ),
             subtitle: Text(
               tag.editable
-                  ? '수정 가능 · ${tagValueTypeLabel(tag.valueType)}'
-                  : tagValueTypeLabel(tag.valueType),
+                  ? l10n.tagBadgeEditableWithType(
+                      tagValueTypeLabel(l10n, tag.valueType),
+                    )
+                  : tagValueTypeLabel(l10n, tag.valueType),
             ),
             trailing: TagVisibilityToggle(
               visible: visible.contains(tag.id),

@@ -27,6 +27,7 @@ import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/usecases/export_tag_commands.dart';
 import '../../domain/usecases/folder_index_scope.dart';
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 import '../common/ctrl_wheel_zoom.dart';
@@ -51,6 +52,7 @@ import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/thumbnail_provider.dart';
 import '../providers/workspace_provider.dart';
+import '../tag_visuals.dart';
 import '../shells/command_context_menu.dart';
 import '../shells/desktop_shell.dart';
 import '../shells/menu_model.dart';
@@ -179,9 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await _reconcileNestedDecisions(result.nestedFiletaggerDirs);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('스캔에 실패했습니다: $e')));
+        _showSnack(AppLocalizations.of(context).homeScanFailed('$e'));
       }
     } finally {
       if (mounted) {
@@ -299,6 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 디스크에 자리가 없어 열 것이 없다(무동작 — 명령도 비활성이다).
   Future<void> _openNode(FileNode node) async {
     if (node.isMissing || node.isKeyword) return;
+    final l10n = _l10n;
     final root = ref.read(workspaceRootProvider);
     if (root == null) return;
     if (node.isDirectory) {
@@ -309,7 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       workspaceRoot: root,
       relPath: node.path,
     );
-    if (!opened) _showSnack('이 파일을 열 앱이 없습니다: ${node.name}');
+    if (!opened) _showSnack(l10n.homeNoAppForFile(node.name));
   }
 
   /// 선택한 단일 항목을 연다(Enter·메뉴).
@@ -895,15 +896,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // 키워드는 디스크에 자리가 없어 탐색기에서 열 수 없다.
         if (!node.isKeyword)
           const MenuCommand(AppCommandId.revealInFileManager),
-        const MenuSubmenu('키워드', [
+        MenuSubmenu(_l10n.menuKeyword, const [
           MenuCommand(AppCommandId.createKeyword),
           MenuCommand(AppCommandId.editKeyword),
           MenuCommand(AppCommandId.deleteKeyword),
         ]),
         if (resolved != null)
           MenuSubmenu(
-            '폴더 관리 옵션',
+            _l10n.menuFolderManageOptions,
             folderManageMenuNodes(
+              l10n: _l10n,
               resolved: resolved,
               onSelected: (action) => _onFolderManage(node, resolved, action),
             ),
@@ -958,14 +960,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (repo == null) return;
     final name = await showKeywordDialog(
       context,
-      title: '키워드 만들기',
-      confirmLabel: '만들기',
+      title: _l10n.keywordCreateTitle,
+      confirmLabel: _l10n.keywordCreateConfirm,
     );
     if (name == null) return;
     final created = await repo.createKeyword(name);
     final error = created.error;
     if (error != null) {
-      _showSnack(error.message);
+      _showSnack(keywordNameErrorMessage(_l10n, error));
       return;
     }
     final id = created.node?.id;
@@ -985,13 +987,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final name = await showKeywordDialog(
       context,
-      title: '키워드 편집',
-      confirmLabel: '저장',
+      title: _l10n.keywordEditTitle,
+      confirmLabel: _l10n.commonSave,
       initialName: keyword.name,
     );
     if (name == null) return;
     final error = await repo.renameKeyword(nodeId: nodeId, name: name);
-    if (error != null) _showSnack(error.message);
+    if (error != null) _showSnack(keywordNameErrorMessage(_l10n, error));
   }
 
   /// 고른 키워드를 지운다. 사용자가 만들어 둔 자산이라 확인을 한 번 거친다.
@@ -1014,14 +1016,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _reveal(String workspaceRoot, FileNode node) async {
+    final l10n = _l10n;
     try {
       await const FileManagerRevealer().reveal(
         workspaceRoot: workspaceRoot,
         relPath: node.path,
         isDirectory: node.isDirectory,
       );
+    } on RevealUnsupportedError {
+      _showSnack(l10n.revealUnsupported);
     } catch (e) {
-      _showSnack('탐색기에서 열지 못했습니다: $e');
+      _showSnack(l10n.homeRevealFailed('$e'));
     }
   }
 
@@ -1080,15 +1085,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       includeValues: options.includeValues,
       includeImages: options.includeImages,
     );
+    final l10n = _l10n;
     if (exported.commands.isEmpty) {
-      _showSnack('내보낼 태그 부여가 없습니다.');
+      _showSnack(l10n.exportNothingToExport);
       return;
     }
 
     final location = await getSaveLocation(
       suggestedName: _exportFileName,
-      acceptedTypeGroups: const [
-        XTypeGroup(label: '요청함 파일', extensions: ['json']),
+      acceptedTypeGroups: [
+        XTypeGroup(label: l10n.exportFileTypeLabel, extensions: const ['json']),
       ],
     );
     if (location == null) return;
@@ -1104,11 +1110,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         workspaceRoot: root,
       );
       _showSnack(
-        '태그 ${result.commands}건을 내보냈습니다'
-        '${result.images == 0 ? '' : ' (이미지 ${result.images}개 동봉)'}.',
+        result.images == 0
+            ? l10n.exportDone(result.commands)
+            : l10n.exportDoneWithImages(result.commands, result.images),
       );
     } catch (e) {
-      _showSnack('내보내지 못했습니다: $e');
+      _showSnack(l10n.exportFailed('$e'));
     }
   }
 
@@ -1158,9 +1165,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final ids = selection.selectedIds.toList();
     String title;
     if (ids.length == 1) {
-      title = _nodeById(ids.first)?.name ?? '파일 1개';
+      title = _nodeById(ids.first)?.name ?? _l10n.assignTitleSingleFile;
     } else {
-      title = '${ids.length}개 파일';
+      title = _l10n.assignTitleFiles(ids.length);
     }
     await showTagAssignDialog(context, fileNodeIds: ids, title: title);
   }
@@ -1210,6 +1217,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _renameNodeById(int nodeId) async {
     final node = _nodeById(nodeId);
     if (node == null) return;
+    final l10n = _l10n;
     final root = ref.read(workspaceRootProvider);
     final repo = ref.read(fileNodeRepositoryProvider);
     if (root == null || repo == null) return;
@@ -1219,7 +1227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final trimmed = newName.trim();
     if (trimmed.isEmpty || trimmed == node.name) return;
     if (trimmed.contains('/') || trimmed.contains(r'\')) {
-      _showSnack('이름에 경로 구분자(/ \\)는 쓸 수 없습니다.');
+      _showSnack(l10n.renamePathSeparator);
       return;
     }
 
@@ -1227,7 +1235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final error = await ref
           .read(fileNodeRepositoryProvider)
           ?.renameKeyword(nodeId: nodeId, name: trimmed);
-      if (error != null) _showSnack(error.message);
+      if (error != null) _showSnack(keywordNameErrorMessage(l10n, error));
       return;
     }
 
@@ -1239,8 +1247,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         newRelPath: newPath,
         isDirectory: node.isDirectory,
       );
+    } on NodeRenameException catch (e) {
+      // 앱이 미리 막은 실패는 사유가 정해져 있어 그대로 옮긴다.
+      _showSnack(switch (e.error) {
+        NodeRenameError.targetExists => l10n.renameTargetExists,
+      });
+      return;
     } on FileSystemException catch (e) {
-      _showSnack('이름을 바꾸지 못했습니다: ${e.message}');
+      // OS가 거부한 실패는 그쪽 문구가 곧 사유다(운영체제 언어를 따른다).
+      _showSnack(l10n.renameFailed(e.message));
       return;
     }
     await repo.renameNode(oldPath: node.path, newPath: newPath);
@@ -1249,32 +1264,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 새 이름 입력 다이얼로그. 취소하면 null.
   Future<String?> _promptRename(String initial) {
     final controller = TextEditingController(text: initial);
+    final l10n = _l10n;
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('이름 변경'),
+        title: Text(l10n.renameTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '새 이름',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.renameNewName,
+            border: const OutlineInputBorder(),
           ),
           onSubmitted: (v) => Navigator.of(ctx).pop(v),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text),
-            child: const Text('변경'),
+            child: Text(l10n.renameConfirm),
           ),
         ],
       ),
     );
   }
+
+  /// 이 화면이 쓰는 번역본. 비동기 흐름에서는 await 전에 받아 둔다 — 끝난 뒤에는
+  /// 화면이 이미 사라졌을 수 있다.
+  AppLocalizations get _l10n => AppLocalizations.of(context);
 
   void _showSnack(String message) {
     if (!mounted) return;
@@ -1360,7 +1380,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final dropped = _droppedByRootMode(newMode);
     final taggedCount = _countTaggedIn(dropped);
     if (taggedCount > 0) {
-      final ok = await _confirmScopeReduction('루트 폴더', taggedCount);
+      final ok = await _confirmScopeReduction(
+        _l10n.scopeRootFolder,
+        taggedCount,
+      );
       if (ok != true) return;
     }
     // 저장만 하면 rootManageMode 리스너가 재스캔을 트리거한다.
@@ -1408,20 +1431,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 관리 범위를 줄여 하위 태그가 함께 제거됨을 경고한다(태그 삭제와 같은 패턴).
   Future<bool?> _confirmScopeReduction(String targetName, int taggedCount) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = _l10n;
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         icon: Icon(Icons.warning_amber_rounded, color: scheme.error),
-        title: const Text('관리 범위 축소'),
+        title: Text(l10n.scopeReductionTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('‘$targetName’의 관리 범위를 줄입니다.'),
+            Text(l10n.scopeReductionTarget(targetName)),
             const SizedBox(height: 12),
             Text(
-              '범위 밖이 되는 $taggedCount개 하위 항목의 태그가 함께 제거되며, '
-              '되돌릴 수 없습니다.',
+              l10n.scopeReductionWarning(taggedCount),
               style: TextStyle(color: scheme.error),
             ),
           ],
@@ -1429,7 +1452,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -1437,7 +1460,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               foregroundColor: scheme.onError,
             ),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('범위 축소'),
+            child: Text(l10n.scopeReductionConfirm),
           ),
         ],
       ),
@@ -1796,7 +1819,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
-          Text(scanProgressLabel(progress)),
+          Text(scanProgressLabel(_l10n, progress)),
           if (progress != null && progress.currentPath.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
@@ -1938,7 +1961,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (resolvedMode == null) return null;
     return IconButton(
       icon: const Icon(Icons.more_vert),
-      tooltip: '폴더 관리 방식',
+      tooltip: _l10n.tooltipFolderManageMode,
       onPressed: () => _openFolderManageSheet(node, resolvedMode),
     );
   }
@@ -1984,17 +2007,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         FilledButton.icon(
           onPressed: handlers.openFolder,
           icon: Icon(openFolder.icon),
-          label: Text(openFolder.label),
+          label: Text(openFolder.label(_l10n)),
         ),
         const SizedBox(height: 24),
-        Text('최근 폴더', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          _l10n.homeRecentFolders,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Expanded(
           child: recentFolders.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('설정을 불러오지 못했습니다: $e'),
+            error: (e, _) => Text(_l10n.homeSettingsLoadFailed('$e')),
             data: (folders) => folders.isEmpty
-                ? const Text('아직 연 폴더가 없습니다.')
+                ? Text(_l10n.homeNoRecentFolders)
                 : ListView.builder(
                     itemCount: folders.length,
                     itemBuilder: (context, index) {
@@ -2052,15 +2078,16 @@ class _NestedMergeDialogState extends State<_NestedMergeDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return AlertDialog(
-      title: const Text('중첩된 태그 폴더 발견'),
+      title: Text(l10n.nestedTitle),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('하위 폴더가 자체 태그 데이터를 가지고 있습니다. 어떻게 처리할지 선택하세요.'),
+            Text(l10n.nestedPrompt),
             const SizedBox(height: 8),
             Text(
               widget.childRelPath,
@@ -2082,26 +2109,24 @@ class _NestedMergeDialogState extends State<_NestedMergeDialog> {
                     value: NestedMergeAction.absorb,
                     enabled: widget.canAbsorb,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('흡수'),
+                    title: Text(l10n.nestedAbsorb),
                     subtitle: Text(
                       widget.canAbsorb
-                          ? '태그와 목록을 현재 워크스페이스로 가져와 관리합니다.'
-                          : '하위 태거가 더 높은 버전이라 흡수할 수 없습니다.',
+                          ? l10n.nestedAbsorbDetail
+                          : l10n.nestedAbsorbBlocked,
                     ),
                   ),
                   RadioListTile<NestedMergeAction>(
                     value: NestedMergeAction.independent,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('독립'),
-                    subtitle: const Text(
-                      '내부를 열지 않는 단일 노드로 두고, 하위 태거는 건드리지 않습니다.',
-                    ),
+                    title: Text(l10n.nestedIndependent),
+                    subtitle: Text(l10n.nestedIndependentDetail),
                   ),
                   RadioListTile<NestedMergeAction>(
                     value: NestedMergeAction.ignore,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('무시'),
-                    subtitle: const Text('하위 태거를 무시하고 내부 파일을 현재 규칙으로 인덱싱합니다.'),
+                    title: Text(l10n.nestedIgnore),
+                    subtitle: Text(l10n.nestedIgnoreDetail),
                   ),
                 ],
               ),
@@ -2113,11 +2138,11 @@ class _NestedMergeDialogState extends State<_NestedMergeDialog> {
                 onChanged: (v) => setState(() => _removeSource = v ?? false),
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('흡수 후 하위 태그 폴더 제거'),
+                title: Text(l10n.nestedRemoveSource),
                 subtitle: Text(
                   _removeSource
-                      ? '하위 .filetagger 폴더를 삭제합니다(되돌릴 수 없음).'
-                      : '하위 태거를 남기고 이후 ‘무시’로 처리합니다.',
+                      ? l10n.nestedRemoveSourceOn
+                      : l10n.nestedRemoveSourceOff,
                 ),
               ),
             ],
@@ -2127,7 +2152,7 @@ class _NestedMergeDialogState extends State<_NestedMergeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('나중에'),
+          child: Text(l10n.nestedLater),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(
@@ -2138,7 +2163,7 @@ class _NestedMergeDialogState extends State<_NestedMergeDialog> {
                   _action == NestedMergeAction.absorb && _removeSource,
             ),
           ),
-          child: const Text('적용'),
+          child: Text(l10n.nestedApply),
         ),
       ],
     );

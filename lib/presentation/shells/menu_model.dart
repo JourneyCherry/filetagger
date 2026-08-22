@@ -12,6 +12,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
 
@@ -94,12 +95,14 @@ Widget? _checkIcon(bool? checked) => checked == null
 /// 컨텍스트 메뉴·오버플로는 켠다(길이가 짧아 아이콘이 훑기에 도움이 된다).
 Widget materialMenuNode(
   MenuNode node, {
+  required AppLocalizations l10n,
   required CommandHandlers handlers,
   Map<AppCommandId, bool> commandChecks = const {},
   bool showIcons = false,
 }) {
   Widget child(MenuNode n) => materialMenuNode(
     n,
+    l10n: l10n,
     handlers: handlers,
     commandChecks: commandChecks,
     showIcons: showIcons,
@@ -123,7 +126,7 @@ Widget materialMenuNode(
             : (showIcons && command.icon != null
                   ? Icon(command.icon, size: _iconSize)
                   : null),
-        child: Text(command.label),
+        child: Text(command.label(l10n)),
       );
     case MenuAction(:final label, :final onSelected):
       return MenuItemButton(onPressed: onSelected, child: Text(label));

@@ -65,6 +65,48 @@ void main() {
     });
   });
 
+  group('직접 고른 태그 색', () {
+    test('저장한 색 목록을 순서 그대로 되읽는다', () async {
+      await _StoreIn(
+        temp,
+      ).save(const AppSettings(customTagColors: [0xFF102030, 0xFF405060]));
+
+      final loaded = await _StoreIn(temp).load();
+      expect(loaded.customTagColors, [0xFF102030, 0xFF405060]);
+    });
+
+    test('사람이 읽는 16진 표기로 남는다', () async {
+      // 사용자가 파일을 열어 직접 고칠 수 있어야 하므로 정수로 적지 않는다.
+      await _StoreIn(
+        temp,
+      ).save(const AppSettings(customTagColors: [0xFF102030]));
+
+      final raw = await File(
+        p.join(temp.path, settingsFileName),
+      ).readAsString();
+      expect(raw, contains('#102030'));
+    });
+
+    test('손으로 고치다 깨진 항목만 버리고 나머지는 살린다', () async {
+      await File(
+        p.join(temp.path, settingsFileName),
+      ).writeAsString('{"customTagColors": ["#102030", "빨강", 7, "#405060"]}');
+
+      final loaded = await _StoreIn(temp).load();
+      expect(loaded.customTagColors, [0xFF102030, 0xFF405060]);
+    });
+
+    test('목록이 없던 옛 설정 파일도 그대로 읽힌다', () async {
+      await File(
+        p.join(temp.path, settingsFileName),
+      ).writeAsString('{"themeMode": "dark"}');
+
+      final loaded = await _StoreIn(temp).load();
+      expect(loaded.themeMode, ThemeMode.dark);
+      expect(loaded.customTagColors, isEmpty);
+    });
+  });
+
   group('저장 실패', () {
     /// 디렉토리 자리에 파일을 두어 그 아래에 쓰지 못하게 만든다.
     Future<_StoreIn> blockedStore() async {

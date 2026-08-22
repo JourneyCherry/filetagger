@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/settings/app_settings_store.dart';
+import '../tag_visuals.dart';
 
 /// 머신 단위 전역 설정 저장소(배포 형태별 위치의 JSON).
 final appSettingsStoreProvider = Provider<AppSettingsStore>(
@@ -79,6 +80,46 @@ class RecentFoldersNotifier extends AsyncNotifier<List<String>> {
     // 화면은 먼저 갱신한다 — 저장에 실패해도 이번 실행 동안은 목록이 살아 있다.
     state = AsyncData(folders);
     await _updateSettings(ref, (s) => s.copyWith(recentFolders: folders));
+  }
+}
+
+/// 태그 색으로 직접 골라 둔 색 목록(최신이 앞).
+///
+/// 프리셋 팔레트 옆에 함께 놓여 다음 태그에도 쓰인다. 폴더가 아니라 머신 단위 전역
+/// 설정에 영속화되어 **어느 폴더를 열든 같은 목록이 따라온다** — 색 자체는 태그 정의에
+/// 담겨 폴더와 함께 이동하므로, 여기 남는 것은 다음에 고르기 쉽게 하는 편집 도구의
+/// 상태뿐이다.
+final customTagColorsProvider =
+    AsyncNotifierProvider<CustomTagColorsNotifier, List<int>>(
+      CustomTagColorsNotifier.new,
+    );
+
+class CustomTagColorsNotifier extends AsyncNotifier<List<int>> {
+  /// 목록에 유지할 최대 색 수. 넘으면 가장 오래전에 고른 것부터 버린다. 스와치가
+  /// 팔레트와 나란히 놓이는 자리라 한없이 늘어나면 고르는 일이 되레 어려워진다.
+  static const int _maxEntries = 14;
+
+  AppSettingsStore get _store => ref.read(appSettingsStoreProvider);
+
+  @override
+  Future<List<int>> build() async => (await _store.load()).customTagColors;
+
+  /// 고른 색을 목록 맨 앞으로 올린다(중복 제거).
+  ///
+  /// 프리셋 팔레트에 이미 있는 색은 담지 않는다 — 같은 스와치가 두 벌로 보이기만 한다.
+  Future<void> touch(int argb) async {
+    if (tagColorPalette.contains(argb)) return;
+    final current = state.valueOrNull ?? const <int>[];
+    final next = [argb, ...current.where((color) => color != argb)];
+    await _persist(
+      next.length > _maxEntries ? next.sublist(0, _maxEntries) : next,
+    );
+  }
+
+  Future<void> _persist(List<int> colors) async {
+    // 화면은 먼저 갱신한다 — 저장에 실패해도 이번 실행 동안은 목록이 살아 있다.
+    state = AsyncData(colors);
+    await _updateSettings(ref, (s) => s.copyWith(customTagColors: colors));
   }
 }
 

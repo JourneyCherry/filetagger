@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/build_info.dart';
 import '../../core/constants.dart';
+import '../../domain/entities/tag_color_format.dart';
 
 // 최근 폴더 목록·테마 영속화에 배선된 저장소. 설치판의 저장 위치는 `path_provider`
 // (공식 flutter.dev 패키지)의 앱데이터 폴더(`getApplicationSupportDirectory`)로,
@@ -17,6 +18,7 @@ class AppSettings {
   const AppSettings({
     this.recentFolders = const [],
     this.themeMode = ThemeMode.system,
+    this.customTagColors = const [],
   });
 
   /// 최근 연 관리 폴더 경로 목록(최신이 앞).
@@ -25,21 +27,45 @@ class AppSettings {
   /// 라이트/다크 테마 선택. 기본값(시스템)은 OS 밝기 설정을 그대로 따른다.
   final ThemeMode themeMode;
 
-  AppSettings copyWith({List<String>? recentFolders, ThemeMode? themeMode}) =>
-      AppSettings(
-        recentFolders: recentFolders ?? this.recentFolders,
-        themeMode: themeMode ?? this.themeMode,
-      );
+  /// 태그 색으로 직접 골라 둔 색 목록(최신이 앞). 프리셋 팔레트 옆에 함께 놓여
+  /// 다음 태그에도 쓰인다. 폴더가 아니라 여기 있는 이유는 **편집 도구의 상태**라
+  /// 사람에게 붙기 때문이다 — 색 자체는 태그 정의에 담겨 폴더와 함께 이동한다.
+  final List<int> customTagColors;
+
+  AppSettings copyWith({
+    List<String>? recentFolders,
+    ThemeMode? themeMode,
+    List<int>? customTagColors,
+  }) => AppSettings(
+    recentFolders: recentFolders ?? this.recentFolders,
+    themeMode: themeMode ?? this.themeMode,
+    customTagColors: customTagColors ?? this.customTagColors,
+  );
 
   Map<String, dynamic> toJson() => {
     'recentFolders': recentFolders,
     'themeMode': themeMode.name,
+    // 사람이 열어 고칠 수 있는 파일이라 정수가 아니라 16진 표기로 남긴다.
+    'customTagColors': [
+      for (final argb in customTagColors) tagColorToHex(argb),
+    ],
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
     recentFolders: (json['recentFolders'] as List?)?.cast<String>() ?? const [],
     themeMode: _themeModeByName(json['themeMode'] as String?),
+    customTagColors: _colorsFromJson(json['customTagColors']),
   );
+}
+
+/// 저장된 16진 표기를 색 정수로 되돌린다. 손으로 고치다 깨진 항목은 조용히 버린다 —
+/// 한 줄이 잘못됐다고 목록 전체를 잃을 이유가 없다.
+List<int> _colorsFromJson(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final entry in raw)
+      if (entry is String) parseTagColorHex(entry),
+  ].whereType<int>().toList();
 }
 
 /// 저장된 이름을 [ThemeMode]로 되돌린다. 알 수 없는 값·누락은 시스템 기본으로 눕힌다.

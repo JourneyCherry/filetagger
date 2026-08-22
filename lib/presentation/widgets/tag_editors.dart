@@ -11,8 +11,10 @@ import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/usecases/merge_tags.dart';
 import '../providers/file_view_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/tag_provider.dart';
 import '../tag_visuals.dart';
+import 'color_picker_dialog.dart';
 
 /// 태그 칩의 목록·프리뷰 표시 여부를 켜고 끄는 눈 모양 토글. 시스템 태그·사용자
 /// 태그가 같은 모양(눈 뜸=표시, 눈 감김=감춤)을 쓰도록 한 곳에 둔다. 감춰도 값은
@@ -462,15 +464,27 @@ class _DefinitionEditorDialogState
   }
 }
 
-/// 프리셋 팔레트 + '색 없음'을 고르는 작은 스와치 그리드.
-class _ColorPicker extends StatelessWidget {
+/// 스와치 안에 넣는 표식(막음·선택 표시·직접 고르기)의 크기.
+const double _swatchIconSize = 18;
+
+/// 프리셋 팔레트 + 직접 골라 둔 색 + '색 없음' + '직접 고르기'를 늘어놓는 스와치 그리드.
+///
+/// 팔레트는 자주 쓰는 색으로 가는 지름길이고, 그 뒤에 이 사용자가 직접 골랐던 색이
+/// 이어 붙어 다음 태그에도 한 번에 쓰인다([customTagColorsProvider] — 폴더가 아니라
+/// 사람에게 붙는 목록이다). 마지막 스와치가 임의의 색으로 가는 길을 연다. 저장 형식은
+/// 셋이 같아(불투명 ARGB 정수) 고른 경로가 값에 남지 않는다.
+class _ColorPicker extends ConsumerWidget {
   const _ColorPicker({required this.selected, required this.onChanged});
 
   final int? selected;
   final ValueChanged<int?> onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 아직 못 읽었으면 팔레트만 보인다 — 목록이 뜨는 것을 기다리느라 색을 못 고를
+    // 이유가 없다.
+    final saved =
+        ref.watch(customTagColorsProvider).valueOrNull ?? const <int>[];
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -481,14 +495,46 @@ class _ColorPicker extends StatelessWidget {
           isSelected: selected == null,
           onTap: () => onChanged(null),
         ),
-        for (final argb in tagColorPalette)
+        for (final argb in [...tagColorPalette, ...saved])
           _swatch(
             context,
             color: argb,
             isSelected: selected == argb,
             onTap: () => onChanged(argb),
           ),
+        _customSwatch(context, ref, saved),
       ],
+    );
+  }
+
+  /// 임의의 색으로 가는 자리. 지금 고른 색이 앞의 어느 스와치에도 없으면(예전에 고른
+  /// 색이 목록에서 밀려난 태그) 그 색을 담아 선택된 것으로 보여, 어느 것도 눌리지
+  /// 않은 것처럼 보이지 않게 한다.
+  Widget _customSwatch(BuildContext context, WidgetRef ref, List<int> saved) {
+    final unlisted =
+        selected != null &&
+            !tagColorPalette.contains(selected) &&
+            !saved.contains(selected)
+        ? selected
+        : null;
+    return Tooltip(
+      message: '직접 고르기',
+      child: _swatch(
+        context,
+        color: unlisted,
+        isSelected: unlisted != null,
+        icon: Icons.colorize,
+        onTap: () async {
+          final picked = await showColorPickerDialog(
+            context,
+            initialColor: selected,
+          );
+          if (picked == null) return;
+          onChanged(picked);
+          // 고른 색은 다음 태그에도 쓰이도록 목록 맨 앞으로 올린다.
+          await ref.read(customTagColorsProvider.notifier).touch(picked);
+        },
+      ),
     );
   }
 
@@ -497,6 +543,7 @@ class _ColorPicker extends StatelessWidget {
     required int? color,
     required bool isSelected,
     required VoidCallback onTap,
+    IconData? icon,
   }) {
     final border = isSelected
         ? Border.all(color: Theme.of(context).colorScheme.primary, width: 3)
@@ -512,9 +559,21 @@ class _ColorPicker extends StatelessWidget {
           color: color == null ? null : Color(color),
           border: border,
         ),
-        child: color == null
-            ? const Icon(Icons.block, size: 18)
-            : (isSelected ? const Icon(Icons.check, size: 18) : null),
+        child: icon != null
+            ? Icon(
+                icon,
+                size: _swatchIconSize,
+                color: color == null ? null : foregroundOn(Color(color)),
+              )
+            : color == null
+            ? const Icon(Icons.block, size: _swatchIconSize)
+            : (isSelected
+                  ? Icon(
+                      Icons.check,
+                      size: _swatchIconSize,
+                      color: foregroundOn(Color(color)),
+                    )
+                  : null),
       ),
     );
   }

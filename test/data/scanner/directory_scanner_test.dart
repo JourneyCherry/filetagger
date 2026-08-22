@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:filetagger/core/constants.dart';
+import 'package:filetagger/core/file_types.dart';
 import 'package:filetagger/data/scanner/directory_scanner.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
 import 'package:filetagger/domain/entities/node_kind.dart';
@@ -254,6 +255,38 @@ void main() {
       expect(box.childFileCount, 2);
       // 빈 폴더는 시그니처와 달리 0으로 남는다(폴더 표식을 겸하기 때문).
       expect(empty.childFileCount, 0);
+    });
+
+    test('불투명 폴더는 직속 이미지 이름을 이름순 상한까지 기억한다', () async {
+      // 자식이 노드로 실리지 않는 폴더라 썸네일 재료가 여기 말고는 남지 않는다.
+      for (var i = 0; i < kFolderThumbnailStackCount + 1; i++) {
+        await touchFile('box/$i.png');
+      }
+      await touchFile('box/note.txt');
+      // 하위 폴더 안은 열어 보지 않으므로 재료가 되지 않는다.
+      await touchFile('box/deep/deeper.png');
+
+      final result = await const DirectoryScanner().scan(root.path);
+      final box = result.nodes.firstWhere((n) => n.path == 'box');
+
+      expect(box.childImageNames, [
+        for (var i = 0; i < kFolderThumbnailStackCount; i++) '$i.png',
+      ]);
+    });
+
+    test('내부를 인덱싱하는 폴더는 이름을 기억하지 않는다', () async {
+      // 자식이 노드로 실리므로 폴더 썸네일이 거기서 재료를 찾는다(같은 사실을
+      // 두 자리에 두지 않는다).
+      await touchFile('sub/a.png');
+
+      final result = await const DirectoryScanner().scan(
+        root.path,
+        rootManageMode: FolderManageMode.managedRecursive,
+      );
+      final sub = result.nodes.firstWhere((n) => n.path == 'sub');
+
+      expect(sub.childImageNames, isEmpty);
+      expect(result.nodes.map((n) => n.path), contains('sub/a.png'));
     });
 
     test('파일 노드는 내부 파일 수량을 갖지 않는다', () async {

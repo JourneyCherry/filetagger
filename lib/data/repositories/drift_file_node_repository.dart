@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../../domain/entities/file_node.dart';
@@ -364,6 +366,7 @@ class DriftFileNodeRepository implements FileNodeRepository {
     childFileCount: row.childFileCount,
     imageWidth: row.imageWidth,
     imageHeight: row.imageHeight,
+    childImageNames: _decodeImageNames(row.childImageNames),
   );
 
   FileNodesCompanion _toCompanion(FileNode node, DateTime seenAt) =>
@@ -379,8 +382,30 @@ class DriftFileNodeRepository implements FileNodeRepository {
         childFileCount: Value(node.childFileCount),
         imageWidth: Value(node.imageWidth),
         imageHeight: Value(node.imageHeight),
+        childImageNames: Value(_encodeImageNames(node.childImageNames)),
         // 스캐너가 만든 노드는 실제 존재하므로 연결 끊김 상태를 항상 해제한다
         // (같은 경로로 되살아난 보존 노드의 missingSince를 upsert가 지운다).
         missingSince: const Value(null),
       );
+}
+
+/// 폴더가 기억한 직속 이미지 이름 목록의 저장 표현. 비었으면 컬럼을 비워 둔다 —
+/// "없음"과 "빈 목록"을 가를 이유가 없다.
+String? _encodeImageNames(List<String> names) =>
+    names.isEmpty ? null : jsonEncode(names);
+
+/// 저장 표현을 목록으로 되돌린다. 우리가 쓴 값만 들어오는 자리지만, 깨진 값 하나로
+/// 인덱스 전체 로드가 끊기지 않도록 못 읽으면 빈 목록으로 둔다(다음 스캔이 덮는다).
+List<String> _decodeImageNames(String? raw) {
+  if (raw == null || raw.isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return [
+      for (final name in decoded)
+        if (name is String) name,
+    ];
+  } on FormatException {
+    return const [];
+  }
 }

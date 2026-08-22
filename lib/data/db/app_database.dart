@@ -23,7 +23,7 @@ class AppDatabase extends _$AppDatabase {
     : super(openWorkspaceDatabase(workspaceRoot));
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   /// 각 단계는 **디스크의 실제 컬럼**을 보고 갈린다 — 지금의 테이블 정의를 그대로
   /// 믿고 옛 테이블을 참조하면, 나중에 생긴 컬럼과 앞선 단계가 지운 옛 컬럼이 서로
@@ -154,6 +154,11 @@ class AppDatabase extends _$AppDatabase {
         // 라이브러리 크기에 비례해 커진다. 옛 값은 스캐너가 쓴 것뿐이라 형식이
         // 일정해 그 자리에서 가를 수 있다.
         await _rewriteFileNodes(m, _dimensionTransforms);
+      }
+      if (from < 13) {
+        // 내부를 인덱싱하지 않는 폴더의 썸네일 재료(직속 이미지 이름). 다음 스캔이
+        // 폴더에 채운다 — 그때까지 그 폴더들은 지금처럼 기본 아이콘만 보인다.
+        await _addColumnIfMissing(m, fileNodes, fileNodes.childImageNames);
       }
     },
     beforeOpen: (details) async {

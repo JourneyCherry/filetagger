@@ -137,7 +137,8 @@ class FileThumbnail extends ConsumerWidget {
 }
 
 /// 폴더 하위 이미지 여러 장을 살짝 회전·이동시켜 입체적으로 쌓아 보여준다.
-/// 맨 위 장은 똑바로 놓아 대표처럼 보이게 한다. 한 장이 실패하면 그 자리만 비운다.
+/// **목록의 첫 장이 맨 위**에 똑바로 놓여 대표처럼 보인다. 한 장이 실패하면 그
+/// 자리만 비운다.
 class _StackedThumbnail extends StatelessWidget {
   const _StackedThumbnail({required this.absolutePaths});
 
@@ -156,7 +157,15 @@ class _StackedThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final layers = absolutePaths.take(_angles.length).toList();
+    // Stack은 나중 자식을 위에 그리므로 **뒤집어** 넣는다 — 그래야 목록의 첫 장(고른
+    // 순서의 앞자리)이 맨 위에 온다. 장수가 층 표보다 적으면 표를 **뒤에서부터** 잘라
+    // 써, 몇 장이든 맨 위 장은 늘 똑바로·가운데에 놓인다.
+    final layers = absolutePaths
+        .take(_angles.length)
+        .toList()
+        .reversed
+        .toList();
+    final firstLayer = _angles.length - layers.length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -170,9 +179,9 @@ class _StackedThumbnail extends StatelessWidget {
           children: [
             for (var i = 0; i < layers.length; i++)
               Transform.translate(
-                offset: _offsets[i] * side,
+                offset: _offsets[firstLayer + i] * side,
                 child: Transform.rotate(
-                  angle: _angles[i],
+                  angle: _angles[firstLayer + i],
                   child: _photo(scheme, layers[i], photo, dpr),
                 ),
               ),

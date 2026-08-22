@@ -70,6 +70,11 @@ class FileNodes extends Table {
   IntColumn get imageWidth => integer().nullable()();
   IntColumn get imageHeight => integer().nullable()();
 
+  /// 내부를 인덱싱하지 않는 폴더가 기억해 둔 직속 이미지 파일 이름들. 그 파일들은
+  /// 노드로 실리지 않으므로 폴더 썸네일이 여기서 재료를 찾는다. 목록은 JSON 배열
+  /// 한 문자열로 담아 이름에 어떤 글자가 들어와도 갈라지지 않게 한다.
+  TextColumn get childImageNames => text().nullable()();
+
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   DateTimeColumn get lastSeenAt => dateTime()();
 

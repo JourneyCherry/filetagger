@@ -497,6 +497,17 @@ class $FileNodesTable extends FileNodes
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _childImageNamesMeta = const VerificationMeta(
+    'childImageNames',
+  );
+  @override
+  late final GeneratedColumn<String> childImageNames = GeneratedColumn<String>(
+    'child_image_names',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
     'lastSeenAt',
   );
@@ -532,6 +543,7 @@ class $FileNodesTable extends FileNodes
     childFileCount,
     imageWidth,
     imageHeight,
+    childImageNames,
     lastSeenAt,
     missingSince,
   ];
@@ -609,6 +621,15 @@ class $FileNodesTable extends FileNodes
         imageHeight.isAcceptableOrUnknown(
           data['image_height']!,
           _imageHeightMeta,
+        ),
+      );
+    }
+    if (data.containsKey('child_image_names')) {
+      context.handle(
+        _childImageNamesMeta,
+        childImageNames.isAcceptableOrUnknown(
+          data['child_image_names']!,
+          _childImageNamesMeta,
         ),
       );
     }
@@ -693,6 +714,10 @@ class $FileNodesTable extends FileNodes
         DriftSqlType.int,
         data['${effectivePrefix}image_height'],
       ),
+      childImageNames: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}child_image_names'],
+      ),
       lastSeenAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_seen_at'],
@@ -755,6 +780,11 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
   final int? imageWidth;
   final int? imageHeight;
 
+  /// 내부를 인덱싱하지 않는 폴더가 기억해 둔 직속 이미지 파일 이름들. 그 파일들은
+  /// 노드로 실리지 않으므로 폴더 썸네일이 여기서 재료를 찾는다. 목록은 JSON 배열
+  /// 한 문자열로 담아 이름에 어떤 글자가 들어와도 갈라지지 않게 한다.
+  final String? childImageNames;
+
   /// 마지막 스캔에서 관측된 시각. 삭제 감지/정리에 쓰인다.
   final DateTime lastSeenAt;
 
@@ -774,6 +804,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     this.childFileCount,
     this.imageWidth,
     this.imageHeight,
+    this.childImageNames,
     required this.lastSeenAt,
     this.missingSince,
   });
@@ -813,6 +844,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     if (!nullToAbsent || imageHeight != null) {
       map['image_height'] = Variable<int>(imageHeight);
     }
+    if (!nullToAbsent || childImageNames != null) {
+      map['child_image_names'] = Variable<String>(childImageNames);
+    }
     map['last_seen_at'] = Variable<DateTime>(lastSeenAt);
     if (!nullToAbsent || missingSince != null) {
       map['missing_since'] = Variable<DateTime>(missingSince);
@@ -847,6 +881,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       imageHeight: imageHeight == null && nullToAbsent
           ? const Value.absent()
           : Value(imageHeight),
+      childImageNames: childImageNames == null && nullToAbsent
+          ? const Value.absent()
+          : Value(childImageNames),
       lastSeenAt: Value(lastSeenAt),
       missingSince: missingSince == null && nullToAbsent
           ? const Value.absent()
@@ -877,6 +914,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       childFileCount: serializer.fromJson<int?>(json['childFileCount']),
       imageWidth: serializer.fromJson<int?>(json['imageWidth']),
       imageHeight: serializer.fromJson<int?>(json['imageHeight']),
+      childImageNames: serializer.fromJson<String?>(json['childImageNames']),
       lastSeenAt: serializer.fromJson<DateTime>(json['lastSeenAt']),
       missingSince: serializer.fromJson<DateTime?>(json['missingSince']),
     );
@@ -900,6 +938,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       'childFileCount': serializer.toJson<int?>(childFileCount),
       'imageWidth': serializer.toJson<int?>(imageWidth),
       'imageHeight': serializer.toJson<int?>(imageHeight),
+      'childImageNames': serializer.toJson<String?>(childImageNames),
       'lastSeenAt': serializer.toJson<DateTime>(lastSeenAt),
       'missingSince': serializer.toJson<DateTime?>(missingSince),
     };
@@ -917,6 +956,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     Value<int?> childFileCount = const Value.absent(),
     Value<int?> imageWidth = const Value.absent(),
     Value<int?> imageHeight = const Value.absent(),
+    Value<String?> childImageNames = const Value.absent(),
     DateTime? lastSeenAt,
     Value<DateTime?> missingSince = const Value.absent(),
   }) => FileNodeRow(
@@ -937,6 +977,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
         : this.childFileCount,
     imageWidth: imageWidth.present ? imageWidth.value : this.imageWidth,
     imageHeight: imageHeight.present ? imageHeight.value : this.imageHeight,
+    childImageNames: childImageNames.present
+        ? childImageNames.value
+        : this.childImageNames,
     lastSeenAt: lastSeenAt ?? this.lastSeenAt,
     missingSince: missingSince.present ? missingSince.value : this.missingSince,
   );
@@ -967,6 +1010,9 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
       imageHeight: data.imageHeight.present
           ? data.imageHeight.value
           : this.imageHeight,
+      childImageNames: data.childImageNames.present
+          ? data.childImageNames.value
+          : this.childImageNames,
       lastSeenAt: data.lastSeenAt.present
           ? data.lastSeenAt.value
           : this.lastSeenAt,
@@ -990,6 +1036,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           ..write('childFileCount: $childFileCount, ')
           ..write('imageWidth: $imageWidth, ')
           ..write('imageHeight: $imageHeight, ')
+          ..write('childImageNames: $childImageNames, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('missingSince: $missingSince')
           ..write(')'))
@@ -1009,6 +1056,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
     childFileCount,
     imageWidth,
     imageHeight,
+    childImageNames,
     lastSeenAt,
     missingSince,
   );
@@ -1027,6 +1075,7 @@ class FileNodeRow extends DataClass implements Insertable<FileNodeRow> {
           other.childFileCount == this.childFileCount &&
           other.imageWidth == this.imageWidth &&
           other.imageHeight == this.imageHeight &&
+          other.childImageNames == this.childImageNames &&
           other.lastSeenAt == this.lastSeenAt &&
           other.missingSince == this.missingSince);
 }
@@ -1043,6 +1092,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
   final Value<int?> childFileCount;
   final Value<int?> imageWidth;
   final Value<int?> imageHeight;
+  final Value<String?> childImageNames;
   final Value<DateTime> lastSeenAt;
   final Value<DateTime?> missingSince;
   const FileNodesCompanion({
@@ -1057,6 +1107,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.childFileCount = const Value.absent(),
     this.imageWidth = const Value.absent(),
     this.imageHeight = const Value.absent(),
+    this.childImageNames = const Value.absent(),
     this.lastSeenAt = const Value.absent(),
     this.missingSince = const Value.absent(),
   });
@@ -1072,6 +1123,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     this.childFileCount = const Value.absent(),
     this.imageWidth = const Value.absent(),
     this.imageHeight = const Value.absent(),
+    this.childImageNames = const Value.absent(),
     required DateTime lastSeenAt,
     this.missingSince = const Value.absent(),
   }) : path = Value(path),
@@ -1089,6 +1141,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Expression<int>? childFileCount,
     Expression<int>? imageWidth,
     Expression<int>? imageHeight,
+    Expression<String>? childImageNames,
     Expression<DateTime>? lastSeenAt,
     Expression<DateTime>? missingSince,
   }) {
@@ -1104,6 +1157,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       if (childFileCount != null) 'child_file_count': childFileCount,
       if (imageWidth != null) 'image_width': imageWidth,
       if (imageHeight != null) 'image_height': imageHeight,
+      if (childImageNames != null) 'child_image_names': childImageNames,
       if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
       if (missingSince != null) 'missing_since': missingSince,
     });
@@ -1121,6 +1175,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     Value<int?>? childFileCount,
     Value<int?>? imageWidth,
     Value<int?>? imageHeight,
+    Value<String?>? childImageNames,
     Value<DateTime>? lastSeenAt,
     Value<DateTime?>? missingSince,
   }) {
@@ -1136,6 +1191,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
       childFileCount: childFileCount ?? this.childFileCount,
       imageWidth: imageWidth ?? this.imageWidth,
       imageHeight: imageHeight ?? this.imageHeight,
+      childImageNames: childImageNames ?? this.childImageNames,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       missingSince: missingSince ?? this.missingSince,
     );
@@ -1181,6 +1237,9 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
     if (imageHeight.present) {
       map['image_height'] = Variable<int>(imageHeight.value);
     }
+    if (childImageNames.present) {
+      map['child_image_names'] = Variable<String>(childImageNames.value);
+    }
     if (lastSeenAt.present) {
       map['last_seen_at'] = Variable<DateTime>(lastSeenAt.value);
     }
@@ -1204,6 +1263,7 @@ class FileNodesCompanion extends UpdateCompanion<FileNodeRow> {
           ..write('childFileCount: $childFileCount, ')
           ..write('imageWidth: $imageWidth, ')
           ..write('imageHeight: $imageHeight, ')
+          ..write('childImageNames: $childImageNames, ')
           ..write('lastSeenAt: $lastSeenAt, ')
           ..write('missingSince: $missingSince')
           ..write(')'))
@@ -2218,6 +2278,7 @@ typedef $$FileNodesTableCreateCompanionBuilder =
       Value<int?> childFileCount,
       Value<int?> imageWidth,
       Value<int?> imageHeight,
+      Value<String?> childImageNames,
       required DateTime lastSeenAt,
       Value<DateTime?> missingSince,
     });
@@ -2234,6 +2295,7 @@ typedef $$FileNodesTableUpdateCompanionBuilder =
       Value<int?> childFileCount,
       Value<int?> imageWidth,
       Value<int?> imageHeight,
+      Value<String?> childImageNames,
       Value<DateTime> lastSeenAt,
       Value<DateTime?> missingSince,
     });
@@ -2324,6 +2386,11 @@ class $$FileNodesTableFilterComposer
 
   ColumnFilters<int> get imageHeight => $composableBuilder(
     column: $table.imageHeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get childImageNames => $composableBuilder(
+    column: $table.childImageNames,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2427,6 +2494,11 @@ class $$FileNodesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get childImageNames => $composableBuilder(
+    column: $table.childImageNames,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get lastSeenAt => $composableBuilder(
     column: $table.lastSeenAt,
     builder: (column) => ColumnOrderings(column),
@@ -2492,6 +2564,11 @@ class $$FileNodesTableAnnotationComposer
 
   GeneratedColumn<int> get imageHeight => $composableBuilder(
     column: $table.imageHeight,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get childImageNames => $composableBuilder(
+    column: $table.childImageNames,
     builder: (column) => column,
   );
 
@@ -2570,6 +2647,7 @@ class $$FileNodesTableTableManager
                 Value<int?> childFileCount = const Value.absent(),
                 Value<int?> imageWidth = const Value.absent(),
                 Value<int?> imageHeight = const Value.absent(),
+                Value<String?> childImageNames = const Value.absent(),
                 Value<DateTime> lastSeenAt = const Value.absent(),
                 Value<DateTime?> missingSince = const Value.absent(),
               }) => FileNodesCompanion(
@@ -2584,6 +2662,7 @@ class $$FileNodesTableTableManager
                 childFileCount: childFileCount,
                 imageWidth: imageWidth,
                 imageHeight: imageHeight,
+                childImageNames: childImageNames,
                 lastSeenAt: lastSeenAt,
                 missingSince: missingSince,
               ),
@@ -2600,6 +2679,7 @@ class $$FileNodesTableTableManager
                 Value<int?> childFileCount = const Value.absent(),
                 Value<int?> imageWidth = const Value.absent(),
                 Value<int?> imageHeight = const Value.absent(),
+                Value<String?> childImageNames = const Value.absent(),
                 required DateTime lastSeenAt,
                 Value<DateTime?> missingSince = const Value.absent(),
               }) => FileNodesCompanion.insert(
@@ -2614,6 +2694,7 @@ class $$FileNodesTableTableManager
                 childFileCount: childFileCount,
                 imageWidth: imageWidth,
                 imageHeight: imageHeight,
+                childImageNames: childImageNames,
                 lastSeenAt: lastSeenAt,
                 missingSince: missingSince,
               ),

@@ -36,18 +36,37 @@ const int kFolderThumbnailStackCount = 3;
 /// 최대 [kFolderThumbnailStackCount]장)을 구한다. 겹쳐 쌓은 폴더 썸네일에 쓴다.
 /// 폴더 노드와 연결 끊김 노드는 후보에서 제외하며, 디스크를 다시 읽지 않고
 /// 인메모리 인덱스만으로 계산한다.
+///
+/// 내부를 인덱싱하지 않는 폴더의 이미지는 노드로 실리지 않으므로, 그 폴더가 스캔 때
+/// 기억해 둔 이름([FileNode.childImageNames])을 경로로 되살려 **다른 이미지와 나란히**
+/// 후보로 둔다 — 그래서 불투명 폴더도 제 대표 이미지를 갖고, 그 위 폴더들도 거기까지는
+/// 재료로 삼는다(더 깊이는 스캔이 열어 보지 않았으므로 알 수 없다).
 Map<String, List<String>> buildFolderThumbnailIndex(Iterable<FileNode> nodes) {
   final images = <String>[];
   for (final node in nodes) {
+    // 사라진 노드는 그 자리에 읽을 파일이 없다(폴더가 기억한 이름도 함께 무의미해진다).
+    if (node.isMissing) continue;
+    if (node.isDirectory) {
+      for (final name in node.childImageNames) {
+        images.add('${node.path}/$name');
+      }
+      continue;
+    }
     // 디스크에 실체가 있는 파일만 후보다. 키워드는 이름이 이미지 확장자로 끝나도
     // 그 경로에 파일이 없다.
-    if (!node.isFile || node.isMissing) continue;
+    if (!node.isFile) continue;
     if (isImagePath(node.path)) images.add(node.path);
   }
   images.sort();
 
   final result = <String, List<String>>{};
+  String? previous;
   for (final path in images) {
+    // 같은 이미지가 두 갈래(노드로 실린 것 + 폴더가 기억한 이름)로 들어올 수 있다.
+    // 정렬돼 있어 이웃만 견주면 걸러진다 — 한 폴더의 몇 안 되는 자리를 같은 그림이
+    // 겹쳐 채우지 않게.
+    if (path == previous) continue;
+    previous = path;
     // 이 이미지의 모든 상위 폴더에 상한까지 채워 넣는다. 이름순으로 정렬돼 있어
     // 각 폴더가 하위 이미지들을 이름순 앞에서부터 모은다.
     var slash = path.indexOf('/');

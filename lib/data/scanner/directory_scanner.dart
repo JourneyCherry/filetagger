@@ -190,6 +190,11 @@ class DirectoryScanner implements WorkspaceScanner {
         childSignature: _signatureOf(visible),
         // 시그니처와 같은 목록에서 세므로 불투명 폴더에서도 추가 접근이 없다.
         childFileCount: _fileCountOf(visible),
+        // 내부를 인덱싱하지 않는 폴더만 기억해 둔다 — 인덱싱하는 폴더는 자식이
+        // 노드로 실려 폴더 썸네일이 거기서 재료를 찾는다.
+        childImageNames: effectiveMode == FolderManageMode.opaque
+            ? _imageNamesOf(visible)
+            : const [],
       );
       nodes.add(node);
       progress.nodeFound(node);
@@ -314,6 +319,22 @@ class DirectoryScanner implements WorkspaceScanner {
   /// 0으로 남긴다 — 폴더에는 늘 값이 있어야 이 시스템 태그가 폴더 표식 노릇을 겸한다.
   static int _fileCountOf(List<FileSystemEntity> entries) =>
       entries.whereType<File>().length;
+
+  /// 폴더가 직속으로 담은 이미지 파일 이름들(이름순, 겹쳐 쌓을 상한까지). 내부를
+  /// 인덱싱하지 않는 폴더의 썸네일 재료로, 시그니처·수량과 **같은 목록에서** 뽑으므로
+  /// 파일시스템 접근이 늘지 않는다 — 불투명 폴더가 불투명한 채로 대표 이미지를 갖는다.
+  /// 하위 폴더 안은 보지 않는다(그러려면 열어 봐야 하고, 그것이 곧 깊은 스캔이다).
+  static List<String> _imageNamesOf(List<FileSystemEntity> entries) {
+    final names = <String>[];
+    for (final entity in entries) {
+      if (entity is! File) continue;
+      final name = p.basename(entity.path);
+      if (isImagePath(name)) names.add(name);
+    }
+    names.sort();
+    if (names.length <= kFolderThumbnailStackCount) return names;
+    return names.sublist(0, kFolderThumbnailStackCount);
+  }
 
   /// 루트 기준 상대 경로를 플랫폼 무관하게 '/' 구분으로 정규화한다.
   static String _relativePosix(String workspaceRoot, String path) =>

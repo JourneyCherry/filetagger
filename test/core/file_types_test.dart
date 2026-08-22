@@ -11,6 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 FileNode file(String path) => FileNode(path: path, kind: NodeKind.file);
 FileNode dir(String path) => FileNode(path: path, kind: NodeKind.directory);
+
+/// 내부를 인덱싱하지 않아 직속 이미지 이름만 기억해 둔 폴더(자식 노드는 없다).
+FileNode opaqueDir(String path, List<String> imageNames) =>
+    FileNode(path: path, kind: NodeKind.directory, childImageNames: imageNames);
 FileNode memo(String name, {int? id}) =>
     FileNode(id: id, path: name, kind: NodeKind.keyword);
 FileNode nodeWithId(int id, String path, {bool isDirectory = false}) =>
@@ -128,6 +132,52 @@ void main() {
     test('이미지가 없는 폴더는 인덱스에 없다', () {
       final nodes = [dir('empty'), file('empty/readme.txt')];
       expect(buildFolderThumbnailIndex(nodes).containsKey('empty'), isFalse);
+    });
+
+    test('내부를 인덱싱하지 않는 폴더는 기억해 둔 직속 이미지 이름을 쓴다', () {
+      // 자식이 노드로 실려 있지 않아도(불투명) 폴더가 제 대표 이미지를 갖는다.
+      final nodes = [
+        opaqueDir('box', const ['a.png', 'b.jpg']),
+      ];
+      expect(buildFolderThumbnailIndex(nodes)['box'], [
+        'box/a.png',
+        'box/b.jpg',
+      ]);
+    });
+
+    test('기억해 둔 이름은 상위 폴더의 재료도 된다', () {
+      final nodes = [
+        dir('albums'),
+        opaqueDir('albums/2024', const ['cat.png']),
+      ];
+      final index = buildFolderThumbnailIndex(nodes);
+      expect(index['albums'], ['albums/2024/cat.png']);
+      expect(index['albums/2024'], ['albums/2024/cat.png']);
+    });
+
+    test('노드로도 실리고 이름으로도 기억된 이미지는 한 번만 센다', () {
+      // 부분 반영 중 옛 자식 노드가 아직 목록에 남아 있는 구간에서 생길 수 있다.
+      final nodes = [
+        opaqueDir('box', const ['a.png']),
+        file('box/a.png'),
+        file('box/b.png'),
+      ];
+      expect(buildFolderThumbnailIndex(nodes)['box'], [
+        'box/a.png',
+        'box/b.png',
+      ]);
+    });
+
+    test('연결 끊김 폴더가 기억한 이름은 쓰지 않는다', () {
+      final nodes = [
+        FileNode(
+          path: 'gone',
+          kind: NodeKind.directory,
+          childImageNames: const ['a.png'],
+          missingSince: DateTime(2026),
+        ),
+      ];
+      expect(buildFolderThumbnailIndex(nodes).containsKey('gone'), isFalse);
     });
   });
 

@@ -24,6 +24,7 @@ class FileNode {
     this.childFileCount,
     this.imageWidth,
     this.imageHeight,
+    this.childImageNames = const [],
   });
 
   /// 저장소가 부여한 식별자. 아직 저장 전이면 null.
@@ -72,6 +73,15 @@ class FileNode {
   /// 이미지 파일의 세로 픽셀 수. 채워지는 조건은 [imageWidth]와 같다(둘은 늘 함께
   /// 채워지거나 함께 비어 있다). 시스템 태그 '이미지 높이'의 원본.
   final int? imageHeight;
+
+  /// 내부를 인덱싱하지 않는 폴더가 기억해 둔 **직속 이미지 파일 이름**들(이름순,
+  /// 겹쳐 쌓기 상한까지). 그 파일들은 노드로 실리지 않아 인덱스만 봐서는 폴더가
+  /// 무엇을 담았는지 알 수 없는데, 폴더 썸네일은 그 이름만 있으면 그린다.
+  ///
+  /// 경로가 아니라 **이름**으로 담는 것은 의도다 — 폴더가 옮겨져도 그대로 쓰인다.
+  /// 내부가 인덱싱되는 폴더는 그 자식들이 이미 노드로 있으므로 비운다(같은 사실을
+  /// 두 자리에 두지 않는다).
+  final List<String> childImageNames;
 
   /// 디스크에 있는 디렉토리인지.
   bool get isDirectory => kind == NodeKind.directory;

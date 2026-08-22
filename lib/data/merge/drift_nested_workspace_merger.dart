@@ -108,6 +108,7 @@ class DriftNestedWorkspaceMerger implements NestedWorkspaceMerger {
                 childFileCount: Value(n.childFileCount),
                 imageWidth: Value(n.imageWidth),
                 imageHeight: Value(n.imageHeight),
+                childImageNames: Value(n.childImageNames),
               ),
               onConflict: DoUpdate(
                 (_) => FileNodesCompanion(lastSeenAt: Value(seenAt)),

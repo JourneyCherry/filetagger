@@ -27,6 +27,11 @@ void main() {
     expect(companion.childFileCount.value, 3);
   });
 
+  test('FileNodes 스키마에 폴더가 기억한 직속 이미지 이름 컬럼이 반영된다', () {
+    const companion = FileNodesCompanion(childImageNames: Value('["a.png"]'));
+    expect(companion.childImageNames.value, '["a.png"]');
+  });
+
   test('FileNodes 스키마에 이미지 너비·높이 컬럼이 반영된다', () {
     const companion = FileNodesCompanion(
       imageWidth: Value(400),

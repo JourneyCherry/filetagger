@@ -311,7 +311,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpTopicManageModeBody =>
-      'Every folder is handled in one of three ways: \"folder only\" (treated as a single item with its contents hidden), \"manage contents\" (direct children only), or \"manage recursively\" (all the way down). A folder with no choice of its own inherits the one above it. Change the mode to keep the contents of a large folder out of the index.';
+      'Every folder is handled in one of three ways: \"folder only\" (treated as a single item, its contents kept out of the list), \"manage contents\" (direct children only), or \"manage recursively\" (all the way down). A folder with no choice of its own inherits the one above it. Change the mode to keep the contents of a large folder out of the index. A folder whose contents are not managed still uses an image sitting directly inside it as its thumbnail.';
 
   @override
   String get helpTopicQueryRowsTitle => 'The Filter, Sort, and Group Rows';

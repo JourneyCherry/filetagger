@@ -46,6 +46,19 @@ class BuildGroupedTree {
       definitionsById: definitionsById,
     );
 
+    // 폴더별 자식 정렬은 **한 번만** 한다. 값 버킷 뒤에 폴더 계층이 오면 substrate가
+    // 버킷 수만큼 되풀이 세워지는데, 비교기가 같으니 결과도 같다 — 버킷마다 다시
+    // 정렬하면 그 배수가 고스란히 비용이 된다. 첫 substrate에서만 치른다(폴더 계층
+    // 키가 없는 그룹은 이 정렬 자체가 필요 없다).
+    var childrenSorted = false;
+    void sortChildrenOnce() {
+      if (childrenSorted) return;
+      childrenSorted = true;
+      for (final kids in childrenByParent.values) {
+        kids.sort(cmp);
+      }
+    }
+
     List<AssignedTag> tagsOf(FileNode f) {
       final id = f.id;
       if (id == null) return const [];
@@ -78,16 +91,29 @@ class BuildGroupedTree {
       List<GroupKey> restKeys,
       List<TreeItem> Function(List<FileNode>, List<GroupKey>) build,
     ) {
+      sortChildrenOnce();
       final memberPaths = {for (final n in memberNodes) n.path};
+      // 멤버를 품은 폴더들(조상 사슬 포함). 여기 없는 폴더 아래에는 이 substrate가
+      // 남길 것이 하나도 없으므로 내려가지 않는다 — 버킷마다 트리 전체를 훑던 자리다.
+      final memberDirs = <String>{};
+      for (final n in memberNodes) {
+        var p = parentDirPath(n.path);
+        // 이미 담긴 조상을 만나면 그 위는 모두 담겨 있어 더 오를 것이 없다.
+        while (memberDirs.add(p) && p.isNotEmpty) {
+          p = parentDirPath(p);
+        }
+      }
 
       List<TreeItem> buildDir(String parentPath) {
-        final kids = [...?childrenByParent[parentPath]]..sort(cmp);
+        final kids = childrenByParent[parentPath] ?? const <FileNode>[];
         // 남은 키가 없으면 옛 폴더 트리 그대로 — 형제(폴더·파일)를 한 순서로 다룬다.
         if (restKeys.isEmpty) {
           final result = <TreeItem>[];
           for (final k in kids) {
             if (k.isDirectory) {
-              final sub = buildDir(k.path);
+              final sub = memberDirs.contains(k.path)
+                  ? buildDir(k.path)
+                  : const <TreeItem>[];
               if (memberPaths.contains(k.path) || sub.isNotEmpty) {
                 result.add(FileTreeNode(k, sub));
               }
@@ -102,7 +128,9 @@ class BuildGroupedTree {
         final directFiles = <FileNode>[];
         for (final k in kids) {
           if (k.isDirectory) {
-            final sub = buildDir(k.path);
+            final sub = memberDirs.contains(k.path)
+                ? buildDir(k.path)
+                : const <TreeItem>[];
             if (memberPaths.contains(k.path) || sub.isNotEmpty) {
               dirItems.add(FileTreeNode(k, sub));
             }

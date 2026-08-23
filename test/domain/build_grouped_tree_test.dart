@@ -295,4 +295,32 @@ void main() {
     expect(_headerLabels(tree), ['5']);
     expect(_filePaths((tree.single as GroupHeaderNode).children), ['x']);
   });
+
+  test('남길 것이 없는 폴더 가지는 빠지고, 자기가 남는 폴더는 자식이 없어도 선다', () {
+    final files = [
+      _node(1, 'a', dir: true),
+      _node(2, 'a/x.txt'),
+      _node(3, 'b', dir: true),
+      _node(4, 'b/y.txt'),
+      _node(5, 'c', dir: true),
+    ];
+    // 숨김(4) 태그가 있는 것만 표시 — a/x.txt(조상 a가 딸려 온다)와 폴더 c.
+    final assignments = {
+      2: [_assign(2, _label, null)],
+      5: [_assign(5, _label, null)],
+    };
+    final tree = _run(
+      files,
+      assignments,
+      const FileGrouping(keys: [FolderHierarchyGroupKey()]),
+      filter: const FileFilter(
+        conditions: [FilterCondition(tagDefinitionId: 4)],
+      ),
+    );
+    // b는 자신도 자손도 남지 않아 통째로 빠지고, c는 자손이 없어도 자기가 남는다.
+    expect(_filePaths(tree), ['a', 'c']);
+    final a = tree.first as FileTreeNode;
+    expect(_filePaths(a.children), ['a/x.txt']);
+    expect((tree[1] as FileTreeNode).children, isEmpty);
+  });
 }

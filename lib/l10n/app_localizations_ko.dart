@@ -48,6 +48,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get cmdReconnect => '원본 파일 찾기';
 
   @override
+  String get cmdRemoveMissing => '연결 끊긴 항목 제거';
+
+  @override
   String get cmdRevealInFileManager => '탐색기에서 열기';
 
   @override
@@ -358,7 +361,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get helpTopicDisconnectedBody =>
-      '앱 밖에서 파일을 옮기거나 지우면 그 항목은 연결 끊김으로 남고 태그는 보존됩니다. 같은 내용의 파일을 다시 찾으면 자동으로 이어 붙고, 못 찾으면 원본 파일 찾기로 직접 지목해 태그를 되살릴 수 있습니다.';
+      '앱 밖에서 파일을 옮기거나 지우면 그 항목은 연결 끊김으로 남고 태그는 보존됩니다. 같은 내용의 파일을 다시 찾으면 자동으로 이어 붙고, 못 찾으면 원본 파일 찾기로 직접 지목해 태그를 되살릴 수 있습니다. 스캔이 폴더를 읽지 못했을 때도 그 안이 연결 끊김으로 표시됩니다 — 다시 읽히면 저절로 풀리니 기다리면 됩니다. 정말 없어진 항목은 여럿 골라 한 번에 제거할 수 있습니다.';
 
   @override
   String get helpGroupFolder => '폴더';
@@ -535,6 +538,11 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String homeScanFailed(String error) {
     return '스캔에 실패했습니다: $error';
+  }
+
+  @override
+  String homeScanRootUnreadable(String path) {
+    return '관리 폴더를 읽지 못해 스캔을 멈췄습니다. 태그와 목록은 그대로 둡니다: $path';
   }
 
   @override
@@ -1272,6 +1280,11 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String statusMissingCount(int count) {
+    return '연결 끊김 $count개';
+  }
+
+  @override
   String statusSelectedCount(int count) {
     return '$count개 선택';
   }
@@ -1421,6 +1434,14 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get reconnectRemove => '보존 취소(제거)';
+
+  @override
+  String get missingRemoveTitle => '연결 끊긴 항목 제거';
+
+  @override
+  String missingRemoveBody(int count) {
+    return '고른 항목 중 연결이 끊긴 $count개를 태그와 함께 지웁니다. 되돌릴 수 없습니다.';
+  }
 
   @override
   String get exportTitle => '태그 내보내기';

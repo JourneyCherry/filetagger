@@ -114,6 +114,7 @@ class MobileShell extends StatelessWidget {
   /// 선택이 있을 때의 컨텍스트 AppBar. 닫기(해제) · 선택 수 · 일괄 액션을 보인다.
   AppBar _selectionAppBar(AppLocalizations l10n) {
     final reconnect = commandOf(AppCommandId.reconnect);
+    final removeMissing = commandOf(AppCommandId.removeMissing);
     final selectAll = commandOf(AppCommandId.selectAll);
     return AppBar(
       leading: IconButton(
@@ -130,6 +131,13 @@ class MobileShell extends StatelessWidget {
             icon: Icon(reconnect.icon),
             tooltip: reconnect.label(l10n),
             onPressed: handlers.reconnect,
+          ),
+        // 고른 것 중에 연결 끊긴 항목이 있을 때만 선다.
+        if (handlers.removeMissing != null)
+          IconButton(
+            icon: Icon(removeMissing.icon),
+            tooltip: removeMissing.label(l10n),
+            onPressed: handlers.removeMissing,
           ),
         IconButton(
           icon: Icon(selectAll.icon),

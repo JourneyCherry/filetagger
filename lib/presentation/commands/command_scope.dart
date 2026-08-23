@@ -16,6 +16,7 @@ class CommandHandlers {
     this.toggleExpand,
     this.assignTags,
     this.reconnect,
+    this.removeMissing,
     this.revealInFileManager,
     this.exportSelection,
     this.manageTags,
@@ -63,6 +64,7 @@ class CommandHandlers {
   final VoidCallback? toggleExpand;
   final VoidCallback? assignTags;
   final VoidCallback? reconnect;
+  final VoidCallback? removeMissing;
   final VoidCallback? revealInFileManager;
   final VoidCallback? exportSelection;
   final VoidCallback? manageTags;
@@ -111,6 +113,7 @@ class CommandHandlers {
     AppCommandId.toggleExpand => toggleExpand,
     AppCommandId.assignTags => assignTags,
     AppCommandId.reconnect => reconnect,
+    AppCommandId.removeMissing => removeMissing,
     AppCommandId.revealInFileManager => revealInFileManager,
     AppCommandId.exportSelection => exportSelection,
     AppCommandId.manageTags => manageTags,

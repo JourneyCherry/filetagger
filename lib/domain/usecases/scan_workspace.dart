@@ -21,10 +21,20 @@ class ScanWorkspace {
   ///
   /// [onProgress]는 화면이 "작업 중"임을 보이는 데 쓰라고 스캐너의 진행 보고를
   /// 그대로 전달한다(저장 단계는 보고하지 않는다).
+  ///
+  /// 스캐너가 루트를 나열하지 못하면 예외가 그대로 올라가고 **정합은 돌지 않는다** —
+  /// 아무것도 관측하지 못한 결과로 정합을 돌리면 인덱스가 통째로 사라진 것으로
+  /// 판정된다. 하위 폴더를 못 읽은 것은 결과에 실려 와 정합이 그 서브트리를 뺀다.
+  ///
+  /// [cancel]로 도중에 그만두게 할 수 있다. 취소도 예외로 끝나므로 **정합은 마찬가지로
+  /// 돌지 않는다** — 중간까지 훑은 목록으로 정합을 돌리면 아직 안 본 자리가 사라진
+  /// 것으로 판정된다. 이미 미리 반영된 노드는 그대로 남는데, 그것은 실제로 관측한
+  /// 것이라 남아도 틀리지 않다(다음 스캔이 정합을 맞춘다).
   Future<ScanResult> call(
     String workspaceRoot, {
     FolderManageMode rootManageMode = FolderManageMode.managed,
     void Function(ScanProgress progress)? onProgress,
+    ScanCancellation? cancel,
   }) async {
     // 직전 인덱스를 넘겨, 크기·수정시각이 그대로인 파일은 저장된 해시를 재사용해
     // 재해시(파일 재읽기)를 건너뛰게 하고, 폴더 관리 방식(override)도 이어받게 한다.
@@ -38,6 +48,7 @@ class ScanWorkspace {
       workspaceRoot,
       priorIndex: priorIndex,
       rootManageMode: rootManageMode,
+      cancel: cancel,
       onProgress: (progress) {
         onProgress?.call(progress);
         if (progress.newNodes.isEmpty) return;
@@ -56,6 +67,7 @@ class ScanWorkspace {
       // 이동 재연결의 "처음 본 경로" 판정 기준. 미리 반영한 노드가 이미 저장되어
       // 있으므로 저장된 것이 아니라 스캔 시작 시점을 기준으로 삼아야 한다.
       priorPaths: priorIndex.keys.toSet(),
+      unreadableDirs: result.unreadableDirs.toSet(),
     );
     return result;
   }

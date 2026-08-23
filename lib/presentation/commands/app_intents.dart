@@ -42,6 +42,11 @@ class ReconnectIntent extends Intent {
   const ReconnectIntent();
 }
 
+/// 고른 항목 중 연결 끊긴 노드를 태그째 제거한다.
+class RemoveMissingIntent extends Intent {
+  const RemoveMissingIntent();
+}
+
 /// 선택한 항목의 태그를 요청함 형식의 파일로 내보낸다.
 class ExportSelectionIntent extends Intent {
   const ExportSelectionIntent();

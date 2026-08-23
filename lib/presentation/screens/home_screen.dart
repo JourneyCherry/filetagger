@@ -25,6 +25,7 @@ import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
+import '../../domain/repositories/workspace_scanner.dart';
 import '../../domain/usecases/export_tag_commands.dart';
 import '../../domain/usecases/folder_index_scope.dart';
 import '../../l10n/app_localizations.dart';
@@ -102,6 +103,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 큰 폴더에서 스캔이 멈춘 것처럼 보이지 않도록 화면에 그대로 보여 준다.
   ScanProgress? _scanProgress;
 
+  /// 지금 유효한 워크스페이스의 세대. 폴더를 닫거나 다른 폴더를 열 때마다 올라간다.
+  ///
+  /// 스캔은 시작할 때의 세대를 쥐고 있다가 끝날 때 다시 비교한다. 세대가 달라졌으면
+  /// **화면 상태도 후속 작업도 건드리지 않는다** — 그 결과는 이미 없는 폴더의 것이라,
+  /// 늦게 도착해 새 폴더의 진행 표시를 지우거나 큐 적용을 부르면 안 된다.
+  int _workspaceEpoch = 0;
+
+  /// 지금 도는 스캔들의 취소 손잡이. 수동 스캔과 백그라운드 재스캔이 겹칠 수 있어
+  /// 하나가 아니라 집합으로 쥔다.
+  final Set<ScanCancellation> _activeScans = {};
+
   /// 외부 앱 큐 패스가 진행 중인지. 스캔 뒤와 큐 감시자 신호 양쪽에서 불려
   /// 겹칠 수 있어 하나만 돌게 막는다.
   bool _applyingQueue = false;
@@ -124,12 +136,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 다중 선택하므로 늘 false다.
   bool _selectionMode = false;
 
-  /// 폴더 열기·스캔 등 앱을 잠가야 하는 작업이 진행 중인지. 이 동안에는 폴더
-  /// 열기·재스캔·최근 폴더 탭을 막아 네이티브 다이얼로그가 모달처럼 동작하게 한다.
+  /// 지금 재스캔을 걸 수 없는지. 이미 도는 스캔이 있거나 폴더 선택기가 떠 있으면
+  /// 다시 걸 자리가 아니다.
+  ///
+  /// **폴더 열기·닫기는 여기 매이지 않는다** — 스캔이 도는 동안에도 폴더를 바꾸거나
+  /// 닫을 수 있어야 하고(그러지 못하면 큰 폴더에서 앱을 끄는 수밖에 없다), 진행 중인
+  /// 스캔은 취소로 접는다.
   bool get _busy => _scanning || _picking;
 
+  @override
+  void dispose() {
+    // 화면이 사라지면 스캔 결과를 받을 자리도 없다. 남겨 두면 isolate가 끝날 때까지
+    // 디스크를 계속 두드린다.
+    for (final cancel in _activeScans) {
+      cancel.cancel();
+    }
+    _activeScans.clear();
+    super.dispose();
+  }
+
   Future<void> _openFolder() async {
-    if (_busy) return;
+    // 스캔 중에도 열 수 있다 — 막는 것은 피커가 이미 떠 있는 경우뿐이다.
+    if (_picking) return;
     // 피커가 닫힐 때까지 트리거를 비활성화해 재진입(중복 다이얼로그)을 막는다.
     setState(() => _picking = true);
     String? path;
@@ -142,8 +170,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _openWorkspace(path);
   }
 
-  /// 폴더를 현재 워크스페이스로 열고, 최근 목록을 갱신한 뒤 스캔한다.
+  /// 폴더를 현재 워크스페이스로 열고, 최근 목록을 갱신한 뒤 스캔한다. 앞 폴더를
+  /// 스캔하는 중이었으면 그것을 먼저 접는다.
   Future<void> _openWorkspace(String path) async {
+    _endWorkspace();
     _clearSelection();
     ref.read(workspaceRootProvider.notifier).state = path;
     await ref.read(recentFoldersProvider.notifier).touch(path);
@@ -152,11 +182,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// 현재 열린 폴더를 닫고 최근 폴더 목록(메인)으로 돌아간다. 워크스페이스 루트를
   /// 비우면 DB·목록·보기 설정(펼침 상태 포함) provider가 자동으로 해제·초기화된다.
-  /// 화면 로컬 상태(선택)는 여기서 함께 비운다. 스캔 중에는 무시한다.
+  /// 화면 로컬 상태(선택)는 여기서 함께 비운다.
   void _closeWorkspace() {
-    if (_busy) return;
+    if (_picking) return;
+    _endWorkspace();
     _clearSelection();
     ref.read(workspaceRootProvider.notifier).state = null;
+  }
+
+  /// 지금 폴더에 매인 작업을 모두 접는다(폴더를 닫거나 다른 폴더로 옮겨 갈 때).
+  ///
+  /// 세대를 올려 **이미 도는 스캔의 결과 반영 자격을 먼저 뺏고**, 그다음 취소를
+  /// 보낸다. 순서가 중요하다 — 취소 신호가 isolate에 닿기까지는 시간이 걸리는데,
+  /// 그 사이에 스캔이 제 힘으로 끝나 버려도 세대가 이미 달라 아무것도 건드리지
+  /// 못한다. 진행 표시는 여기서 곧바로 걷는다(닫았는데 스피너가 남으면 안 된다).
+  void _endWorkspace() {
+    _workspaceEpoch++;
+    for (final cancel in _activeScans) {
+      cancel.cancel();
+    }
+    _activeScans.clear();
+    _scanning = false;
+    _backgroundScanning = false;
+    _scanProgress = null;
+    if (mounted) setState(() {});
   }
 
   Future<void> _scan() async {
@@ -165,6 +214,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (usecase == null || root == null) return;
 
     final rootMode = ref.read(rootManageModeProvider);
+    final epoch = _workspaceEpoch;
+    final cancel = ScanCancellation();
+    _activeScans.add(cancel);
     setState(() {
       _scanning = true;
       _scanProgress = null;
@@ -174,30 +226,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final result = await usecase(
         root,
         rootManageMode: rootMode,
-        onProgress: _reportScanProgress,
+        cancel: cancel,
+        onProgress: (progress) => _reportScanProgress(epoch, progress),
       );
       scanned = true;
-      if (!mounted) return;
+      if (!mounted || epoch != _workspaceEpoch) return;
       await _reconcileNestedDecisions(result.nestedFiletaggerDirs);
+    } on ScanCancelledException {
+      // 실패가 아니라 우리가 시킨 중단이다 — 알릴 것이 없다.
+    } on WorkspaceUnreadableException catch (e) {
+      // 원인이 분명한 실패라 예외 원문 대신 무엇이 일어났는지로 알린다. 정합이 돌지
+      // 않았으므로 태그도 목록도 그대로임을 함께 말해 준다.
+      if (mounted && epoch == _workspaceEpoch) {
+        _showSnack(
+          AppLocalizations.of(context).homeScanRootUnreadable(e.workspaceRoot),
+        );
+      }
     } catch (e) {
-      if (mounted) {
+      if (mounted && epoch == _workspaceEpoch) {
         _showSnack(AppLocalizations.of(context).homeScanFailed('$e'));
       }
     } finally {
-      if (mounted) {
+      _activeScans.remove(cancel);
+      // 폴더가 바뀐 뒤라면 진행 표시는 새 스캔의 것이다 — 걷어 내면 안 된다.
+      if (mounted && epoch == _workspaceEpoch) {
         setState(() {
           _scanning = false;
           _scanProgress = null;
         });
       }
     }
-    if (scanned) await _applyQueue();
+    if (scanned && epoch == _workspaceEpoch) await _applyQueue();
   }
 
   /// 스캐너가 알려 온 진행 상태를 화면에 반영한다. 보고 간격은 스캐너가 조절하므로
-  /// 여기서는 그대로 받아 그린다(화면이 사라진 뒤 온 보고는 버린다).
-  void _reportScanProgress(ScanProgress progress) {
-    if (!mounted) return;
+  /// 여기서는 그대로 받아 그린다. 화면이 사라진 뒤나 폴더가 바뀐 뒤에 온 보고는
+  /// 버린다 — 취소가 isolate에 닿기까지 남은 보고가 더 건너올 수 있다.
+  void _reportScanProgress(int epoch, ScanProgress progress) {
+    if (!mounted || epoch != _workspaceEpoch) return;
     setState(() => _scanProgress = progress);
   }
 
@@ -211,6 +277,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (usecase == null || root == null) return;
 
     final rootMode = ref.read(rootManageModeProvider);
+    final epoch = _workspaceEpoch;
+    final cancel = ScanCancellation();
+    _activeScans.add(cancel);
     setState(() {
       _backgroundScanning = true;
       _scanProgress = null;
@@ -220,13 +289,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await usecase(
         root,
         rootManageMode: rootMode,
-        onProgress: _reportScanProgress,
+        cancel: cancel,
+        onProgress: (progress) => _reportScanProgress(epoch, progress),
       );
       scanned = true;
     } catch (_) {
-      // 백그라운드 재스캔 실패는 조용히 무시한다(다음 변화 때 재시도).
+      // 백그라운드 재스캔 실패·취소는 조용히 무시한다(다음 변화 때 재시도).
     } finally {
-      if (mounted) {
+      _activeScans.remove(cancel);
+      if (epoch != _workspaceEpoch) {
+        // 폴더가 바뀐 뒤다 — 화면 상태는 이미 새 폴더의 것이라 손대지 않는다.
+      } else if (mounted) {
         setState(() {
           _backgroundScanning = false;
           _scanProgress = null;
@@ -235,7 +308,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _backgroundScanning = false;
       }
     }
-    if (scanned) await _applyQueue();
+    if (scanned && epoch == _workspaceEpoch) await _applyQueue();
   }
 
   /// 외부 앱이 떨궈 둔 명령 큐를 한 번 훑어 적용한다.
@@ -893,6 +966,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const MenuCommand(AppCommandId.reconnect)
         else
           const MenuCommand(AppCommandId.assignTags),
+        // 고른 것 중에 연결 끊긴 항목이 있을 때만 낸다 — 여럿을 골랐을 때도 닿아야
+        // 하므로 단일 선택을 보는 위 조건과 따로 건다.
+        if (handlers.removeMissing != null)
+          const MenuCommand(AppCommandId.removeMissing),
         // 키워드는 디스크에 자리가 없어 탐색기에서 열 수 없다.
         if (!node.isKeyword)
           const MenuCommand(AppCommandId.revealInFileManager),
@@ -931,6 +1008,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   FileNode? get _singleMissingSelected {
     final node = _singleSelectedNode;
     return node != null && node.isMissing ? node : null;
+  }
+
+  /// 선택 중 연결이 끊긴 노드들. 하나 이상이면 일괄 제거 명령이 선다(단일 선택만
+  /// 보는 [_singleMissingSelected]와 달리 여럿을 한 번에 다룬다).
+  List<FileNode> get _missingSelected {
+    final selection = ref.read(selectionControllerProvider);
+    if (selection.isEmpty) return const [];
+    return [
+      for (final id in selection.selectedIds)
+        if (_nodeById(id) case final node?)
+          if (node.isMissing) node,
+    ];
   }
 
   /// 선택이 정확히 디스크에 실재하는 노드 하나면 그 노드. 탐색기에서 열기처럼
@@ -1156,6 +1245,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case ReconnectRemove():
         await repo.removeNode(missing.id!);
     }
+    if (mounted) _clearSelection();
+  }
+
+  /// 고른 항목 중 연결 끊긴 것을 태그째 한 번에 제거한다. 되돌릴 수 없으므로 수를
+  /// 밝혀 한 번 확인을 거친다. 연결이 끊기지 않은 항목은 함께 골라도 건드리지 않는다.
+  Future<void> _removeMissingSelected() async {
+    final missing = _missingSelected;
+    final ids = [
+      for (final node in missing)
+        if (node.id case final id?) id,
+    ];
+    final repo = ref.read(fileNodeRepositoryProvider);
+    if (ids.isEmpty || repo == null) return;
+    if (!await confirmMissingRemove(context, ids.length)) return;
+    await repo.removeNodes(ids);
     if (mounted) _clearSelection();
   }
 
@@ -1497,10 +1601,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final resolver = ref.read(resolveNestedWorkspaceProvider);
     if (root == null || resolver == null) return;
     final parentVersion = ref.read(databaseProvider)?.schemaVersion;
+    // 다이얼로그가 떠 있는 동안에도 폴더를 닫거나 바꿀 수 있다. 그러면 여기 쥔
+    // 루트·해결기는 이미 없는 폴더의 것이라, 세대가 달라지는 순간 손을 뗀다.
+    final epoch = _workspaceEpoch;
 
     var appliedAny = false;
     for (final dir in nestedDirs) {
-      if (!mounted) break;
+      if (!mounted || epoch != _workspaceEpoch) break;
       final childAbs = p.joinAll([root, ...dir.split('/')]);
       final childVersion = await readWorkspaceSchemaVersion(childAbs);
       // 하위 버전이 현재보다 높으면 스키마를 해석할 수 없어 흡수를 막는다(내부 DB를
@@ -1509,7 +1616,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           parentVersion != null &&
           childVersion != null &&
           childVersion <= parentVersion;
-      if (!mounted) break;
+      if (!mounted || epoch != _workspaceEpoch) break;
 
       final resolution = await showDialog<NestedMergeResolution>(
         context: context,
@@ -1526,14 +1633,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     // 관리 방식 변경·흡수 결과를 반영해 프롬프트 없이 한 번 재스캔한다.
-    if (appliedAny) {
+    if (appliedAny && mounted && epoch == _workspaceEpoch) {
       final usecase = ref.read(scanWorkspaceProvider);
       final rootMode = ref.read(rootManageModeProvider);
       if (usecase != null) {
+        final cancel = ScanCancellation();
+        _activeScans.add(cancel);
         try {
-          await usecase(root, rootManageMode: rootMode);
+          await usecase(root, rootManageMode: rootMode, cancel: cancel);
         } catch (_) {
-          // 재조정 스캔 실패는 조용히 둔다(다음 변화 때 다시 반영).
+          // 재조정 스캔 실패·취소는 조용히 둔다(다음 변화 때 다시 반영).
+        } finally {
+          _activeScans.remove(cancel);
         }
       }
     }
@@ -1550,8 +1661,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         hasWorkspace && ref.read(viewModeProvider) == ViewMode.list;
     final cursor = ref.read(navigationCursorProvider);
     return CommandHandlers(
-      openFolder: _busy ? null : _openFolder,
-      closeFolder: (!hasWorkspace || _busy) ? null : _closeWorkspace,
+      openFolder: _picking ? null : _openFolder,
+      closeFolder: (!hasWorkspace || _picking) ? null : _closeWorkspace,
       rescan: (!hasWorkspace || _busy) ? null : _scan,
       selectAll: hasWorkspace ? _selectAll : null,
       clearSelection: selection.isEmpty ? null : _clearSelection,
@@ -1559,6 +1670,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       toggleExpand: _expandableSelected == null ? null : _toggleExpandSelected,
       assignTags: selection.isEmpty ? null : _assignToSelection,
       reconnect: _singleMissingSelected == null ? null : _reconnectSelected,
+      removeMissing: _missingSelected.isEmpty ? null : _removeMissingSelected,
       revealInFileManager: _singleExistingSelected == null
           ? null
           : _revealSelected,
@@ -1751,7 +1863,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return DesktopShell(
       handlers: handlers,
       workspaceRoot: workspaceRoot,
-      onOpenRecent: _busy ? null : _openWorkspace,
+      onOpenRecent: _picking ? null : _openWorkspace,
       onSetRootRecursive: workspaceRoot == null ? null : _setRootRecursive,
       onOpenHelpTab: (tab) => showHelpDialog(context, initial: tab),
       onCharacter: _typeAhead,
@@ -2028,7 +2140,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       return ListTile(
                         leading: const Icon(Icons.folder),
                         title: Text(folder),
-                        onTap: _busy ? null : () => _openWorkspace(folder),
+                        onTap: _picking ? null : () => _openWorkspace(folder),
                         trailing: IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => ref

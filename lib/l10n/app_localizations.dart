@@ -176,6 +176,12 @@ abstract class AppLocalizations {
   /// **'원본 파일 찾기'**
   String get cmdReconnect;
 
+  /// 명령 카탈로그의 라벨 — 고른 연결 끊김 항목을 한 번에 지운다
+  ///
+  /// In ko, this message translates to:
+  /// **'연결 끊긴 항목 제거'**
+  String get cmdRemoveMissing;
+
   /// 명령 카탈로그의 라벨 — 메뉴·툴팁·도움말이 함께 쓴다
   ///
   /// In ko, this message translates to:
@@ -755,7 +761,7 @@ abstract class AppLocalizations {
   /// 도움말 사용법 탭의 개념 설명 — 본문
   ///
   /// In ko, this message translates to:
-  /// **'앱 밖에서 파일을 옮기거나 지우면 그 항목은 연결 끊김으로 남고 태그는 보존됩니다. 같은 내용의 파일을 다시 찾으면 자동으로 이어 붙고, 못 찾으면 원본 파일 찾기로 직접 지목해 태그를 되살릴 수 있습니다.'**
+  /// **'앱 밖에서 파일을 옮기거나 지우면 그 항목은 연결 끊김으로 남고 태그는 보존됩니다. 같은 내용의 파일을 다시 찾으면 자동으로 이어 붙고, 못 찾으면 원본 파일 찾기로 직접 지목해 태그를 되살릴 수 있습니다. 스캔이 폴더를 읽지 못했을 때도 그 안이 연결 끊김으로 표시됩니다 — 다시 읽히면 저절로 풀리니 기다리면 됩니다. 정말 없어진 항목은 여럿 골라 한 번에 제거할 수 있습니다.'**
   String get helpTopicDisconnectedBody;
 
   /// 도움말 기능·단축키 표의 묶음 제목
@@ -1051,6 +1057,12 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'스캔에 실패했습니다: {error}'**
   String homeScanFailed(String error);
+
+  /// 루트 폴더 자체를 나열하지 못해 스캔이 서지 못했을 때의 알림
+  ///
+  /// In ko, this message translates to:
+  /// **'관리 폴더를 읽지 못해 스캔을 멈췄습니다. 태그와 목록은 그대로 둡니다: {path}'**
+  String homeScanRootUnreadable(String path);
 
   /// OS가 그 파일을 열 프로그램을 찾지 못했을 때의 알림
   ///
@@ -2366,6 +2378,12 @@ abstract class AppLocalizations {
   /// **'항목 {count}개'**
   String statusItemCount(int count);
 
+  /// 상태표시줄 — 연결이 끊긴 항목 수(하나 이상일 때만 보인다)
+  ///
+  /// In ko, this message translates to:
+  /// **'연결 끊김 {count}개'**
+  String statusMissingCount(int count);
+
   /// 상태표시줄 — 고른 항목 수
   ///
   /// In ko, this message translates to:
@@ -2623,6 +2641,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'보존 취소(제거)'**
   String get reconnectRemove;
+
+  /// 연결 끊김 항목 일괄 제거 확인 다이얼로그의 제목
+  ///
+  /// In ko, this message translates to:
+  /// **'연결 끊긴 항목 제거'**
+  String get missingRemoveTitle;
+
+  /// 연결 끊김 항목 일괄 제거 확인 다이얼로그의 본문
+  ///
+  /// In ko, this message translates to:
+  /// **'고른 항목 중 연결이 끊긴 {count}개를 태그와 함께 지웁니다. 되돌릴 수 없습니다.'**
+  String missingRemoveBody(int count);
 
   /// 태그 내보내기 다이얼로그의 제목
   ///

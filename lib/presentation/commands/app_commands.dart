@@ -24,6 +24,7 @@ enum AppCommandId {
   toggleExpand,
   assignTags,
   reconnect,
+  removeMissing,
   revealInFileManager,
   exportSelection,
   manageTags,
@@ -173,6 +174,14 @@ final List<AppCommand> appCommands = [
     intent: const ReconnectIntent(),
     icon: Icons.link,
     shortcut: _primaryShift(LogicalKeyboardKey.keyL),
+  ),
+  // 고른 항목 중 연결 끊긴 것을 한 번에 지운다. 단축키는 두지 않는다 — 되돌릴 수
+  // 없는 조작이라 손이 미끄러질 자리를 만들지 않고 메뉴로만 부른다.
+  AppCommand(
+    id: AppCommandId.removeMissing,
+    label: (l) => l.cmdRemoveMissing,
+    intent: const RemoveMissingIntent(),
+    icon: Icons.link_off,
   ),
   AppCommand(
     id: AppCommandId.revealInFileManager,

@@ -140,6 +140,7 @@ List<HelpCommandGroup> helpCommandGroupsOf(AppLocalizations l10n) => [
     AppCommandId.toggleExpand,
     AppCommandId.assignTags,
     AppCommandId.reconnect,
+    AppCommandId.removeMissing,
     AppCommandId.manageTags,
     AppCommandId.manageNameTags,
     AppCommandId.manageSubtitleTags,

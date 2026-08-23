@@ -40,6 +40,23 @@ Set<String> indexingFolderPaths(
   };
 }
 
+/// [path]가 [unreadableDirs] 중 하나이거나 그 아래에 있는지.
+///
+/// 스캔이 나열하지 못한 폴더의 서브트리를 정합에서 가려내는 데 쓴다. 그 자리는
+/// 이번 스캔이 확인하지 못한 곳이라 "관측되지 않았다"를 "사라졌다"로 읽으면 안 된다.
+/// 폴더 **자신도** 포함한다 — 폴더에 붙은 태그도 같은 이유로 지켜야 한다.
+///
+/// 경계는 구분자까지 함께 본다. 접두만 맞춰 보면 이름이 서로의 접두인 형제 폴더가
+/// 함께 걸린다.
+bool isUnderUnreadableDir(String path, Set<String> unreadableDirs) {
+  if (unreadableDirs.isEmpty) return false;
+  if (unreadableDirs.contains(path)) return true;
+  for (final dir in unreadableDirs) {
+    if (path.startsWith('$dir/')) return true;
+  }
+  return false;
+}
+
 /// 루트 기준 상대 경로의 부모 경로. 최상위면 빈 문자열(루트).
 String parentDirPath(String path) {
   final i = path.lastIndexOf('/');

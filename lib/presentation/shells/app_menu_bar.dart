@@ -123,6 +123,7 @@ class AppMenuBar extends ConsumerWidget {
         const MenuDivider(),
         const MenuCommand(AppCommandId.assignTags),
         const MenuCommand(AppCommandId.reconnect),
+        const MenuCommand(AppCommandId.removeMissing),
         const MenuDivider(),
         const MenuCommand(AppCommandId.openNode),
         const MenuCommand(AppCommandId.toggleExpand),

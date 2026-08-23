@@ -36,6 +36,30 @@ Future<ReconnectAction?> showReconnectDialog(
   );
 }
 
+/// 연결 끊긴 항목 [count]개를 태그째 지울지 확인받는다. 되돌릴 수 없는 조작이라
+/// 수를 밝혀 묻는다. 확인하면 true.
+Future<bool> confirmMissingRemove(BuildContext context, int count) async {
+  final l10n = AppLocalizations.of(context);
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(l10n.missingRemoveTitle),
+      content: Text(l10n.missingRemoveBody(count)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(l10n.commonDelete),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
 /// [candidates]를 파일 이름이 [targetName]과 유사한 순(편집 거리 오름차순,
 /// 동률은 경로순)으로 정렬해 돌려준다. 순수 함수라 단독 테스트가 가능하다.
 List<FileNode> sortCandidatesByNameSimilarity(

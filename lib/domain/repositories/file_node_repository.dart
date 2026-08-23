@@ -18,13 +18,17 @@ abstract interface class FileNodeRepository {
   Future<Map<String, FileNode>> indexByPath();
 
   /// 스캔 결과를 증분 반영한다: 경로 기준 upsert 후, 이번 스캔에서 관측되지
-  /// 않은(=사라진) 노드를 정리한다. 단, 태그가 달린 채 사라졌고 자동 재연결도
-  /// 안 된 노드는 삭제하지 않고 "연결 끊김"으로 보존한다. **키워드는 스캔 대상이
-  /// 아니므로 이 정리에 걸리지 않는다.**
+  /// 않은(=사라진) 노드를 정리한다. 단, 태그가 달린 채 사라진 노드는 자동 재연결에
+  /// 실패해도 삭제하지 않고 "연결 끊김"으로 보존한다 — 지울지는 사용자가 정한다.
+  /// **키워드는 스캔 대상이 아니므로 이 정리에 걸리지 않는다.**
   ///
   /// [rootManageMode]로 인덱싱 범위를 계산해, **더 이상 관리되지 않는(불투명이 되었거나
   /// 부모가 사라진) 서브트리 안의 노드는 연결 끊김이라도 보존하지 않고 제거**한다
   /// (범위를 벗어나면 되살아나거나 재연결될 수 없으므로).
+  ///
+  /// [unreadableDirs]는 스캔이 **나열하지 못한** 폴더들이다. 그 폴더와 하위는 이번
+  /// 스캔이 확인하지 못한 자리라 관측되지 않은 것이 사라진 근거가 되지 못하므로,
+  /// 삭제·범위 판정에서 빼고 태그 유무와 무관하게 연결 끊김으로 표시만 한다.
   ///
   /// [priorPaths]는 **스캔이 시작될 때** 인덱스에 있던 경로들이다. 이동 재연결은
   /// "이번 스캔에서 처음 본 경로"를 알아야 하는데, 스캔 도중 [applyPartialScan]으로
@@ -33,6 +37,7 @@ abstract interface class FileNodeRepository {
     List<FileNode> scanned, {
     required FolderManageMode rootManageMode,
     required Set<String> priorPaths,
+    required Set<String> unreadableDirs,
   });
 
   /// 스캔 **도중** 관측된 노드를 목록에 미리 반영한다(경로 기준 upsert만).
@@ -54,6 +59,10 @@ abstract interface class FileNodeRepository {
   /// 재연결하지 않고 폐기할 때(사용자가 새로 태깅하려는 경우 등), 그리고 키워드를
   /// 지울 때 쓰인다.
   Future<void> removeNode(int nodeId);
+
+  /// 노드 여럿을 한 번에 제거한다. 사라진 노드가 삭제 대신 보존되므로 한 번의 정리로
+  /// 여러 개가 함께 생기는데, 하나씩만 지울 수 있으면 그 수만큼 확인을 거쳐야 한다.
+  Future<void> removeNodes(List<int> nodeIds);
 
   /// 현재 키워드를 **이름→노드**로 한 번 읽어 온다. 키워드는 경로 계층에 속하지 않아
   /// [indexByPath]와 키 공간이 아예 다르므로 따로 낸다 — 같은 맵에 섞으면 이름이

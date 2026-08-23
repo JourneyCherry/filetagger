@@ -48,6 +48,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cmdReconnect => 'Find Original File';
 
   @override
+  String get cmdRemoveMissing => 'Remove Disconnected Items';
+
+  @override
   String get cmdRevealInFileManager => 'Show in File Manager';
 
   @override
@@ -362,7 +365,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpTopicDisconnectedBody =>
-      'Moving or deleting a file outside the app leaves the item marked disconnected, with its tags preserved. If a file with the same content turns up again it is reattached automatically, and if not, Find Original File lets you point at it yourself and bring the tags back.';
+      'Moving or deleting a file outside the app leaves the item marked disconnected, with its tags preserved. If a file with the same content turns up again it is reattached automatically, and if not, Find Original File lets you point at it yourself and bring the tags back. A folder the scan could not read is marked the same way, and clears on its own once it can be read again. Items that really are gone can be selected together and removed in one go.';
 
   @override
   String get helpGroupFolder => 'Folder';
@@ -545,6 +548,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String homeScanFailed(String error) {
     return 'Scan failed: $error';
+  }
+
+  @override
+  String homeScanRootUnreadable(String path) {
+    return 'The managed folder could not be read, so the scan stopped. Tags and the list are left as they were: $path';
   }
 
   @override
@@ -1296,6 +1304,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String statusMissingCount(int count) {
+    return '$count disconnected';
+  }
+
+  @override
   String statusSelectedCount(int count) {
     return '$count selected';
   }
@@ -1450,6 +1463,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reconnectRemove => 'Stop preserving (remove)';
+
+  @override
+  String get missingRemoveTitle => 'Remove Disconnected Items';
+
+  @override
+  String missingRemoveBody(int count) {
+    return 'This deletes the $count disconnected items among your selection, along with their tags. It cannot be undone.';
+  }
 
   @override
   String get exportTitle => 'Export Tags';

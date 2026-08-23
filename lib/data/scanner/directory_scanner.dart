@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -48,19 +49,31 @@ class DirectoryScanner implements WorkspaceScanner {
     Map<String, FileNode> priorIndex = const {},
     FolderManageMode rootManageMode = FolderManageMode.managed,
     void Function(ScanProgress progress)? onProgress,
+    ScanCancellation? cancel,
   }) async {
     // 스캔은 화면과 다른 isolate에서 돌린다. 나열·숨김 판정·해시·노드 생성은
     // 저마다 동기 구간을 품고 있어, 화면 isolate에서 돌면 폴더가 클수록 그 시간만큼
     // 프레임이 멈춘다(앱이 멎은 것처럼 보인다). 결과는 순수 데이터라 그대로 건너온다.
-    if (onProgress == null) {
+    if (onProgress == null && cancel == null) {
       return _runInIsolate(workspaceRoot, priorIndex, rootManageMode, null);
     }
 
-    // 진행 상태를 건네받을 채널. 스캔이 끝나면(성공이든 실패든) 닫는다.
+    // isolate와 주고받을 채널. 진행 보고는 이리로 건너오고, 취소는 그 반대 방향이라
+    // isolate가 자기 창구(SendPort)를 이 채널로 먼저 부쳐 온다. 스캔이 끝나면
+    // (성공이든 실패든) 닫는다.
     final updates = ReceivePort();
+    SendPort? toIsolate;
     updates.listen((message) {
-      if (message is ScanProgress) onProgress(message);
+      if (message is ScanProgress) {
+        onProgress?.call(message);
+      } else if (message is SendPort) {
+        toIsolate = message;
+        // 창구가 열리기 전에 이미 취소됐을 수 있다 — 그때는 열리는 즉시 전한다.
+        if (cancel != null && cancel.isCancelled) message.send(null);
+      }
     });
+    // 취소는 신호가 오는 즉시 건넨다. 아직 창구를 못 받았으면 위에서 마저 보낸다.
+    unawaited(cancel?.whenCancelled.then((_) => toIsolate?.send(null)));
     try {
       return await _runInIsolate(
         workspaceRoot,
@@ -102,9 +115,21 @@ class DirectoryScanner implements WorkspaceScanner {
     FolderManageMode rootManageMode,
     SendPort? updates,
   ) async {
+    // 취소를 받을 창구. 만들자마자 밖으로 부쳐 둔다 — 신호가 오면 플래그만 세우고,
+    // 순회와 파일 읽기가 다음 await 자리에서 그것을 보고 접는다.
+    var cancelled = false;
+    ReceivePort? control;
+    if (updates != null) {
+      control = ReceivePort();
+      control.listen((_) => cancelled = true);
+      updates.send(control.sendPort);
+    }
+    bool isCancelled() => cancelled;
+
     final nodes = <FileNode>[];
     final nested = <String>[];
-    final fileTasks = <Future<FileNode>>[];
+    final unreadable = <String>[];
+    final fileTasks = <Future<FileNode?>>[];
     final progress = _ProgressReporter(updates);
     // 파일 I/O 동시 실행 수를 잡아 두는 일꾼. 순회가 파일을 만나는 즉시 여기에
     // 맡기고 기다리지 않으므로, 나열과 파일 읽기가 겹쳐 돌고 파일 노드도 순회
@@ -117,21 +142,34 @@ class DirectoryScanner implements WorkspaceScanner {
       effectiveMode: rootManageMode,
       storedOverride: null,
       nodes: nodes,
-      indexFile: (file) =>
-          fileTasks.add(_indexFileTask(pool, file, priorIndex, progress)),
+      indexFile: (file) => fileTasks.add(
+        _indexFileTask(pool, file, priorIndex, progress, isCancelled),
+      ),
       nestedFiletaggerDirs: nested,
+      unreadableDirs: unreadable,
       priorIndex: priorIndex,
       progress: progress,
+      isCancelled: isCancelled,
     );
     // 순회 몫이 끝나는 자리에서 지금까지의 수를 한 번 확정해 보낸다(아직 읽는
     // 중인 파일이 남아 있어도 나열은 여기서 끝난다).
     progress.flush();
     // 결과 순서는 순회가 파일을 만난 순서 그대로다(Future.wait이 입력 순서를 지켜,
-    // 인덱싱이 끝나는 차례가 결과에 새지 않는다).
-    nodes.addAll(await Future.wait(fileTasks).whenComplete(pool.close));
+    // 인덱싱이 끝나는 차례가 결과에 새지 않는다). 취소로 접힌 자리는 노드가 없다.
+    final indexed = await Future.wait(fileTasks).whenComplete(pool.close);
+    nodes.addAll(indexed.whereType<FileNode>());
     // 마지막 집계는 간격에 걸려 빠지기 쉬우므로 끝에서 한 번 더 확정해 보낸다.
     progress.flush();
-    return ScanResult(nodes: nodes, nestedFiletaggerDirs: nested);
+    control?.close();
+    // 중간까지 훑은 목록은 "여기까지가 전부"가 아니라 "여기까지밖에 못 봤다"다.
+    // 결과로 돌려주면 아직 안 훑은 자리가 통째로 사라진 것으로 판정되므로, 취소는
+    // 반드시 예외로 끝낸다.
+    if (cancelled) throw const ScanCancelledException();
+    return ScanResult(
+      nodes: nodes,
+      nestedFiletaggerDirs: nested,
+      unreadableDirs: unreadable,
+    );
   }
 
   /// [dir]을 인덱싱한다. 루트가 아니면 자기 자신을 폴더 노드로 추가(override는
@@ -139,6 +177,8 @@ class DirectoryScanner implements WorkspaceScanner {
   /// override 없는 하위 폴더는 부모의 effective 모드에서 상속한다. 만난 파일은
   /// 그 자리에서 [indexFile]에 넘겨 인덱싱을 띄우되 **기다리지 않고** 순회를
   /// 이어 간다.
+  ///
+  /// 나열이 실패하면 루트는 예외로 끊고, 하위 폴더는 [unreadableDirs]에 실어 보고한다.
   static Future<void> _walk({
     required Directory dir,
     required String workspaceRoot,
@@ -148,14 +188,28 @@ class DirectoryScanner implements WorkspaceScanner {
     required List<FileNode> nodes,
     required void Function(_PendingFile file) indexFile,
     required List<String> nestedFiletaggerDirs,
+    required List<String> unreadableDirs,
     required Map<String, FileNode> priorIndex,
     required _ProgressReporter progress,
+    required bool Function() isCancelled,
   }) async {
+    // 취소는 폴더 하나를 나열하는 사이사이에 본다. 나열 자체는 중간에 끊을 수 없으므로
+    // 그 단위가 반응의 상한이다.
+    if (isCancelled()) return;
+
     final List<FileSystemEntity> entries;
     try {
       entries = await dir.list(followLinks: false).toList();
     } on FileSystemException {
-      // 권한이 없거나 읽을 수 없는 디렉토리는 조용히 건너뛴다.
+      // 루트를 못 읽으면 관측한 것이 하나도 없다. 빈 결과로 돌려주면 정합이 인덱스
+      // 전체를 "사라졌다"로 읽으므로, 결과가 아니라 예외로 알려 정합을 아예 돌리지
+      // 않게 한다.
+      if (isRoot) throw WorkspaceUnreadableException(workspaceRoot);
+      // 하위 폴더는 부모 나열에 잡혔으니 자리에 있다 — 이번 스캔이 확인하지 못했을
+      // 뿐이다. 노드를 만들 재료(나열 결과)가 없어 결과에는 못 싣지만, 그대로 빠지면
+      // 사라진 것으로 읽히므로 못 읽었다고 보고한다. 진짜 지워졌다면 다음 스캔에서
+      // 부모 나열에 안 잡혀 정상 경로로 정리된다.
+      unreadableDirs.add(_relativePosix(workspaceRoot, dir.path));
       return;
     }
 
@@ -220,6 +274,7 @@ class DirectoryScanner implements WorkspaceScanner {
     }
 
     for (final entity in subdirectories) {
+      if (isCancelled()) return;
       final childRel = _relativePosix(workspaceRoot, entity.path);
       final childOverride = priorIndex[childRel]?.manageMode;
       final childEffective = childOverride ?? inheritedChildMode(effectiveMode);
@@ -232,8 +287,10 @@ class DirectoryScanner implements WorkspaceScanner {
         nodes: nodes,
         indexFile: indexFile,
         nestedFiletaggerDirs: nestedFiletaggerDirs,
+        unreadableDirs: unreadableDirs,
         priorIndex: priorIndex,
         progress: progress,
+        isCancelled: isCancelled,
       );
     }
   }
@@ -241,13 +298,18 @@ class DirectoryScanner implements WorkspaceScanner {
   /// 파일 하나의 인덱싱을 [pool]에 맡겨 띄운다. 한꺼번에 다 띄우지 않도록 풀이
   /// 동시에 도는 수를 잡아 주고, 하나가 디스크를 기다리는 동안 다음 파일이 그
   /// 자리를 채운다. 부르는 쪽(순회)은 기다리지 않고 곧바로 나아간다.
-  static Future<FileNode> _indexFileTask(
+  ///
+  /// 취소된 뒤에 차례가 온 파일은 읽지 않고 null로 접는다 — 결과가 어차피 버려지는데
+  /// 순회가 이미 쌓아 둔 만큼 디스크를 더 두드릴 이유가 없다.
+  static Future<FileNode?> _indexFileTask(
     Pool pool,
     _PendingFile file,
     Map<String, FileNode> priorIndex,
     _ProgressReporter progress,
+    bool Function() isCancelled,
   ) {
     return pool.withResource(() async {
+      if (isCancelled()) return null;
       final node = await _indexFile(file, priorIndex);
       progress.nodeFound(node);
       return node;

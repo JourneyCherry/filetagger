@@ -10,6 +10,7 @@ import 'package:filetagger/domain/entities/file_node.dart';
 import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/scan_progress.dart';
 import 'package:filetagger/domain/entities/folder_manage_mode.dart';
+import 'package:filetagger/domain/repositories/workspace_scanner.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -624,6 +625,79 @@ void main() {
       expect(
         without.nodes.map((n) => n.path).toList(),
         withReports.nodes.map((n) => n.path).toList(),
+      );
+    });
+  });
+
+  group('취소', () {
+    // 중간까지 훑은 목록은 "여기까지가 전부"가 아니라 "여기까지밖에 못 봤다"다.
+    // 결과로 돌아가면 정합이 아직 안 훑은 자리를 사라진 것으로 읽으므로, 취소는
+    // 반드시 예외로 끝나야 한다.
+    test('취소된 스캔은 결과 대신 예외로 끝난다', () async {
+      await touchFile('a.txt');
+      await touchFile('sub/b.txt');
+      final cancel = ScanCancellation()..cancel();
+
+      await expectLater(
+        const DirectoryScanner().scan(root.path, cancel: cancel),
+        throwsA(isA<ScanCancelledException>()),
+      );
+    });
+
+    test('스캔이 도는 도중에 취소해도 예외로 끝난다', () async {
+      for (var i = 0; i < 40; i++) {
+        await touchFile('dir$i/file.txt');
+      }
+      final cancel = ScanCancellation();
+
+      // 첫 보고가 오는 순간 취소한다 — 이미 시작한 스캔에도 신호가 닿아야 한다.
+      final scan = const DirectoryScanner().scan(
+        root.path,
+        rootManageMode: FolderManageMode.managedRecursive,
+        onProgress: (_) => cancel.cancel(),
+        cancel: cancel,
+      );
+
+      await expectLater(scan, throwsA(isA<ScanCancelledException>()));
+    });
+
+    test('취소 손잡이를 줘도 취소하지 않으면 그대로 끝난다', () async {
+      await touchFile('a.txt');
+
+      final result = await const DirectoryScanner().scan(
+        root.path,
+        cancel: ScanCancellation(),
+      );
+
+      expect(result.nodes.map((n) => n.path), contains('a.txt'));
+    });
+  });
+
+  group('루트를 읽지 못할 때', () {
+    // 빈 결과를 성공으로 돌려주면 정합이 인덱스 전체를 "사라졌다"로 읽는다.
+    // 그래서 관측한 것이 하나도 없는 이 자리만은 결과가 아니라 예외로 알린다.
+    test('없는 루트를 스캔하면 실패로 끊는다', () async {
+      final missing = p.join(root.path, 'gone');
+      expect(Directory(missing).existsSync(), isFalse);
+
+      await expectLater(
+        const DirectoryScanner().scan(missing),
+        throwsA(isA<WorkspaceUnreadableException>()),
+      );
+    });
+
+    test('실패에 어느 폴더를 못 읽었는지 싣는다', () async {
+      final missing = p.join(root.path, 'gone');
+
+      await expectLater(
+        const DirectoryScanner().scan(missing),
+        throwsA(
+          isA<WorkspaceUnreadableException>().having(
+            (e) => e.workspaceRoot,
+            'workspaceRoot',
+            missing,
+          ),
+        ),
       );
     });
   });

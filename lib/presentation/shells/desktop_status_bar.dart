@@ -91,6 +91,7 @@ class DesktopStatusBar extends ConsumerWidget {
     final database = ref.watch(databaseProvider);
     final selection = ref.watch(selectionControllerProvider);
     final visibleCount = ref.watch(visibleNodeCountProvider);
+    final missingCount = ref.watch(missingNodeCountProvider);
     final filter = ref.watch(fileFilterProvider);
     final sort = ref.watch(fileSortProvider);
 
@@ -110,6 +111,15 @@ class DesktopStatusBar extends ConsumerWidget {
             ? l10n.statusLoading
             : l10n.statusItemCount(visibleCount),
       ),
+      // 연결이 끊긴 항목이 있을 때만 선다. 목록 행과 같은 색을 써서 둘이 같은
+      // 상태를 가리킨다는 것이 보이게 한다.
+      if (missingCount > 0) ...[
+        const _Separator(),
+        Text(
+          l10n.statusMissingCount(missingCount),
+          style: TextStyle(color: scheme.error),
+        ),
+      ],
       if (selection.isNotEmpty) ...[
         const _Separator(),
         Text(l10n.statusSelectedCount(selection.length)),

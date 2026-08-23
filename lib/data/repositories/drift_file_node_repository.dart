@@ -66,11 +66,13 @@ class DriftFileNodeRepository implements FileNodeRepository {
     List<FileNode> scanned, {
     required FolderManageMode rootManageMode,
     required Set<String> priorPaths,
+    required Set<String> unreadableDirs,
   }) async {
-    // 경로 기준 upsert 후 사라진 노드를 정리한다. 정리 전에 (1) 태그된 사라진
-    // 노드를 내용 시그니처로 새 노드에 자동 재연결하고, (2) 그래도 태그가 남은
-    // (자동 재연결 실패) 노드는 삭제 대신 "연결 끊김"으로 보존한다. 단 (3) 더 이상
-    // 관리되지 않는(범위 밖) 서브트리의 노드는 연결 끊김이라도 보존하지 않고 제거.
+    // 경로 기준 upsert 후 사라진 노드를 정리한다. 정리 전에 (1) 스캔이 못 읽은 폴더의
+    // 서브트리를 판정에서 통째로 빼고, (2) 태그된 사라진 노드를 내용 시그니처로 새
+    // 노드에 자동 재연결하고, (3) 그래도 태그가 남은 노드는 삭제 대신 "연결 끊김"으로
+    // 보존한다. 단 (4) 더 이상 관리되지 않는(범위 밖) 서브트리의 노드는 연결 끊김
+    // 이라도 보존하지 않고 제거.
     final seenAt = DateTime.now();
     await _db.transaction(() async {
       // 스캔 전 인덱스 스냅샷(이동 추적용). **키워드는 빼고 본다** — 스캐너가 결코
@@ -89,15 +91,27 @@ class DriftFileNodeRepository implements FileNodeRepository {
           .toList();
       if (disappeared.isEmpty) return;
 
+      // 스캔이 나열하지 못한 폴더의 서브트리(폴더 자신 포함)는 이번 스캔이 확인하지
+      // 못한 자리다. "관측되지 않았다"가 사라졌다는 근거가 되지 못하므로 삭제·범위
+      // 판정에서 통째로 빼고, 확인하지 못했음을 연결 끊김으로 **표시만** 한다 —
+      // 태그 유무를 따지지 않는다. 인덱스에서 조용히 빠지면 사용자는 파일이 지워진
+      // 것으로 읽는다.
+      final unverified = <FileNodeRow>[];
+      final judged = <FileNodeRow>[];
+      for (final row in disappeared) {
+        (isUnderUnreadableDir(row.path, unreadableDirs) ? unverified : judged)
+            .add(row);
+      }
+      await _markMissing(unverified.map((r) => r.id).toList(), seenAt);
+      if (judged.isEmpty) return;
+
       // 사라진 노드가 아직 인덱싱 범위 안인지(=부모 폴더가 직속 내용을 인덱싱하는지).
       // 범위 밖(부모가 불투명이 되었거나 함께 사라짐)이면 되살아나거나 재연결될 수
       // 없으므로 연결 끊김이라도 보존하지 않는다.
       final indexing = indexingFolderPaths(scanned, rootManageMode);
       bool inScope(FileNodeRow r) => indexing.contains(parentDirPath(r.path));
 
-      // 새로 추가된 노드(이번 스캔에서 처음 본 경로). 이게 하나도 없으면 파일이
-      // 다른 곳으로 이동한 게 아니라 사용자가 제거한 것으로 판단해, 이번에 새로
-      // 사라진 노드는 태그가 있어도 보존하지 않는다(요청 2).
+      // 새로 추가된 노드(이번 스캔에서 처음 본 경로). 이동 재연결의 짝 후보다.
       //
       // 기준은 지금 저장된 것이 아니라 **스캔 시작 시점의 경로**다 — 스캔 도중
       // applyPartialScan이 미리 반영한 노드는 이미 저장되어 있어, 지금 것만 보면
@@ -108,13 +122,13 @@ class DriftFileNodeRepository implements FileNodeRepository {
 
       // 이미 보존(연결 끊김) 중인 노드는 사용자가 재연결/제거하거나 파일이
       // 되돌아올 때까지 유지하되, 범위를 벗어난 것은 유지하지 않는다.
-      final alreadyMissing = disappeared
+      final alreadyMissing = judged
           .where((r) => r.missingSince != null && inScope(r))
           .map((r) => r.id)
           .toSet();
       // 범위 안에서 새로 사라진 노드만 이동 재연결·보존 대상이다. 범위 밖으로
       // 밀려난 노드는 아래에서 그냥 제거된다.
-      final newlyInScope = disappeared
+      final newlyInScope = judged
           .where((r) => r.missingSince == null && inScope(r))
           .toList();
 
@@ -123,20 +137,17 @@ class DriftFileNodeRepository implements FileNodeRepository {
         await _relinkMoves(newlyInScope, appeared);
       }
 
-      // 자동 재연결 후에도 태그가 남은 새로 사라진 노드는, 새 노드가 있을 때만
-      // 보존(연결 끊김) 대상으로 삼는다. 새 노드가 없으면 제거로 판단한다.
-      final newlyPreserved = appeared.isEmpty
-          ? <int>{}
-          : await _taggedNodeIds(newlyInScope.map((r) => r.id).toList());
-      if (newlyPreserved.isNotEmpty) {
-        await (_db.update(_db.fileNodes)..where(
-              (t) => t.id.isIn(newlyPreserved) & t.missingSince.isNull(),
-            ))
-            .write(FileNodesCompanion(missingSince: Value(seenAt)));
-      }
+      // 자동 재연결 후에도 태그가 남은 노드는 삭제하지 않고 연결 끊김으로 보존한다.
+      // **지운 것인지 옮긴 것인지를 앱이 대신 판단하지 않는다** — 조용히 지우면 되돌릴
+      // 기회가 없고, 표식으로 남겨 두면 사용자가 재연결하거나 제거하면 된다. 태그가
+      // 없는 노드는 잃을 것이 없으므로 그대로 정리한다.
+      final newlyPreserved = await _taggedNodeIds(
+        newlyInScope.map((r) => r.id).toList(),
+      );
+      await _markMissing(newlyPreserved.toList(), seenAt);
 
       final preserved = {...alreadyMissing, ...newlyPreserved};
-      final toDelete = disappeared
+      final toDelete = judged
           .map((r) => r.id)
           .where((id) => !preserved.contains(id))
           .toList();
@@ -146,6 +157,15 @@ class DriftFileNodeRepository implements FileNodeRepository {
         )..where((t) => t.id.isIn(toDelete))).go();
       }
     });
+  }
+
+  /// 아직 표시가 없는 노드에만 연결 끊김 시각을 적는다. 이미 표시된 노드는 그대로
+  /// 두어 **처음 끊긴 때**가 유지되게 한다(매 스캔마다 갱신하면 언제부터인지 잃는다).
+  Future<void> _markMissing(List<int> nodeIds, DateTime seenAt) async {
+    if (nodeIds.isEmpty) return;
+    await (_db.update(_db.fileNodes)
+          ..where((t) => t.id.isIn(nodeIds) & t.missingSince.isNull()))
+        .write(FileNodesCompanion(missingSince: Value(seenAt)));
   }
 
   @override
@@ -196,6 +216,13 @@ class DriftFileNodeRepository implements FileNodeRepository {
   Future<void> removeNode(int nodeId) async {
     // FK(onDelete cascade)로 태그 부여 기록도 함께 정리된다.
     await (_db.delete(_db.fileNodes)..where((t) => t.id.equals(nodeId))).go();
+  }
+
+  @override
+  Future<void> removeNodes(List<int> nodeIds) async {
+    if (nodeIds.isEmpty) return;
+    // 문장 하나로 묶어 보낸다 — 여럿을 한 번에 지우는 것이 이 메서드의 존재 이유다.
+    await (_db.delete(_db.fileNodes)..where((t) => t.id.isIn(nodeIds))).go();
   }
 
   @override

@@ -57,6 +57,35 @@ void main() {
     });
   });
 
+  group('취소', () {
+    test('취소로 끝난 스캔은 정합을 돌리지 않는다', () async {
+      // 중간까지 훑은 목록으로 정합을 돌리면 아직 안 본 자리가 사라진 것으로
+      // 판정된다. 미리 반영(관측한 것)은 남아도 틀리지 않다.
+      final scanner = _FakeScanner(
+        batches: [
+          [file('a.txt')],
+        ],
+        result: const [],
+        failWith: const ScanCancelledException(),
+      );
+
+      await expectLater(
+        usecase(scanner)('/root'),
+        throwsA(isA<ScanCancelledException>()),
+      );
+      expect(nodes.calls, ['partial:a.txt']);
+    });
+
+    test('취소 손잡이를 스캐너에 그대로 넘긴다', () async {
+      final cancel = ScanCancellation();
+      final scanner = _FakeScanner(batches: const [], result: const []);
+
+      await usecase(scanner)('/root', cancel: cancel);
+
+      expect(scanner.cancelSeen, same(cancel));
+    });
+  });
+
   group('이동 재연결 기준 경로', () {
     test('스캔 시작 시점의 경로를 넘긴다(미리 반영한 노드는 빼고)', () async {
       nodes.index['old.txt'] = file('old.txt');
@@ -79,10 +108,16 @@ void main() {
 /// 보고를 정해진 순서로 내보내는 스캐너. 보고 사이마다 이벤트 루프를 한 번 양보해,
 /// 실제처럼 저장이 스캔 도중에 끼어들 수 있게 한다.
 class _FakeScanner implements WorkspaceScanner {
-  _FakeScanner({required this.batches, required this.result});
+  _FakeScanner({required this.batches, required this.result, this.failWith});
 
   final List<List<FileNode>> batches;
   final List<FileNode> result;
+
+  /// 보고를 다 내보낸 뒤 결과 대신 던질 것(취소·실패 재현용).
+  final Object? failWith;
+
+  /// 넘겨받은 취소 손잡이(그대로 전달되는지 본다).
+  ScanCancellation? cancelSeen;
 
   @override
   Future<ScanResult> scan(
@@ -90,7 +125,9 @@ class _FakeScanner implements WorkspaceScanner {
     Map<String, FileNode> priorIndex = const {},
     FolderManageMode rootManageMode = FolderManageMode.managed,
     void Function(ScanProgress progress)? onProgress,
+    ScanCancellation? cancel,
   }) async {
+    cancelSeen = cancel;
     for (final batch in batches) {
       onProgress?.call(
         ScanProgress(
@@ -102,7 +139,12 @@ class _FakeScanner implements WorkspaceScanner {
       );
       await Future<void>.delayed(Duration.zero);
     }
-    return ScanResult(nodes: result, nestedFiletaggerDirs: const []);
+    if (failWith case final error?) throw error;
+    return ScanResult(
+      nodes: result,
+      nestedFiletaggerDirs: const [],
+      unreadableDirs: const [],
+    );
   }
 }
 
@@ -131,6 +173,7 @@ class _FakeNodes implements FileNodeRepository {
     List<FileNode> scanned, {
     required FolderManageMode rootManageMode,
     required Set<String> priorPaths,
+    required Set<String> unreadableDirs,
   }) async {
     priorPathsSeen = priorPaths;
     calls.add('final:${scanned.length}');

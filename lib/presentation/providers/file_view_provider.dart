@@ -466,6 +466,16 @@ final visibleNodeCountProvider = Provider<int?>((ref) {
   return tree == null ? null : countTreeNodes(tree);
 });
 
+/// 인덱스에 실린 노드 중 연결이 끊긴 것의 수(상태표시줄).
+///
+/// 필터·그룹을 거치기 **전**을 센다 — 걸린 조건이 마침 그것들을 걸러 내고 있어도
+/// 알려야 하는 상태이기 때문이다. 목록 행의 빨간 표식은 스크롤 밖에 묻히므로,
+/// 사라진 것이 있다는 사실 자체는 늘 보이는 자리에서 한 번 더 말한다.
+final missingNodeCountProvider = Provider<int>((ref) {
+  final nodes = ref.watch(fileNodesProvider).valueOrNull ?? const [];
+  return nodes.where((n) => n.isMissing).length;
+});
+
 /// 인덱스에 실린 노드 수(필터·그룹을 거치기 **전**).
 ///
 /// [visibleNodeCountProvider]와 갈라 두는 이유는 **"아직 보여 줄 것이 없다"와

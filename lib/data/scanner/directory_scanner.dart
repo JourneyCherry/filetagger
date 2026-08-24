@@ -51,6 +51,12 @@ class DirectoryScanner implements WorkspaceScanner {
     void Function(ScanProgress progress)? onProgress,
     ScanCancellation? cancel,
   }) async {
+    // 이미 취소된 손잡이로 들어오면 시작하지 않는다. 어차피 결과를 돌려주지 않을
+    // 스캔이라 isolate를 띄우고 파일시스템을 두드릴 이유가 없다.
+    if (cancel != null && cancel.isCancelled) {
+      throw const ScanCancelledException();
+    }
+
     // 스캔은 화면과 다른 isolate에서 돌린다. 나열·숨김 판정·해시·노드 생성은
     // 저마다 동기 구간을 품고 있어, 화면 isolate에서 돌면 폴더가 클수록 그 시간만큼
     // 프레임이 멈춘다(앱이 멎은 것처럼 보인다). 결과는 순수 데이터라 그대로 건너온다.
@@ -75,12 +81,20 @@ class DirectoryScanner implements WorkspaceScanner {
     // 취소는 신호가 오는 즉시 건넨다. 아직 창구를 못 받았으면 위에서 마저 보낸다.
     unawaited(cancel?.whenCancelled.then((_) => toIsolate?.send(null)));
     try {
-      return await _runInIsolate(
+      final result = await _runInIsolate(
         workspaceRoot,
         priorIndex,
         rootManageMode,
         updates.sendPort,
       );
+      // 취소 신호가 isolate에 닿기까지는 왕복이 걸려, 짧은 스캔은 신호보다 먼저 제
+      // 힘으로 끝난다. 취소 여부의 단일 출처는 손잡이 자신이므로 결과를 넘기기 직전에
+      // 그것을 다시 본다 — "취소된 스캔은 결과를 돌려주지 않는다"가 isolate 안의 사본이
+      // 제때 갱신되었는지에 달리지 않게 한다.
+      if (cancel != null && cancel.isCancelled) {
+        throw const ScanCancelledException();
+      }
+      return result;
     } finally {
       // 스캔이 끝나는 순간 보내진 마지막 보고가 아직 큐에 있을 수 있다. 한 번
       // 양보해 받아 둔 뒤 닫아, 최종 집계가 사라지지 않게 한다.

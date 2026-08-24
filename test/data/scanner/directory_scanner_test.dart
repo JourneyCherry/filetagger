@@ -644,6 +644,24 @@ void main() {
       );
     });
 
+    // 이미 취소된 손잡이는 스캔을 시작할 이유 자체가 없다. 신호가 isolate에 닿기를
+    // 기다렸다가 접는 것과 달리, 파일시스템을 한 번도 두드리지 않아야 한다.
+    test('이미 취소된 손잡이로는 스캔을 시작조차 하지 않는다', () async {
+      await touchFile('a.txt');
+      final reports = <ScanProgress>[];
+      final cancel = ScanCancellation()..cancel();
+
+      await expectLater(
+        const DirectoryScanner().scan(
+          root.path,
+          onProgress: reports.add,
+          cancel: cancel,
+        ),
+        throwsA(isA<ScanCancelledException>()),
+      );
+      expect(reports, isEmpty);
+    });
+
     test('스캔이 도는 도중에 취소해도 예외로 끝난다', () async {
       for (var i = 0; i < 40; i++) {
         await touchFile('dir$i/file.txt');

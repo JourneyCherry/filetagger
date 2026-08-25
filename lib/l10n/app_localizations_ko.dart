@@ -422,6 +422,10 @@ class AppLocalizationsKo extends AppLocalizations {
       '이미지의 세로 픽셀 수입니다. 가로와 따로 붙어(둘은 늘 함께 붙거나 함께 없습니다), 가로·세로를 각각 정렬 기준이나 조건으로 쓸 수 있습니다.';
 
   @override
+  String get helpSystemTagAspectRatio =>
+      '이미지의 가로÷세로 비율입니다. 가로와 세로를 모두 읽을 수 있는 이미지에만 붙습니다. 가로로 길수록 값이 크므로 오름차순은 세로형 → 가로형, 내림차순은 가로형 → 세로형 순으로 늘어섭니다. 픽셀 수가 조금 달라도 비율이 같으면 같은 값으로 접히므로, 이 태그로 묶으면 가로형·세로형·정사각형이 한 덩어리씩 모입니다.';
+
+  @override
   String get helpSystemTagFileName =>
       '항목의 이름입니다. 시스템 태그 중 유일하게 값을 고칠 수 있고, 고치면 디스크의 실제 이름이 바뀝니다(키워드는 디스크에 실체가 없어 키워드의 이름만 바뀝니다).';
 
@@ -1492,6 +1496,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get systemTagImageHeight => '이미지 높이';
+
+  @override
+  String get systemTagAspectRatio => '화면비';
 
   @override
   String get systemTagFileName => '파일 이름';

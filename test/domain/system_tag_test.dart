@@ -4,6 +4,7 @@ import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/system_tag.dart';
 import 'package:filetagger/domain/entities/tag_assignment.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
+import 'package:filetagger/domain/entities/tag_value_ordering.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -90,6 +91,51 @@ void main() {
     expect(SystemTag.childFileCount.valueFor(node), isNull); // 파일은 폴더가 아니다
   });
 
+  group('화면비', () {
+    String ar(int w, int h) =>
+        SystemTag.aspectRatio.valueFor(_file(imageWidth: w, imageHeight: h))!;
+
+    test('너비÷높이라 가로로 길수록 값이 크다', () {
+      // 오름차순이 세로형 → 가로형이 되는 근거. 값의 정의를 뒤집으면 여기가 깨진다.
+      expect(num.parse(ar(16, 9)), greaterThan(1));
+      expect(num.parse(ar(5, 5)), 1);
+      expect(num.parse(ar(9, 16)), lessThan(1));
+      expect(num.parse(ar(16, 9)), greaterThan(num.parse(ar(4, 3))));
+    });
+
+    test('같은 비율은 픽셀 수가 달라도 같은 값으로 접힌다', () {
+      // 그룹이 "가로형·세로형" 덩어리로 서는 근거 — 자릿수를 끊는 이유이기도 하다.
+      expect(ar(16, 9), ar(1600, 900));
+      expect(ar(16, 9), isNot(ar(4, 3)));
+      // 자릿수가 값마다 흔들리면 표시도 그룹도 고르지 않다.
+      expect(ar(16, 9).split('.').last.length, ar(4, 3).split('.').last.length);
+    });
+
+    test('숫자로 견주어 오름차순이 세로형 → 가로형이 된다', () {
+      final sorted = [ar(16, 9), ar(5, 5), ar(9, 16)]
+        ..sort(
+          (a, b) => compareTagValues(SystemTag.aspectRatio.valueType, a, b),
+        );
+      // 가로형부터 보려면 이 정렬 단계를 내림차순으로 둔다.
+      expect(sorted, [ar(9, 16), ar(5, 5), ar(16, 9)]);
+    });
+
+    test('너비·높이가 온전할 때만 붙는다', () {
+      expect(SystemTag.aspectRatio.valueFor(_file(imageWidth: 16)), isNull);
+      expect(SystemTag.aspectRatio.valueFor(_file(imageHeight: 9)), isNull);
+      expect(SystemTag.aspectRatio.valueFor(_file()), isNull);
+      // 헤더가 깨져 0이 들어와도 나눗셈이 성립하지 않는다.
+      expect(
+        SystemTag.aspectRatio.valueFor(_file(imageWidth: 16, imageHeight: 0)),
+        isNull,
+      );
+      expect(
+        SystemTag.aspectRatio.valueFor(_file(imageWidth: 0, imageHeight: 9)),
+        isNull,
+      );
+    });
+  });
+
   test('valueFor: 확장자 없는 이름·선두 점 이름은 확장자가 없다', () {
     expect(SystemTag.extension.valueFor(_file(path: 'README')), isNull);
     expect(SystemTag.extension.valueFor(_file(path: '.gitignore')), isNull);
@@ -107,6 +153,7 @@ void main() {
     expect(SystemTag.extension.valueFor(dir), isNull);
     expect(SystemTag.imageWidth.valueFor(dir), isNull);
     expect(SystemTag.imageHeight.valueFor(dir), isNull);
+    expect(SystemTag.aspectRatio.valueFor(dir), isNull);
     expect(SystemTag.modifiedTime.valueFor(dir), isNotNull);
     expect(SystemTag.fileName.valueFor(dir), 'sub');
     expect(SystemTag.childFileCount.valueFor(dir), '3');
@@ -179,6 +226,7 @@ void main() {
     expect(SystemTag.fileSize.valueFor(memo), isNull);
     expect(SystemTag.imageWidth.valueFor(memo), isNull);
     expect(SystemTag.imageHeight.valueFor(memo), isNull);
+    expect(SystemTag.aspectRatio.valueFor(memo), isNull);
     expect(SystemTag.modifiedTime.valueFor(memo), isNull);
     expect(SystemTag.childFileCount.valueFor(memo), isNull);
   });

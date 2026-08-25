@@ -39,6 +39,17 @@ enum SystemTag {
   /// 함께 없다).
   imageHeight(id: -10, valueType: TagValueType.number),
 
+  /// 이미지의 화면비(너비÷높이). [imageWidth]·[imageHeight]가 둘 다 있어야 붙는다.
+  ///
+  /// 저장 컬럼이 없는 **파생값**이다 — 너비·높이를 따로 세워 둔 덕에 새 스캔도 새
+  /// 컬럼도 없이 계산만으로 선다(그 둘을 가른 결정이 이 태그의 출처다). 가로로 길수록
+  /// 값이 크므로 오름차순은 세로 → 가로, 내림차순은 가로 → 세로 순이 된다.
+  ///
+  /// 소수 자릿수를 [_aspectRatioFractionDigits]로 끊는 것은 표시를 고르게 하는 동시에
+  /// **같은 화면비끼리 한 값으로 접히게** 하려는 것이다 — 픽셀 수가 조금 달라도 같은
+  /// 비율이면 그룹·필터에서 한 덩어리가 된다.
+  aspectRatio(id: -11, valueType: TagValueType.number),
+
   /// 노드 이름. **수정 가능** — 디스크 노드는 값 편집 시 실제 rename되고, 키워드는
   /// 디스크에 실체가 없어 저장된 이름만 바뀐다.
   fileName(id: -5, valueType: TagValueType.text, editable: true),
@@ -93,6 +104,14 @@ enum SystemTag {
         return node.imageWidth?.toString();
       case SystemTag.imageHeight:
         return node.imageHeight?.toString();
+      case SystemTag.aspectRatio:
+        final width = node.imageWidth;
+        final height = node.imageHeight;
+        // 한쪽이라도 없거나 양수가 아니면 비율이 성립하지 않는다(헤더가 깨진 이미지).
+        if (width == null || height == null || width <= 0 || height <= 0) {
+          return null;
+        }
+        return (width / height).toStringAsFixed(_aspectRatioFractionDigits);
       case SystemTag.fileName:
         return node.name;
       case SystemTag.childFileCount:
@@ -108,6 +127,10 @@ enum SystemTag {
     }
   }
 }
+
+/// [SystemTag.aspectRatio] 값을 끊는 소수 자릿수. 값의 단일 출처이며, 자릿수를
+/// 좁힐수록 서로 가까운 비율이 같은 값으로 접혀 그룹이 굵어진다.
+const int _aspectRatioFractionDigits = 2;
 
 /// 파일 이름에서 확장자(점 제외, 소문자)를 뽑는다. 점이 없거나 끝이 점이면 null.
 /// 선두 점만 있는 이름(예: `.gitignore`)은 확장자로 보지 않는다.

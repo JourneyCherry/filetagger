@@ -427,6 +427,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The height of the image in pixels. It stands apart from the width, which is always attached together with it or not at all, so width and height can each serve as a sort key or a condition.';
 
   @override
+  String get helpSystemTagAspectRatio =>
+      'The width of the image divided by its height. It is attached only to images whose width and height can both be read. The wider the image, the larger the value, so ascending order runs from portrait to landscape and descending order from landscape to portrait. Ratios that match fold into the same value even when the pixel counts differ slightly, so grouping by this tag gathers landscape, portrait, and square images into blocks of their own.';
+
+  @override
   String get helpSystemTagFileName =>
       'The name of the item. It is the only system tag whose value can be edited, and editing it renames the file on disk. A keyword has nothing on disk, so only the keyword name changes.';
 
@@ -1523,6 +1527,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get systemTagImageHeight => 'Image height';
+
+  @override
+  String get systemTagAspectRatio => 'Aspect ratio';
 
   @override
   String get systemTagFileName => 'File name';

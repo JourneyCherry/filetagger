@@ -95,6 +95,7 @@ String systemTagName(AppLocalizations l10n, SystemTag tag) => switch (tag) {
   SystemTag.extension => l10n.systemTagExtension,
   SystemTag.imageWidth => l10n.systemTagImageWidth,
   SystemTag.imageHeight => l10n.systemTagImageHeight,
+  SystemTag.aspectRatio => l10n.systemTagAspectRatio,
   SystemTag.fileName => l10n.systemTagFileName,
   SystemTag.childFileCount => l10n.systemTagChildFileCount,
   SystemTag.keyword => l10n.systemTagKeyword,

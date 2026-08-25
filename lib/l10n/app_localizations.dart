@@ -863,6 +863,12 @@ abstract class AppLocalizations {
   /// 도움말 시스템 태그 탭 — 태그 하나의 설명
   ///
   /// In ko, this message translates to:
+  /// **'이미지의 가로÷세로 비율입니다. 가로와 세로를 모두 읽을 수 있는 이미지에만 붙습니다. 가로로 길수록 값이 크므로 오름차순은 세로형 → 가로형, 내림차순은 가로형 → 세로형 순으로 늘어섭니다. 픽셀 수가 조금 달라도 비율이 같으면 같은 값으로 접히므로, 이 태그로 묶으면 가로형·세로형·정사각형이 한 덩어리씩 모입니다.'**
+  String get helpSystemTagAspectRatio;
+
+  /// 도움말 시스템 태그 탭 — 태그 하나의 설명
+  ///
+  /// In ko, this message translates to:
   /// **'항목의 이름입니다. 시스템 태그 중 유일하게 값을 고칠 수 있고, 고치면 디스크의 실제 이름이 바뀝니다(키워드는 디스크에 실체가 없어 키워드의 이름만 바뀝니다).'**
   String get helpSystemTagFileName;
 
@@ -2749,6 +2755,12 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'이미지 높이'**
   String get systemTagImageHeight;
+
+  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
+  ///
+  /// In ko, this message translates to:
+  /// **'화면비'**
+  String get systemTagAspectRatio;
 
   /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
   ///

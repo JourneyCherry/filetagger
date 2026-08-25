@@ -194,6 +194,7 @@ String systemTagDescription(AppLocalizations l10n, SystemTag tag) =>
       SystemTag.extension => l10n.helpSystemTagExtension,
       SystemTag.imageWidth => l10n.helpSystemTagImageWidth,
       SystemTag.imageHeight => l10n.helpSystemTagImageHeight,
+      SystemTag.aspectRatio => l10n.helpSystemTagAspectRatio,
       SystemTag.fileName => l10n.helpSystemTagFileName,
       SystemTag.childFileCount => l10n.helpSystemTagChildFileCount,
       SystemTag.keyword => l10n.helpSystemTagKeyword,

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/file_view_provider.dart';
-import '../providers/tag_provider.dart';
+import '../providers/system_tag_provider.dart';
 import '../tag_visuals.dart';
 import 'dialog_utils.dart';
 import 'tag_chip.dart';
@@ -17,6 +17,10 @@ import 'tag_chip.dart';
 ///
 /// 후보에는 **값을 글자로 낼 수 있는 태그만** 낸다(이름 태그와 같은 판정). 골라도 늘
 /// 폴백하는 태그를 세울 수 있으면 "골랐는데 아무 일도 일어나지 않는" 자리가 생긴다.
+///
+/// 후보에는 사용자 태그와 **시스템 태그를 함께** 낸다 — 값 해석이 둘을 병합한 맵을
+/// 쓰고([resolvedAssignmentsByFileProvider]) 시스템 태그 id도 안정적이라, 고른 것이
+/// 설정에 그대로 남고 정리에도 걸리지 않는다.
 Future<void> showSubtitleTagDialog(BuildContext context) => showDialog<void>(
   context: context,
   builder: (_) => const _SubtitleTagDialog(),
@@ -56,7 +60,7 @@ class _SubtitleTagDialogState extends ConsumerState<_SubtitleTagDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final defs = ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
+    final defs = ref.watch(pickableTagDefinitionsProvider);
     final byId = {
       for (final d in defs)
         if (d.id != null) d.id!: d,

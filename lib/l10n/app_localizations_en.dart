@@ -533,7 +533,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tipSubtitleTagBody =>
-      'The line below the name shows the path by default. While browsing by tag you may care more about another axis, such as artist or year; designate a subtitle tag and that value appears instead. It works like name tags, so you can order several, and items without the tag keep showing the path.';
+      'The line below the name shows the path by default. While browsing by tag you may care more about another axis, such as artist or year; designate a subtitle tag and that value appears instead. It works like name tags, so you can order several, and items without the tag keep showing the path. Besides your own tags, system tags such as modified time, extension, or image size can be chosen too.';
 
   @override
   String get tipExportTagsTitle => 'Moving Tags to Another Folder';

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:filetagger/core/build_info.dart';
 import 'package:filetagger/core/constants.dart';
 import 'package:filetagger/data/settings/app_settings_store.dart';
-import 'package:flutter/material.dart' show ThemeMode;
+import 'package:flutter/material.dart' show Rect, ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -104,6 +104,61 @@ void main() {
       final loaded = await _StoreIn(temp).load();
       expect(loaded.themeMode, ThemeMode.dark);
       expect(loaded.customTagColors, isEmpty);
+    });
+  });
+
+  group('창 자리', () {
+    const frame = WindowFrame(
+      bounds: Rect.fromLTWH(120, 80, 900, 640),
+      maximized: true,
+    );
+
+    test('저장한 창 자리를 그대로 되읽는다', () async {
+      await _StoreIn(temp).save(const AppSettings(windowFrame: frame));
+
+      final loaded = await _StoreIn(temp).load();
+      expect(loaded.windowFrame, frame);
+    });
+
+    test('저장된 적이 없으면 비어 있다', () async {
+      expect((await _StoreIn(temp).load()).windowFrame, isNull);
+    });
+
+    test('다른 설정을 저장해도 창 자리가 날아가지 않는다', () async {
+      final store = _StoreIn(temp);
+      await store.save(const AppSettings(windowFrame: frame));
+
+      final loaded = await store.load();
+      await store.save(loaded.copyWith(themeMode: ThemeMode.dark));
+
+      expect((await store.load()).windowFrame, frame);
+    });
+
+    test('값이 하나라도 빠지면 통째로 버린다', () async {
+      await File(
+        p.join(temp.path, settingsFileName),
+      ).writeAsString('{"window": {"x": 10, "y": 20, "width": 800}}');
+
+      expect((await _StoreIn(temp).load()).windowFrame, isNull);
+    });
+
+    test('크기가 0 이하이면 버린다', () async {
+      await File(p.join(temp.path, settingsFileName)).writeAsString(
+        '{"window": {"x": 0, "y": 0, "width": 0, "height": 600}}',
+      );
+
+      expect((await _StoreIn(temp).load()).windowFrame, isNull);
+    });
+
+    test('정수로 적혀 있어도 읽는다', () async {
+      // 사람이 손으로 고치면 소수점이 없는 값이 들어온다.
+      await File(p.join(temp.path, settingsFileName)).writeAsString(
+        '{"window": {"x": 10, "y": 20, "width": 800, "height": 600}}',
+      );
+
+      final loaded = await _StoreIn(temp).load();
+      expect(loaded.windowFrame?.bounds, const Rect.fromLTWH(10, 20, 800, 600));
+      expect(loaded.windowFrame?.maximized, isFalse);
     });
   });
 

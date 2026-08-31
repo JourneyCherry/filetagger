@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart' show ThemeMode;
+import 'package:flutter/material.dart' show Rect, ThemeMode;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -20,6 +20,7 @@ class AppSettings {
     this.themeMode = ThemeMode.system,
     this.localeCode,
     this.customTagColors = const [],
+    this.windowFrame,
   });
 
   /// 최근 연 관리 폴더 경로 목록(최신이 앞).
@@ -38,6 +39,11 @@ class AppSettings {
   /// 사람에게 붙기 때문이다 — 색 자체는 태그 정의에 담겨 폴더와 함께 이동한다.
   final List<int> customTagColors;
 
+  /// 마지막으로 둔 창의 자리와 크기. **null이면 아직 저장된 적이 없다**는 뜻이라
+  /// 플랫폼이 정한 기본 자리로 뜬다. 사람이 쓰는 기계에 붙는 값이라 관리 폴더가
+  /// 아니라 여기 있다.
+  final WindowFrame? windowFrame;
+
   /// [clearLocale]은 '시스템 설정 따르기'로 되돌리는 경로다. null을 그대로 넘기면
   /// "바꾸지 않음"과 구별되지 않아, 부재로 표현되는 값은 별도 표시가 필요하다.
   AppSettings copyWith({
@@ -46,11 +52,13 @@ class AppSettings {
     String? localeCode,
     bool clearLocale = false,
     List<int>? customTagColors,
+    WindowFrame? windowFrame,
   }) => AppSettings(
     recentFolders: recentFolders ?? this.recentFolders,
     themeMode: themeMode ?? this.themeMode,
     localeCode: clearLocale ? null : (localeCode ?? this.localeCode),
     customTagColors: customTagColors ?? this.customTagColors,
+    windowFrame: windowFrame ?? this.windowFrame,
   );
 
   Map<String, dynamic> toJson() => {
@@ -62,6 +70,7 @@ class AppSettings {
     'customTagColors': [
       for (final argb in customTagColors) tagColorToHex(argb),
     ],
+    if (windowFrame != null) 'window': windowFrame!.toJson(),
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -69,7 +78,63 @@ class AppSettings {
     themeMode: _themeModeByName(json['themeMode'] as String?),
     localeCode: json['localeCode'] as String?,
     customTagColors: _colorsFromJson(json['customTagColors']),
+    windowFrame: WindowFrame.fromJson(json['window']),
   );
+}
+
+/// 앱을 껐을 때 창이 놓여 있던 자리.
+///
+/// [bounds]는 **최대화를 푼 상태의 크기**다 — 최대화된 창의 크기를 그대로 담으면
+/// 다음 실행에서 최대화를 풀었을 때 원래 쓰던 크기로 돌아갈 수 없다.
+class WindowFrame {
+  const WindowFrame({required this.bounds, required this.maximized});
+
+  /// 창틀의 위치와 크기. **물리 픽셀의 가상 데스크톱 좌표**다 — 배율이 다른 모니터가
+  /// 섞인 배치에서 자리를 말할 수 있는 자는 그것뿐이다(`WindowPlacement` 참고).
+  final Rect bounds;
+
+  /// 최대화된 채로 껐는지.
+  final bool maximized;
+
+  Map<String, dynamic> toJson() => {
+    'x': bounds.left,
+    'y': bounds.top,
+    'width': bounds.width,
+    'height': bounds.height,
+    'maximized': maximized,
+  };
+
+  /// 저장된 값을 창 자리로 되돌린다. **뜻이 서지 않는 값은 통째로 버린다**(null) —
+  /// 창은 반쯤 맞은 값으로 되살리는 것보다 기본 자리에 띄우는 편이 낫다.
+  static WindowFrame? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final x = _finite(raw['x']);
+    final y = _finite(raw['y']);
+    final width = _finite(raw['width']);
+    final height = _finite(raw['height']);
+    if (x == null || y == null || width == null || height == null) return null;
+    if (width <= 0 || height <= 0) return null;
+    return WindowFrame(
+      bounds: Rect.fromLTWH(x, y, width, height),
+      maximized: raw['maximized'] == true,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is WindowFrame &&
+      other.bounds == bounds &&
+      other.maximized == maximized;
+
+  @override
+  int get hashCode => Object.hash(bounds, maximized);
+}
+
+/// JSON에서 읽은 수를 실수로 옮긴다. 수가 아니거나 무한·NaN이면 null이다.
+double? _finite(Object? raw) {
+  if (raw is! num) return null;
+  final value = raw.toDouble();
+  return value.isFinite ? value : null;
 }
 
 /// 저장된 16진 표기를 색 정수로 되돌린다. 손으로 고치다 깨진 항목은 조용히 버린다 —

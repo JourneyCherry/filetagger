@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' show Locale, ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/platform/window_placement.dart';
 import '../../data/settings/app_settings_store.dart';
 import '../../l10n/app_localizations.dart';
 import '../tag_visuals.dart';
@@ -9,6 +10,11 @@ import '../tag_visuals.dart';
 final appSettingsStoreProvider = Provider<AppSettingsStore>(
   (ref) => AppSettingsStore(),
 );
+
+/// 창 배치 서비스. `main`이 만든 것을 넘겨받는다 — **창 이벤트를 듣고 있는 바로 그
+/// 인스턴스**여야 종료 직전에 밀어 둔 저장을 비울 수 있다. 넘겨받지 못하면(테스트·
+/// 모바일) 없는 채로 돌며, 그때는 비울 것도 없다.
+final windowPlacementProvider = Provider<WindowPlacement?>((ref) => null);
 
 /// 전역 설정이 디스크에 남지 않고 인메모리로만 도는 중인지.
 ///

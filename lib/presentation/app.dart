@@ -37,7 +37,7 @@ class _FileTaggerAppState extends ConsumerState<FileTaggerApp> {
     super.dispose();
   }
 
-  /// 종료 전에 태그 DB를 닫는다.
+  /// 종료 전에 밀어 둔 창 자리를 쓰고, 태그 DB를 닫는다.
   ///
   /// 닫지 않고 프로세스가 사라지면 sqlite의 WAL이 본 DB 파일로 합쳐지지 않은 채
   /// 남는다. **폴더를 통째로 복사·이동하면 태그가 따라간다**는 것이 이 앱의 전제라,
@@ -47,6 +47,12 @@ class _FileTaggerAppState extends ConsumerState<FileTaggerApp> {
   /// 정리가 늦거나 실패해도 **종료를 막지 않는다** — 창이 닫히지 않는 쪽이 훨씬 나쁘다.
   Future<AppExitResponse> _onExitRequested() async {
     try {
+      // 창을 옮긴 직후에 닫으면, 이동을 묶어 두는 동안 프로세스가 사라져 그 이동이
+      // 없던 일이 된다. 종료는 그것을 남길 수 있는 마지막 자리다.
+      await ref
+          .read(windowPlacementProvider)
+          ?.flush()
+          .timeout(_shutdownTimeout);
       await ref.read(databaseProvider)?.close().timeout(_shutdownTimeout);
     } catch (_) {
       // 종료 중이라 알릴 자리도, 되돌릴 것도 없다.

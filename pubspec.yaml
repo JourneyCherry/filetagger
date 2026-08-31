@@ -73,6 +73,15 @@ dependencies:
   # 플랫폼이 들고 있는 앱 버전을 읽는다(빌드가 버전을 새겨 주지 않는 직접 빌드용).
   # 서드파티(publisher fluttercommunity.dev) — 채택 근거는 ARCHITECTURE.md 의존성 메모.
   package_info_plus: ^10.2.1
+  # 창 위치·크기·최대화 상태를 읽고 되돌린다. Dart 표준·공식 패키지에는 창 좌표를
+  # 다루는 API가 없다. 서드파티(publisher leanflutter.dev) — 채택 근거는
+  # ARCHITECTURE.md 의존성 메모.
+  window_manager: ^0.5.2
+  # 연결된 화면들의 위치·크기. 저장해 둔 창 자리가 지금도 보이는 곳인지 판별한다
+  # (모니터를 뗀 뒤 화면 밖에 창이 뜨는 것을 막는다). window_manager와 같은
+  # 서드파티(publisher leanflutter.dev)이며 그것의 의존성으로 이미 들어와 있으나,
+  # 직접 쓰므로 직접 의존성으로 올린다.
+  screen_retriever: ^0.2.2
 
 dev_dependencies:
   flutter_test:

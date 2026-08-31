@@ -7,7 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants.dart';
 import 'data/platform/platform_app_version.dart';
+import 'data/platform/window_placement.dart';
+import 'data/settings/app_settings_store.dart';
 import 'presentation/app.dart';
+import 'presentation/providers/settings_provider.dart';
 
 Future<void> main() async {
   // 플랫폼 메타데이터를 읽으려면 바인딩이 먼저 서 있어야 한다.
@@ -19,11 +22,27 @@ Future<void> main() async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   LicenseRegistry.addLicense(_appLicense);
 
+  // 창을 마지막으로 두었던 자리로 되돌린다. 첫 프레임 전에 끝내야 러너가 창을 보여줄
+  // 때 이미 제자리라 튀는 것이 보이지 않는다. 저장소를 여기서 만들어 앱에도 그대로
+  // 넘기는 것은, 설정 파일을 나눠 쓰는 두 벌이 생기면 저장 실패 사실도 두 갈래로
+  // 갈라지기 때문이다.
+  final settingsStore = AppSettingsStore();
+  final windowPlacement = WindowPlacement(settingsStore);
+  await windowPlacement.attach();
+
   // 빌드가 버전을 새겨 주지 않았으면 플랫폼 메타데이터에서 읽는다. 첫 프레임 전에
   // 끝내야 정보 창과 업데이트 확인이 처음부터 온전한 버전을 본다.
   await loadPlatformAppVersion();
 
-  runApp(const ProviderScope(child: FileTaggerApp()));
+  runApp(
+    ProviderScope(
+      overrides: [
+        appSettingsStoreProvider.overrideWithValue(settingsStore),
+        windowPlacementProvider.overrideWithValue(windowPlacement),
+      ],
+      child: const FileTaggerApp(),
+    ),
+  );
 }
 
 /// 앱 자신의 라이선스를 라이선스 목록에 얹는다. 의존 패키지의 것은 빌드가 모아

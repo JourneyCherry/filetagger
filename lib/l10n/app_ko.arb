@@ -1613,6 +1613,10 @@
   "@linkTargetNoMatch": {
     "description": "링크 대상 선택 — 검색 결과가 비었을 때의 문구"
   },
+  "linkTargetFilterHint": "태그로 거르기",
+  "@linkTargetFilterHint": {
+    "description": "링크 대상 선택 — 태그 필터 입력이 비었을 때의 힌트"
+  },
   "tagValueNumberRequired": "숫자를 입력해주세요.",
   "@tagValueNumberRequired": {
     "description": "태그값 입력 — 숫자 태그에 숫자가 아닌 값을 넣었을 때의 알림"

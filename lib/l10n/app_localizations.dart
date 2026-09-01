@@ -2234,6 +2234,12 @@ abstract class AppLocalizations {
   /// **'일치하는 파일이 없습니다.'**
   String get linkTargetNoMatch;
 
+  /// 링크 대상 선택 — 태그 필터 입력이 비었을 때의 힌트
+  ///
+  /// In ko, this message translates to:
+  /// **'태그로 거르기'**
+  String get linkTargetFilterHint;
+
   /// 태그값 입력 — 숫자 태그에 숫자가 아닌 값을 넣었을 때의 알림
   ///
   /// In ko, this message translates to:

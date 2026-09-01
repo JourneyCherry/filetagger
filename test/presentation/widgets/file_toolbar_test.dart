@@ -10,11 +10,11 @@ import 'package:filetagger/presentation/providers/file_view_provider.dart';
 import 'package:filetagger/presentation/providers/tag_provider.dart';
 import 'package:filetagger/presentation/widgets/file_toolbar.dart';
 import 'package:filetagger/presentation/widgets/filter_condition_chip.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/desktop.dart';
 import '../../support/l10n.dart';
 
 const _rating = TagDefinition(
@@ -146,19 +146,6 @@ Future<ProviderContainer> pumpFullToolbar(WidgetTester tester) async {
   );
   await tester.pumpAndSettle();
   return container;
-}
-
-/// 텍스트 입력은 데스크톱에서만 나므로 그 플랫폼으로 못박고 본다. 되돌리기는 테스트
-/// 본문 안에서 해야 한다(프레임워크가 본문 직후에 전역 디버그 변수를 검사한다).
-void desktopTestWidgets(String description, WidgetTesterCallback body) {
-  testWidgets(description, (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      await body(tester);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
 }
 
 void main() {

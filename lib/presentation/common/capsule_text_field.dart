@@ -714,12 +714,22 @@ class _CapsuleTextFieldState<T> extends State<CapsuleTextField<T>> {
         offset: const Offset(0, 4),
         child: Align(
           alignment: Alignment.topLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 280, maxHeight: 240),
-            child: _CompletionList(
-              items: items,
-              highlighted: _highlighted,
-              onSelected: _accept,
+          // 목록은 입력 필드와 **같은 탭 영역**에 든다. 데스크톱에서 텍스트 필드는
+          // 제 영역 밖을 누르는 순간 포커스를 놓는데, 목록은 오버레이라 트리 상
+          // 남남이라 그냥 두면 누르는 순간 포커스가 풀린다 — 그러면 조각이 캡슐로
+          // 접히고 목록이 닫혀, 손을 떼기도 전에 고를 것이 사라진다.
+          //
+          // 자리는 **따라가기 안쪽**이어야 한다. 탭 영역은 제 상자 안의 점만 받는데,
+          // 바깥에 두면 상자는 원점에 남고 목록만 필드 밑으로 옮겨 그려져, 누른 점이
+          // 상자 밖으로 떨어진다.
+          child: TextFieldTapRegion(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 280, maxHeight: 240),
+              child: _CompletionList(
+                items: items,
+                highlighted: _highlighted,
+                onSelected: _accept,
+              ),
             ),
           ),
         ),

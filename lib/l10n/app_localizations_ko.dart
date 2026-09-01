@@ -1200,6 +1200,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get linkTargetNoMatch => '일치하는 파일이 없습니다.';
 
   @override
+  String get linkTargetFilterHint => '태그로 거르기';
+
+  @override
   String get tagValueNumberRequired => '숫자를 입력해주세요.';
 
   @override

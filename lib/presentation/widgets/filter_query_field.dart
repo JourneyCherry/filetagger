@@ -85,6 +85,7 @@ class FilterQueryField extends StatefulWidget {
     required this.onChanged,
     this.focusNode,
     this.autofocus = false,
+    this.hintText,
   });
 
   final FileFilter filter;
@@ -99,6 +100,10 @@ class FilterQueryField extends StatefulWidget {
 
   /// 나타나자마자 포커스를 가져올지([CapsuleTextField.autofocus]).
   final bool autofocus;
+
+  /// 비었을 때의 안내 문구. 기본은 도구모음 조건 줄과 같은 낱말이며, 이 필드가
+  /// 무엇을 거르는지 자리마다 다를 때만 바깥에서 준다.
+  final String? hintText;
 
   @override
   State<FilterQueryField> createState() => _FilterQueryFieldState();
@@ -171,7 +176,8 @@ class _FilterQueryFieldState extends State<FilterQueryField> {
       onChanged: (conditions) =>
           widget.onChanged(FileFilter(conditions: conditions)),
       completionsAt: (text, cursor, _) => _completionsAt(text, cursor),
-      hintText: emptyQueryLabel(AppLocalizations.of(context)),
+      hintText:
+          widget.hintText ?? emptyQueryLabel(AppLocalizations.of(context)),
     );
   }
 }

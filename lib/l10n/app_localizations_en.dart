@@ -1223,6 +1223,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get linkTargetNoMatch => 'No file matches.';
 
   @override
+  String get linkTargetFilterHint => 'Filter by tag';
+
+  @override
   String get tagValueNumberRequired => 'Enter a number.';
 
   @override

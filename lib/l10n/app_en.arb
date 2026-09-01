@@ -356,6 +356,7 @@
   "linkTargetPickerTitle": "Choose a Link Target",
   "linkTargetSearchHint": "Search by file name",
   "linkTargetNoMatch": "No file matches.",
+  "linkTargetFilterHint": "Filter by tag",
   "tagValueNumberRequired": "Enter a number.",
   "tagValuePromptTitle": "Value for {name}",
   "tagValueField": "Value",

@@ -30,14 +30,14 @@ final pickableTagDefinitionsProvider = Provider<List<TagDefinition>>((ref) {
   return [...user, ...ref.watch(systemTagDefinitionsProvider)];
 });
 
-/// 표시할 시스템 태그 id 집합(보기 설정 파생). 목록·프리뷰 칩 렌더 필터에 쓴다.
+/// 표시할 시스템 태그 id 집합(보기 설정 파생). 목록 행 칩 렌더 필터에 쓴다.
 final visibleSystemTagIdsProvider = Provider<Set<int>>(
   (ref) => ref.watch(viewSettingsProvider).visibleSystemTagIds,
 );
 
-/// 태그 부여를 목록·프리뷰에 **칩으로 표시할지** 판정하는 술어(보기 설정 파생).
+/// 태그 부여를 목록 행에 **칩으로 표시할지** 판정하는 술어(보기 설정 파생).
 /// 시스템 태그는 표시로 켠 것만, 사용자 태그는 감춤으로 끄지 않은 것만 통과한다.
-/// 그룹 헤더 이름은 이 필터를 거치지 않아 감춘 태그도 나타난다.
+/// 그룹 헤더 이름과 프리뷰는 이 필터를 거치지 않아 감춘 태그도 나타난다.
 final tagChipVisibleProvider = Provider<bool Function(int)>(
   (ref) => ref.watch(viewSettingsProvider).isTagChipVisible,
 );

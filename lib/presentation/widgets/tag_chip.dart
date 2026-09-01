@@ -59,7 +59,13 @@ class TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final shown = displayValue ?? formatTagValue(definition.valueType, value);
+    final shown =
+        displayValue ??
+        formatTagValue(
+          definition.valueType,
+          value,
+          tagDefinitionId: definition.id,
+        );
 
     final Color background;
     final Color foreground;

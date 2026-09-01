@@ -831,7 +831,11 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
     final values = <String>[];
     for (final t in tags) {
       if (t.tagDefinitionId != col.sortId) continue;
-      final formatted = formatTagValue(col.valueType, t.value);
+      final formatted = formatTagValue(
+        col.valueType,
+        t.value,
+        tagDefinitionId: col.sortId,
+      );
       if (formatted != null) values.add(formatted);
     }
     return values.join(', ');

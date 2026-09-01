@@ -80,18 +80,18 @@ class WorkspaceViewSettings {
   /// 루트 폴더의 관리 방식(관리/재귀 관리). 루트부터 상속이 시작된다.
   final FolderManageMode rootManageMode;
 
-  /// 목록·프리뷰에 **칩으로 표시할** 시스템 태그 id 집합. 기본은 빈 집합(전부 숨김)
+  /// 목록 행에 **칩으로 표시할** 시스템 태그 id 집합. 기본은 빈 집합(전부 숨김)
   /// 이라 기존 목록에 칩이 갑자기 늘지 않는다(opt-in). 시스템 태그 값은 표시 여부와
   /// 무관하게 항상 계산되어 필터·정렬에 참여하고, 이 집합은 칩 렌더링에만 관여한다.
   final Set<int> visibleSystemTagIds;
 
   /// **칩으로 감출** 사용자 태그 id 집합. 시스템 태그와 반대로 기본은 표시(빈 집합
   /// =전부 표시)라, 태그가 늘어도 opt-out으로 골라 감춘다. 감춰도 값은 늘 계산되어
-  /// 필터·정렬·그룹에 참여하고, 그룹 헤더 이름에도 나타난다 — 이 집합은 목록·프리뷰
+  /// 필터·정렬·그룹에 참여하고, 그룹 헤더 이름에도 나타난다 — 이 집합은 목록 행
   /// 칩 렌더링에서만 그 태그를 뺀다.
   final Set<int> hiddenTagIds;
 
-  /// 이 태그 부여를 목록·프리뷰에 **칩으로 표시할지**. 시스템 태그는 표시로 켠 것만
+  /// 이 태그 부여를 목록 행에 **칩으로 표시할지**. 시스템 태그는 표시로 켠 것만
   /// ([visibleSystemTagIds]), 사용자 태그는 감춤으로 끄지 않은 것만([hiddenTagIds]).
   bool isTagChipVisible(int tagDefinitionId) => isSystemTagId(tagDefinitionId)
       ? visibleSystemTagIds.contains(tagDefinitionId)

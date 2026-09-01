@@ -83,16 +83,16 @@ class PreviewPane extends ConsumerWidget {
     final theme = Theme.of(context);
     final assignmentsByFile = ref.watch(effectiveAssignmentsByFileProvider);
     final l10n = AppLocalizations.of(context);
-    final isTagVisible = ref.watch(tagChipVisibleProvider);
     final all = target.id == null
         ? const <AssignedTag>[]
         : (assignmentsByFile[target.id] ?? const <AssignedTag>[]);
-    // 표시 술어를 통과한 태그만 보인다(사용자 태그는 감추지 않은 것, 시스템 태그는
-    // 표시로 켠 것). 목록 행과 같은 표시 순서를 쓴다.
-    final tags = orderAssignedTags([
-      for (final a in all)
-        if (isTagVisible(a.tagDefinitionId)) a,
-    ], ref.watch(effectiveTagDisplayOrderProvider));
+    // 칩 표시 설정을 거치지 않고 부여된 태그를 전부 보인다 — 그 설정은 목록 행의
+    // 칩이 난잡해지는 것을 막으려는 것이고, 한 항목만 펼쳐 보는 이 자리가 목록에서
+    // 감춘 태그값을 확인하는 곳이다. 목록 행과 같은 표시 순서를 쓴다.
+    final tags = orderAssignedTags(
+      all,
+      ref.watch(effectiveTagDisplayOrderProvider),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

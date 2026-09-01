@@ -183,8 +183,6 @@ String filterOperatorMenuLabel(AppLocalizations l10n, FilterOperator op) {
   }
 }
 
-/// 부여된 값의 표시 문자열. label은 값이 없고, date는 날짜만 보기 좋게 자른다.
-/// 표시할 값이 없으면 null을 돌려 칩이 값 부분을 생략하게 한다.
 /// 이 값 유형이 **글자를 낼 수 있는가**. label은 값이 없고, image는 값이 불투명한
 /// 캐시 키라 칩에도 이름 칸에도 글자로 보이지 않는다.
 ///
@@ -193,10 +191,23 @@ String filterOperatorMenuLabel(AppLocalizations l10n, FilterOperator op) {
 bool canNameSourceShowText(TagValueType type) =>
     type != TagValueType.label && type != TagValueType.image;
 
-String? formatTagValue(TagValueType type, String? value) {
+/// 부여된 값의 표시 문자열. label은 값이 없고, date는 날짜만 보기 좋게 자른다.
+/// 표시할 값이 없으면 null을 돌려 칩이 값 부분을 생략하게 한다.
+///
+/// [tagDefinitionId]를 넘기면 그 태그가 가진 표시 규칙까지 거친다(화면비를
+/// `가로:세로`로 되살리는 등, [SystemTag.displayValue]). 값 유형만으로 결정되는
+/// 자리(날짜 입력칸 등)는 넘기지 않는다.
+String? formatTagValue(
+  TagValueType type,
+  String? value, {
+  int? tagDefinitionId,
+}) {
   if (!canNameSourceShowText(type)) return null;
   if (value == null || value.isEmpty) return null;
   if (type == TagValueType.date) return storedDateToDisplay(value) ?? value;
+  if (tagDefinitionId != null && isSystemTagId(tagDefinitionId)) {
+    return systemTagById(tagDefinitionId)?.displayValue(value) ?? value;
+  }
   return value;
 }
 
@@ -227,7 +238,11 @@ Map<int, String> buildTagTextIndex({
       String? found;
       for (final a in entry.value) {
         if (a.tagDefinitionId != tagId) continue;
-        found = formatTagValue(a.definition.valueType, a.value);
+        found = formatTagValue(
+          a.definition.valueType,
+          a.value,
+          tagDefinitionId: a.tagDefinitionId,
+        );
         if (found != null) break;
       }
       if (found != null) {

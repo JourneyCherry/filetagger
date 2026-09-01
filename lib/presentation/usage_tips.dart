@@ -123,4 +123,10 @@ List<UsageTip> usageTipsOf(AppLocalizations l10n) => [
     icon: Icons.link_off,
     command: AppCommandId.toggleFilterBar,
   ),
+  UsageTip(
+    title: l10n.tipHiddenTagPreviewTitle,
+    body: l10n.tipHiddenTagPreviewBody,
+    icon: Icons.preview_outlined,
+    command: AppCommandId.togglePreview,
+  ),
 ];

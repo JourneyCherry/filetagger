@@ -126,11 +126,47 @@ enum SystemTag {
         return assignments.any((a) => a.valueUnresolved) ? '' : null;
     }
   }
+
+  /// 저장값을 **화면에 보일 모양**으로 바꾼 것. 대부분은 저장값 그대로이고, 화면비만
+  /// 나눗셈 결과 대신 `가로:세로`로 되살린다 — 필터·정렬·그룹은 저장값(소수)을 그대로
+  /// 쓰므로 수로 견주는 성질은 그대로다([_aspectRatioAsFraction]).
+  String displayValue(String value) => switch (this) {
+    SystemTag.aspectRatio => _aspectRatioAsFraction(value) ?? value,
+    _ => value,
+  };
 }
 
 /// [SystemTag.aspectRatio] 값을 끊는 소수 자릿수. 값의 단일 출처이며, 자릿수를
 /// 좁힐수록 서로 가까운 비율이 같은 값으로 접혀 그룹이 굵어진다.
 const int _aspectRatioFractionDigits = 2;
+
+/// [_aspectRatioAsFraction]이 고를 분모의 상한. 값의 단일 출처이며, 키울수록 낯선
+/// 비율까지 정확히 맞추지만 그만큼 읽기 어려운 정수쌍이 나온다.
+const int _aspectRatioMaxDenominator = 16;
+
+/// 소수로 저장된 화면비를 `가로:세로`로 되살린다. 수로 읽히지 않으면 null.
+///
+/// 저장값은 소수 자릿수를 끊은 것이라 원래 픽셀 수는 알 수 없다. 그래서 **분모가
+/// [_aspectRatioMaxDenominator] 이하인 분수 중 저장값에 가장 가까운 것**을 고른다 —
+/// 흔한 화면비는 익숙한 정수쌍으로 되살아나고, 낯선 비율도 뜻이 통하는 쌍으로 앉는다.
+/// 오차가 같으면 먼저 본 쪽(분모가 작은 쪽)이 남아 늘 기약분수로 나온다.
+String? _aspectRatioAsFraction(String value) {
+  final ratio = double.tryParse(value);
+  if (ratio == null || ratio <= 0) return null;
+  var bestWidth = 1;
+  var bestHeight = 1;
+  var bestError = double.infinity;
+  for (var height = 1; height <= _aspectRatioMaxDenominator; height++) {
+    final width = (ratio * height).round();
+    if (width <= 0) continue;
+    final error = (width / height - ratio).abs();
+    if (error >= bestError) continue;
+    bestError = error;
+    bestWidth = width;
+    bestHeight = height;
+  }
+  return '$bestWidth:$bestHeight';
+}
 
 /// 파일 이름에서 확장자(점 제외, 소문자)를 뽑는다. 점이 없거나 끝이 점이면 null.
 /// 선두 점만 있는 이름(예: `.gitignore`)은 확장자로 보지 않는다.

@@ -134,6 +134,29 @@ void main() {
         isNull,
       );
     });
+
+    test('표시는 가로:세로로 되살아난다', () {
+      // 흔한 화면비는 익숙한 정수쌍으로 돌아온다 — 픽셀 수가 달라도 같은 쌍이다.
+      expect(SystemTag.aspectRatio.displayValue(ar(16, 9)), '16:9');
+      expect(SystemTag.aspectRatio.displayValue(ar(1920, 1080)), '16:9');
+      expect(SystemTag.aspectRatio.displayValue(ar(9, 16)), '9:16');
+      expect(SystemTag.aspectRatio.displayValue(ar(4, 3)), '4:3');
+      expect(SystemTag.aspectRatio.displayValue(ar(3, 2)), '3:2');
+      expect(SystemTag.aspectRatio.displayValue(ar(5, 5)), '1:1');
+      // 늘 기약분수라, 같은 비율을 다르게 적던 쌍은 한 모양으로 모인다.
+      expect(SystemTag.aspectRatio.displayValue(ar(16, 10)), '8:5');
+    });
+
+    test('되살린 쌍은 표시일 뿐 저장값은 소수 그대로다', () {
+      // 정렬·필터가 수로 견주는 근거. 저장값까지 바뀌면 위 정렬 시험이 깨진다.
+      expect(num.tryParse(ar(16, 9)), isNotNull);
+      expect(ar(16, 9), isNot(contains(':')));
+    });
+
+    test('나머지 시스템 태그는 저장값을 그대로 보인다', () {
+      expect(SystemTag.extension.displayValue('png'), 'png');
+      expect(SystemTag.fileSize.displayValue('1024'), '1024');
+    });
   });
 
   test('valueFor: 확장자 없는 이름·선두 점 이름은 확장자가 없다', () {

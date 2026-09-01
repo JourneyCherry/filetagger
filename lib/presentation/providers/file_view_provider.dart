@@ -201,7 +201,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
 
   void updateSort(FileSortOrder sort) => _set(state.copyWith(sort: sort));
 
-  /// 시스템 태그 [id]를 목록·프리뷰 칩으로 표시할지 토글·저장한다(값 계산·필터·
+  /// 시스템 태그 [id]를 목록 행 칩으로 표시할지 토글·저장한다(값 계산·필터·
   /// 정렬은 표시 여부와 무관하게 늘 동작).
   void updateSystemTagVisibility(int id, bool visible) {
     final next = {...state.visibleSystemTagIds};
@@ -213,7 +213,7 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     _set(state.copyWith(visibleSystemTagIds: next));
   }
 
-  /// 사용자 태그 [id]를 목록·프리뷰 칩으로 표시할지 토글·저장한다(시스템 태그와 반대로
+  /// 사용자 태그 [id]를 목록 행 칩으로 표시할지 토글·저장한다(시스템 태그와 반대로
   /// 기본은 표시라 감춤 집합에서 더하고 뺀다). 값 계산·필터·정렬·그룹은 늘 동작.
   void updateUserTagVisibility(int id, bool visible) {
     final next = {...state.hiddenTagIds};

@@ -428,7 +428,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get helpSystemTagAspectRatio =>
-      'The width of the image divided by its height. It is attached only to images whose width and height can both be read. The wider the image, the larger the value, so ascending order runs from portrait to landscape and descending order from landscape to portrait. Ratios that match fold into the same value even when the pixel counts differ slightly, so grouping by this tag gathers landscape, portrait, and square images into blocks of their own.';
+      'The width of the image divided by its height. It is attached only to images whose width and height can both be read. The wider the image, the larger the value, so ascending order runs from portrait to landscape and descending order from landscape to portrait. Ratios that match fold into the same value even when the pixel counts differ slightly, so grouping by this tag gathers landscape, portrait, and square images into blocks of their own. It is shown as width:height, such as 16:9, but what is compared is the division result, so type a decimal in the filter field.';
 
   @override
   String get helpSystemTagFileName =>
@@ -548,6 +548,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tipUnresolvedLinksBody =>
       'When the item a link pointed at was deleted, or the target of a link brought from another folder is not there yet, the link capsule gets a marker. Filter the \"unresolved link\" tag with \"exists\" to gather just those items, then double-click a capsule to reconnect it or press x to remove it.';
+
+  @override
+  String get tipHiddenTagPreviewTitle => 'Checking Hidden Tag Values';
+
+  @override
+  String get tipHiddenTagPreviewBody =>
+      'Turning the eye icon off in tag management only removes the chip from list rows. The value stays and still drives filtering, sorting and grouping, and the preview pane shows everything assigned to an item — including hidden tags and system tags you have not turned on. Open the preview when you want to see all of them.';
 
   @override
   String homeScanFailed(String error) {

@@ -1,18 +1,12 @@
 import 'dart:convert';
 
-import 'package:filetagger/data/queue/command_json.dart';
+import 'package:filetagger/data/commands/command_json.dart';
 import 'package:filetagger/domain/entities/external_tag_command.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 항목 하나짜리 파일을 읽어 그 항목만 돌려준다(대부분의 테스트가 쓰는 모양).
-ExternalCommandRecord only(String text) => decodeCommandFile(text).items.single;
-
-/// 항목 하나에 실패 표식을 얹어 파일 내용으로 되쓴다(저장소가 하는 일과 같다).
-String rewriteWithFailure(
-  ExternalCommandRecord record,
-  CommandFailure failure,
-) => encodeCommandObjects([record.toJson(failure: failure)], asArray: false);
+CommandRecord only(String text) => decodeCommandFile(text).single;
 
 void main() {
   group('읽기·쓰기 대칭', () {
@@ -28,19 +22,19 @@ void main() {
 
       final record = only(encodeCommandFile(command));
 
-      expect(record, isA<PendingCommand>());
-      expect((record as PendingCommand).command, command);
+      expect(record, isA<ParsedCommand>());
+      expect((record as ParsedCommand).command, command);
     });
 
     test('조작·없는 태그 처리를 적지 않으면 부여·실패가 기본이다', () {
       final record = only(jsonEncode({'path': 'a.png', 'tag': '읽음'}));
 
-      final command = (record as PendingCommand).command;
+      final command = (record as ParsedCommand).command;
       expect(command.operation, ExternalCommandOperation.add);
       expect(command.missingTag, MissingTagPolicy.fail);
       expect(command.value, isNull);
       expect(command.createValueType, isNull);
-      // 판별을 적지 않은 예전 요청 파일은 그대로 경로로 읽힌다.
+      // 판별을 적지 않은 예전 명령 파일은 그대로 경로로 읽힌다.
       expect(command.targetKind, ExternalNodeKind.file);
       expect(command.valueKind, ExternalNodeKind.file);
       expect(command.missingKeyword, MissingKeywordPolicy.fail);
@@ -60,7 +54,7 @@ void main() {
 
       final record = only(encodeCommandFile(command));
 
-      expect((record as PendingCommand).command, command);
+      expect((record as ParsedCommand).command, command);
     });
 
     test('다중 부여 허용과 색상을 그대로 다시 읽는다', () {
@@ -77,7 +71,7 @@ void main() {
 
       final record = only(encodeCommandFile(command));
 
-      expect((record as PendingCommand).command, command);
+      expect((record as ParsedCommand).command, command);
     });
 
     test('대상과 링크 값의 판별은 서로 독립이다', () {
@@ -91,7 +85,7 @@ void main() {
         }),
       );
 
-      final command = (record as PendingCommand).command;
+      final command = (record as ParsedCommand).command;
       expect(command.targetKind, ExternalNodeKind.file);
       expect(command.valueKind, ExternalNodeKind.keyword);
     });
@@ -104,8 +98,8 @@ void main() {
         jsonEncode({'path': 'a.png', 'tag': '완결', 'value': true}),
       );
 
-      expect((number as PendingCommand).command.value, '5');
-      expect((flag as PendingCommand).command.value, 'true');
+      expect((number as ParsedCommand).command.value, '5');
+      expect((flag as ParsedCommand).command.value, 'true');
     });
   });
 
@@ -118,10 +112,9 @@ void main() {
         ]),
       );
 
-      expect(file.isArray, isTrue);
-      expect(file.items, hasLength(2));
+      expect(file, hasLength(2));
       expect(
-        [for (final r in file.items) (r as PendingCommand).command.targetPath],
+        [for (final r in file) (r as ParsedCommand).command.targetPath],
         ['a.png', 'b.png'],
       );
     });
@@ -135,32 +128,29 @@ void main() {
         ]),
       );
 
-      expect(file.items[0], isA<PendingCommand>());
-      expect(file.items[1], isA<UnreadableCommand>());
-      expect(file.items[2], isA<UnreadableCommand>());
+      expect(file[0], isA<ParsedCommand>());
+      expect(file[1], isA<UnreadableCommand>());
+      expect(file[2], isA<UnreadableCommand>());
     });
 
-    test('배열로 되쓰면 배열로, 객체 하나면 객체로 남는다', () {
+    test('항목이 하나여도 배열로 쓸 수 있고, 어느 쪽이든 읽힌다', () {
       final objects = [
         commandToJson(
           const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'),
         ),
       ];
 
-      expect(
-        decodeCommandFile(encodeCommandObjects(objects, asArray: true)).isArray,
-        isTrue,
-      );
-      expect(
-        decodeCommandFile(
-          encodeCommandObjects(objects, asArray: false),
-        ).isArray,
-        isFalse,
-      );
+      final asArray = encodeCommandObjects(objects, asArray: true);
+      final asObject = encodeCommandObjects(objects, asArray: false);
+
+      expect(asArray.trimLeft(), startsWith('['));
+      expect(asObject.trimLeft(), startsWith('{'));
+      expect(decodeCommandFile(asArray).single, isA<ParsedCommand>());
+      expect(decodeCommandFile(asObject).single, isA<ParsedCommand>());
     });
 
     test('빈 배열은 형식 오류로 본다', () {
-      // 할 일이 없는데 지울 근거도 없어 큐에 영영 남는 것을 막는다.
+      // 조용히 성공으로 치면 왜 아무것도 안 됐는지 알 길이 없다.
       expect(only(jsonEncode([])), isA<UnreadableCommand>());
     });
   });
@@ -207,89 +197,6 @@ void main() {
         ),
         isA<UnreadableCommand>(),
       );
-    });
-  });
-
-  group('실패 표식', () {
-    final failure = CommandFailure(
-      reason: CommandFailureReason.targetMissing,
-      at: DateTime(2026, 7, 4, 13, 30),
-      message: '없는 파일입니다.',
-    );
-
-    test('표식이 있으면 명령을 읽지 않고 건너뛸 항목이 된다', () {
-      // 명령 필드가 깨져 있어도 표식이 먼저다(같은 실패를 되풀이하지 않는다).
-      final record = only(
-        jsonEncode({
-          'tag': '읽음',
-          'failure': {
-            'reason': 'malformed',
-            'at': DateTime(2026, 7, 4).toIso8601String(),
-          },
-        }),
-      );
-
-      expect(record, isA<MarkedCommand>());
-      expect(
-        (record as MarkedCommand).failure.reason,
-        CommandFailureReason.malformed,
-      );
-    });
-
-    test('표식을 얹어 되써도 원본과 사유가 보존된다', () {
-      const command = ExternalTagCommand(targetPath: 'a.png', tagName: '작가');
-      final record = only(encodeCommandFile(command));
-
-      final marked = only(rewriteWithFailure(record, failure));
-
-      expect(marked, isA<MarkedCommand>());
-      expect((marked as MarkedCommand).failure, failure);
-      // 원본 명령 필드는 그대로 남아, 외부 앱이 자기가 무엇을 요청했는지 볼 수 있다.
-      expect(marked.source['path'], 'a.png');
-      expect(marked.source['tag'], '작가');
-    });
-
-    test('앱이 해석하지 않는 키도 되쓸 때 남는다', () {
-      final record = only(
-        jsonEncode({'path': 'a.png', 'tag': '작가', 'requestId': 'abc'}),
-      );
-
-      final marked = only(rewriteWithFailure(record, failure));
-
-      expect((marked as MarkedCommand).source['requestId'], 'abc');
-    });
-
-    test('JSON이 아니던 항목은 원문을 남긴 채 표식이 붙는다', () {
-      const text = '{반쯤 쓰다 만';
-      final record = only(text) as UnreadableCommand;
-
-      final marked = only(
-        rewriteWithFailure(record, record.toFailure(DateTime(2026, 7))),
-      );
-
-      expect(marked, isA<MarkedCommand>());
-      expect(
-        (marked as MarkedCommand).failure.reason,
-        CommandFailureReason.malformed,
-      );
-      expect(marked.source['raw'], text);
-    });
-
-    test('읽을 수 없는 표식은 한 번 갈아 쓰면 그 뒤로 읽힌다', () {
-      // 시각이 없으면 보존 정리가 나이를 셀 수 없어, 제대로 된 표식으로 바꿔 둔다.
-      final broken = jsonEncode({
-        'path': 'a.png',
-        'tag': '작가',
-        'failure': {'reason': 'targetMissing'},
-      });
-
-      final record = only(broken) as UnreadableCommand;
-      final marked = only(
-        rewriteWithFailure(record, record.toFailure(DateTime(2026, 7))),
-      );
-
-      expect(marked, isA<MarkedCommand>());
-      expect((marked as MarkedCommand).source['path'], 'a.png');
     });
   });
 }

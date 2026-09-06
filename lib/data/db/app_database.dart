@@ -164,8 +164,15 @@ class AppDatabase extends _$AppDatabase {
     beforeOpen: (details) async {
       // 외래키 무결성(태그 정의/파일 삭제 시 부여 기록 정리)을 위해 필요.
       await customStatement('PRAGMA foreign_keys = ON');
+      // 같은 DB를 다른 프로세스(콘솔 진입점)가 쓰는 동안 들어온 조회가 곧바로
+      // 실패하지 않고 기다리게 한다. 기본값은 기다리지 않고 즉시 바쁨을 낸다.
+      await customStatement('PRAGMA busy_timeout = $_busyTimeoutMillis');
     },
   );
+
+  /// 잠긴 DB를 만났을 때 포기하기 전까지 기다리는 시간(밀리초). 사람이 기다려 줄
+  /// 만한 길이와, 상대가 붙잡고 놓지 않을 때 화면이 멎어 보이지 않을 길이의 절충점.
+  static const int _busyTimeoutMillis = 5000;
 
   /// 디스크의 [tableName] 테이블에 **실제로 있는** 컬럼 이름들.
   ///

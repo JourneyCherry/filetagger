@@ -47,9 +47,14 @@ class RemoveMissingIntent extends Intent {
   const RemoveMissingIntent();
 }
 
-/// 선택한 항목의 태그를 요청함 형식의 파일로 내보낸다.
+/// 선택한 항목의 태그를 명령 파일 형식으로 내보낸다.
 class ExportSelectionIntent extends Intent {
   const ExportSelectionIntent();
+}
+
+/// 내보낸 명령 파일을 골라 이 워크스페이스에 적용한다.
+class ImportTagsIntent extends Intent {
+  const ImportTagsIntent();
 }
 
 /// 선택한 항목의 위치를 OS 파일 관리자에서 연다.

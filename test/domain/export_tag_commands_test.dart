@@ -1,4 +1,4 @@
-import 'package:filetagger/data/queue/command_json.dart';
+import 'package:filetagger/data/commands/command_json.dart';
 import 'package:filetagger/domain/entities/assigned_tag.dart';
 import 'package:filetagger/domain/entities/external_tag_command.dart';
 import 'package:filetagger/domain/entities/file_node.dart';
@@ -211,7 +211,7 @@ void main() {
 
   group('이미지 값', () {
     test('캐시 키를 값으로 두고 동봉할 키를 모은다', () {
-      // 파일을 요청 파일 옆에 같은 이름으로 놓으면, 큐가 상대 경로를 요청함 폴더
+      // 파일을 명령 파일 옆에 같은 이름으로 놓으면, 받는 쪽이 상대 경로를 그 폴더
       // 기준으로 찾아 자기 캐시에 다시 등록한다.
       final exported = _build(
         nodes: [_file],
@@ -236,7 +236,7 @@ void main() {
     });
   });
 
-  test('내보낸 명령은 요청함이 그대로 읽는다(왕복)', () {
+  test('내보낸 명령은 가져오기가 그대로 읽는다(왕복)', () {
     // 내보내기가 채우는 필드를 코덱이 하나라도 흘리면 여기서 드러난다.
     final exported = _build(
       nodes: [_file, _artist],
@@ -255,10 +255,7 @@ void main() {
     ], asArray: true);
     final decoded = decodeCommandFile(text);
 
-    expect(decoded.isArray, isTrue);
-    expect(
-      decoded.items.map((i) => (i as PendingCommand).command),
-      exported.commands,
-    );
+    expect(text.trimLeft(), startsWith('['));
+    expect(decoded.map((i) => (i as ParsedCommand).command), exported.commands);
   });
 }

@@ -9,7 +9,6 @@ import '../commands/command_scope.dart';
 import '../../domain/entities/scan_progress.dart';
 import '../common/scan_progress_label.dart';
 import '../common/selection_controller.dart';
-import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_view_provider.dart';
 import '../providers/settings_provider.dart';
@@ -137,7 +136,6 @@ class DesktopStatusBar extends ConsumerWidget {
       const Spacer(),
       ..._updateStatus(l10n, ref, scheme),
       ..._settingsSaveStatus(l10n, ref, scheme),
-      ..._externalCommandStatus(l10n, ref, scheme),
       if (!filter.isEmpty) ...[
         Text(l10n.statusFilterCount(filter.conditions.length)),
         const _Separator(),
@@ -230,40 +228,6 @@ List<Widget> _settingsSaveStatus(
             l10n.statusSettingsUnsaved,
             style: TextStyle(color: scheme.error),
           ),
-        ],
-      ),
-    ),
-    const _Separator(),
-  ];
-}
-
-/// 외부 앱 연동(드롭인 큐)이 마지막으로 바꾼 건수. 성공을 다이얼로그로 알리지
-/// 않는 대칭을 지키되, **사용자가 하지 않은 태그 변경**과 **조용한 실패**는 보이게
-/// 하는 최소한이다. 아무 일도 없었으면 자리를 차지하지 않는다.
-List<Widget> _externalCommandStatus(
-  AppLocalizations l10n,
-  WidgetRef ref,
-  ColorScheme scheme,
-) {
-  final outcome = ref.watch(lastCommandOutcomeProvider);
-  if (outcome == null) return const [];
-  return [
-    Tooltip(
-      message: outcome.failed > 0
-          ? l10n.statusExternalHintWithFailures
-          : l10n.statusExternalHint,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (outcome.applied > 0)
-            Text(l10n.statusExternalApplied(outcome.applied)),
-          if (outcome.applied > 0 && outcome.failed > 0)
-            const SizedBox(width: 6),
-          if (outcome.failed > 0)
-            Text(
-              l10n.statusExternalFailed(outcome.failed),
-              style: TextStyle(color: scheme.error),
-            ),
         ],
       ),
     ),

@@ -131,6 +131,7 @@ List<HelpCommandGroup> helpCommandGroupsOf(AppLocalizations l10n) => [
     AppCommandId.rescan,
     AppCommandId.revealInFileManager,
     AppCommandId.exportSelection,
+    AppCommandId.importTags,
     AppCommandId.exitApp,
   ]),
   HelpCommandGroup(l10n.helpGroupSelectionTags, const [

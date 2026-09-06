@@ -7,7 +7,6 @@ import 'package:filetagger/domain/entities/tag_assignment.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:filetagger/domain/repositories/command_environment.dart';
-import 'package:filetagger/domain/repositories/command_queue_repository.dart';
 import 'package:filetagger/domain/repositories/file_node_repository.dart';
 import 'package:filetagger/domain/repositories/tag_repository.dart';
 import 'package:filetagger/domain/usecases/apply_external_commands.dart';
@@ -15,7 +14,8 @@ import 'package:filetagger/domain/usecases/keyword_name.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  late _FakeQueue queue;
+  late List<ExternalTagCommand> pending;
+  late _Outcome outcome;
   late _FakeNodes nodes;
   late _FakeTags tags;
   late _FakeEnv env;
@@ -25,13 +25,14 @@ void main() {
   const systemTagNames = {'파일 이름'};
 
   ApplyExternalCommands applier() => ApplyExternalCommands(
-    queue: queue,
     nodes: nodes,
     tags: tags,
     environment: env,
     systemTagNames: systemTagNames,
-    now: () => DateTime(2026, 8, 1),
   );
+
+  /// 쌓아 둔 명령을 한 번에 해석기에 태우고 판정을 [outcome]에 담는다.
+  Future<_Outcome> run() async => outcome = _Outcome(await applier()(pending));
 
   /// 루트에 파일 하나(`a.png`)만 있는 워크스페이스.
   void withSingleFile() {
@@ -43,11 +44,12 @@ void main() {
     env.onDisk.add('a.png');
   }
 
-  void enqueue(ExternalTagCommand command, {String id = 'q1'}) =>
-      queue.pending.add(QueuedCommand(id: id, command: command));
+  /// 해석기에 태울 명령을 하나 쌓는다. 판정은 준 차례 그대로 돌아오므로, 쌓은
+  /// 순서가 곧 [_Outcome]에서 그 명령을 짚는 자리다.
+  void give(ExternalTagCommand command) => pending.add(command);
 
   setUp(() {
-    queue = _FakeQueue();
+    pending = [];
     nodes = _FakeNodes();
     tags = _FakeTags();
     env = _FakeEnv();
@@ -59,8 +61,8 @@ void main() {
       tags.define('작가', TagValueType.text, allowMultiple: true);
     });
 
-    test('부여하고 큐에서 지운다', () async {
-      enqueue(
+    test('부여하고 적용으로 판정한다', () async {
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -68,17 +70,17 @@ void main() {
         ),
       );
 
-      final outcome = await applier()();
+      await run();
 
       expect(outcome.applied, 1);
       expect(tags.valuesOf(1, '작가'), ['홍길동']);
-      expect(queue.removed, ['q1']);
-      expect(queue.marked, isEmpty);
+      expect(outcome.appliedAt, [0]);
+      expect(outcome.failed, 0);
     });
 
     test('이미 같은 값이 붙어 있으면 아무것도 쓰지 않는다', () async {
       tags.assign(1, '작가', '홍길동');
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -86,7 +88,7 @@ void main() {
         ),
       );
 
-      final outcome = await applier()();
+      await run();
 
       // 외부 앱의 재시도가 다중값 태그에 중복을 쌓지 않아야 한다.
       expect(outcome.applied, 1);
@@ -97,7 +99,7 @@ void main() {
     test('수정은 기존 값을 모두 걷어내고 하나로 둔다', () async {
       tags.assign(1, '작가', '홍길동');
       tags.assign(1, '작가', '임꺽정');
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -106,7 +108,7 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(tags.valuesOf(1, '작가'), ['장길산']);
     });
@@ -114,7 +116,7 @@ void main() {
     test('제거는 값을 주면 그 값만, 주지 않으면 통째로', () async {
       tags.assign(1, '작가', '홍길동');
       tags.assign(1, '작가', '임꺽정');
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -123,19 +125,18 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
       expect(tags.valuesOf(1, '작가'), ['임꺽정']);
 
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
           operation: ExternalCommandOperation.remove,
         ),
-        id: 'q2',
       );
 
-      await applier()();
+      await run();
       expect(tags.valuesOf(1, '작가'), isEmpty);
     });
   });
@@ -144,17 +145,17 @@ void main() {
     setUp(withSingleFile);
 
     test('기본은 만들지 않고 실패로 남긴다', () async {
-      enqueue(const ExternalTagCommand(targetPath: 'a.png', tagName: '작가'));
+      give(const ExternalTagCommand(targetPath: 'a.png', tagName: '작가'));
 
-      final outcome = await applier()();
+      await run();
 
       expect(outcome.failed, 1);
-      expect(queue.marked['q1']?.reason, CommandFailureReason.tagMissing);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.tagMissing);
       expect(tags.definitions, isEmpty);
     });
 
     test('생성 타입인데 값 유형이 없으면 만들지 않는다', () async {
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -162,14 +163,17 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.valueTypeMissing);
+      expect(
+        outcome.rejectedAt(0)?.reason,
+        CommandFailureReason.valueTypeMissing,
+      );
       expect(tags.definitions, isEmpty);
     });
 
     test('생성 타입이고 값 유형이 있으면 만들어 부여한다', () async {
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -179,7 +183,7 @@ void main() {
         ),
       );
 
-      final outcome = await applier()();
+      await run();
 
       expect(outcome.applied, 1);
       expect(tags.definitions['작가']?.valueType, TagValueType.text);
@@ -188,7 +192,7 @@ void main() {
 
     test('기존 태그의 값 유형이 다르면 강제 변환하지 않고 실패한다', () async {
       tags.define('작가', TagValueType.text);
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -198,18 +202,18 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(
-        queue.marked['q1']?.reason,
+        outcome.rejectedAt(0)?.reason,
         CommandFailureReason.valueTypeMismatch,
       );
       expect(tags.definitions['작가']?.valueType, TagValueType.text);
     });
 
     test('시스템 태그 이름은 대상이 아니다', () async {
-      // 특히 '파일 이름'은 편집이 디스크 rename이라 큐가 파일을 옮기는 통로가 된다.
-      enqueue(
+      // 특히 '파일 이름'은 편집이 디스크 rename이라 명령이 파일을 옮기는 통로가 된다.
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '파일 이름',
@@ -219,9 +223,9 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.systemTag);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.systemTag);
       expect(tags.definitions, isEmpty);
     });
   });
@@ -230,23 +234,23 @@ void main() {
     setUp(() => tags.define('읽음', TagValueType.label));
 
     test('디스크에 없으면 기다리지 않고 즉시 실패다', () async {
-      enqueue(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
+      give(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.targetMissing);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.targetMissing);
     });
 
     test('디스크엔 있고 인덱스에만 없으면 손대지 않고 보류한다', () async {
       env.onDisk.add('a.png');
-      enqueue(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
+      give(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
 
-      final outcome = await applier()();
+      await run();
 
       // 실패로 적으면 이후 건너뛰므로 경합 한 번이 영구 실패로 굳는다.
       expect(outcome.held, 1);
-      expect(queue.marked, isEmpty);
-      expect(queue.removed, isEmpty);
+      expect(outcome.failed, 0);
+      expect(outcome.appliedAt, isEmpty);
     });
 
     test('관리 범위 밖이면 기다려도 소용없으므로 실패다', () async {
@@ -257,11 +261,14 @@ void main() {
         kind: NodeKind.directory,
       );
       env.onDisk.add('box/a.png');
-      enqueue(const ExternalTagCommand(targetPath: 'box/a.png', tagName: '읽음'));
+      give(const ExternalTagCommand(targetPath: 'box/a.png', tagName: '읽음'));
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.targetNotManaged);
+      expect(
+        outcome.rejectedAt(0)?.reason,
+        CommandFailureReason.targetNotManaged,
+      );
     });
 
     test('연결 끊김으로 보존된 노드는 대상이 아니다', () async {
@@ -271,25 +278,22 @@ void main() {
         kind: NodeKind.file,
         missingSince: DateTime(2026),
       );
-      enqueue(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
+      give(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.targetMissing);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.targetMissing);
     });
 
     test('구분자·군더더기가 섞인 경로도 찾고, 루트 밖은 형식 오류다', () async {
       withSingleFile();
-      enqueue(const ExternalTagCommand(targetPath: r'.\a.png', tagName: '읽음'));
-      enqueue(
-        const ExternalTagCommand(targetPath: '../a.png', tagName: '읽음'),
-        id: 'q2',
-      );
+      give(const ExternalTagCommand(targetPath: r'.\a.png', tagName: '읽음'));
+      give(const ExternalTagCommand(targetPath: '../a.png', tagName: '읽음'));
 
-      await applier()();
+      await run();
 
-      expect(queue.removed, ['q1']);
-      expect(queue.marked['q2']?.reason, CommandFailureReason.malformed);
+      expect(outcome.appliedAt, [0]);
+      expect(outcome.rejectedAt(1)?.reason, CommandFailureReason.malformed);
     });
   });
 
@@ -298,7 +302,7 @@ void main() {
 
     test('숫자로 읽히지 않는 값은 실패다', () async {
       tags.define('점수', TagValueType.number);
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '점수',
@@ -306,14 +310,14 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.invalidValue);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.invalidValue);
     });
 
     test('날짜는 저장 형식으로 정규화한다', () async {
       tags.define('발매일', TagValueType.date);
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '발매일',
@@ -321,7 +325,7 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       // 날짜 태그는 시각을 담지 않는다.
       expect(tags.valuesOf(1, '발매일'), [DateTime(2026, 7, 4).toIso8601String()]);
@@ -334,31 +338,30 @@ void main() {
         kind: NodeKind.file,
       );
       tags.define('다음 화', TagValueType.link);
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '다음 화',
           value: 'b.png',
         ),
       );
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '다음 화',
           value: 'zzz.png',
         ),
-        id: 'q2',
       );
 
-      await applier()();
+      await run();
 
       expect(tags.valuesOf(1, '다음 화'), ['7']);
-      expect(queue.marked['q2']?.reason, CommandFailureReason.invalidValue);
+      expect(outcome.rejectedAt(1)?.reason, CommandFailureReason.invalidValue);
     });
 
     test('missingLink: keep이면 없는 대상의 경로를 미해결로 남긴다', () async {
       tags.define('다음 화', TagValueType.link);
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '다음 화',
@@ -367,9 +370,9 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked, isEmpty);
+      expect(outcome.failed, 0);
       // 원문은 인덱스 키와 같은 꼴로 정리해 둔다 — 나중에 그 경로가 생기면 사람이
       // 눈으로 짝을 맞출 수 있다.
       expect(tags.valuesOf(1, '다음 화'), ['없는/zzz.png']);
@@ -384,12 +387,12 @@ void main() {
         value: 'zzz.png',
         missingLink: MissingLinkPolicy.keep,
       );
-      enqueue(command);
-      await applier()();
+      give(command);
+      await run();
       final writes = tags.writes;
 
-      enqueue(command, id: 'q2');
-      await applier()();
+      give(command);
+      await run();
 
       expect(tags.writes, writes);
       expect(tags.valuesOf(1, '다음 화'), ['zzz.png']);
@@ -398,32 +401,31 @@ void main() {
     test('이미지는 외부 경로를 캐시 키로 바꾸고, 등록에 실패하면 실패다', () async {
       env.images['/밖/cover.png'] = 'cafe01';
       tags.define('표지', TagValueType.image);
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '표지',
           value: '/밖/cover.png',
         ),
       );
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '표지',
           value: '/밖/없음.png',
         ),
-        id: 'q2',
       );
 
-      await applier()();
+      await run();
 
       expect(tags.valuesOf(1, '표지'), ['cafe01']);
-      expect(queue.marked['q2']?.reason, CommandFailureReason.invalidValue);
+      expect(outcome.rejectedAt(1)?.reason, CommandFailureReason.invalidValue);
     });
 
     test('이미지 제거는 값을 등록하지 않고 태그를 통째로 뗀다', () async {
       tags.define('표지', TagValueType.image);
       tags.assign(1, '표지', 'cafe01');
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '표지',
@@ -432,7 +434,7 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       // 저장값이 불투명한 해시라 외부 앱은 지울 값을 지목할 수 없다.
       expect(tags.valuesOf(1, '표지'), isEmpty);
@@ -452,7 +454,7 @@ void main() {
         path: '작가 A',
         kind: NodeKind.keyword,
       );
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: '작가 A',
           targetKind: ExternalNodeKind.keyword,
@@ -461,10 +463,10 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(tags.valuesOf(50, '국적'), ['일본']);
-      expect(queue.removed, ['q1']);
+      expect(outcome.appliedAt, [0]);
     });
 
     test('같은 이름의 파일이 있어도 키워드를 지목한다(키 공간이 다르다)', () async {
@@ -480,7 +482,7 @@ void main() {
         path: '작가 A',
         kind: NodeKind.keyword,
       );
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: '작가 A',
           targetKind: ExternalNodeKind.keyword,
@@ -489,7 +491,7 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(tags.valuesOf(50, '국적'), ['일본']);
       expect(tags.valuesOf(3, '국적'), isEmpty);
@@ -498,7 +500,7 @@ void main() {
     test('없는 키워드는 기본적으로 즉시 실패다(보류가 아니다)', () async {
       // 키워드는 앱이 만들어야만 존재하므로 스캔과 경합할 일이 없다 — 기다릴 이유가
       // 없어 보류로 두지 않는다(보류는 표식이 없어 나이로도 지워지지 않는다).
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: '없는 작가',
           targetKind: ExternalNodeKind.keyword,
@@ -507,15 +509,15 @@ void main() {
         ),
       );
 
-      final outcome = await applier()();
+      await run();
 
       expect(outcome.held, 0);
-      expect(queue.marked['q1']?.reason, CommandFailureReason.targetMissing);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.targetMissing);
       expect(nodes.createdKeywords, isEmpty);
     });
 
     test('missingKeyword: create면 본문 없이 만들어 진행한다', () async {
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: '작가 B',
           targetKind: ExternalNodeKind.keyword,
@@ -525,16 +527,16 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(nodes.createdKeywords, ['작가 B']);
       expect(tags.valuesOf(100, '국적'), ['한국']);
-      expect(queue.removed, ['q1']);
+      expect(outcome.appliedAt, [0]);
     });
 
     test('경로 구분자가 든 이름은 정규화하지 않고 형식 오류로 거절한다', () async {
       // 키워드 이름은 경로가 아니다 — 'a/작가'를 접어 받으면 뜻이 달라진다.
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a/작가',
           targetKind: ExternalNodeKind.keyword,
@@ -544,9 +546,9 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.malformed);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.malformed);
       expect(nodes.createdKeywords, isEmpty);
     });
 
@@ -556,7 +558,7 @@ void main() {
         path: '작가 A',
         kind: NodeKind.keyword,
       );
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: '작가 A',
           targetKind: ExternalNodeKind.keyword,
@@ -565,9 +567,9 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.systemTag);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.systemTag);
     });
   });
 
@@ -583,7 +585,7 @@ void main() {
         path: '작가 A',
         kind: NodeKind.keyword,
       );
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -592,13 +594,13 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(tags.valuesOf(1, '작가'), ['50']);
     });
 
     test('링크 값의 키워드도 missingKeyword: create면 만들어 건다', () async {
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -608,14 +610,14 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(nodes.createdKeywords, ['작가 B']);
       expect(tags.valuesOf(1, '작가'), ['100']);
     });
 
     test('없는 키워드를 가리키면(기본 정책) 값 오류다', () async {
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -624,14 +626,14 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked['q1']?.reason, CommandFailureReason.invalidValue);
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.invalidValue);
       expect(nodes.createdKeywords, isEmpty);
     });
 
     test('missingLink: keep이면 키워드 이름을 원문 그대로 미해결로 남긴다', () async {
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -641,9 +643,9 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
-      expect(queue.marked, isEmpty);
+      expect(outcome.failed, 0);
       expect(tags.valuesOf(1, '작가'), ['없는 작가']);
       expect(tags.unresolvedOf(1, '작가'), [isTrue]);
       // 생성은 missingKeyword가 정한다 — keep은 만들지 않고 남기기만 한다.
@@ -651,7 +653,7 @@ void main() {
     });
 
     test('missingKeyword: create가 있으면 생성이 먼저다(미해결로 남지 않는다)', () async {
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -662,7 +664,7 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       expect(nodes.createdKeywords, ['작가 C']);
       expect(tags.unresolvedOf(1, '작가'), [isFalse]);
@@ -679,7 +681,7 @@ void main() {
         path: 'b.png',
         kind: NodeKind.keyword,
       );
-      enqueue(
+      give(
         const ExternalTagCommand(
           targetPath: 'a.png',
           tagName: '작가',
@@ -687,7 +689,7 @@ void main() {
         ),
       );
 
-      await applier()();
+      await run();
 
       // 판별이 없으면 경로 — 이름이 같은 키워드가 있어도 파일을 가리킨다.
       expect(tags.valuesOf(1, '작가'), ['7']);
@@ -707,44 +709,43 @@ void main() {
     );
     env.onDisk.add('box/a.png');
     tags.define('읽음', TagValueType.label);
-    enqueue(const ExternalTagCommand(targetPath: 'box/a.png', tagName: '읽음'));
+    give(const ExternalTagCommand(targetPath: 'box/a.png', tagName: '읽음'));
 
-    final outcome = await applier()(
+    final results = await applier()(
+      pending,
       rootManageMode: FolderManageMode.managedRecursive,
     );
 
-    expect(outcome.applied, 1);
+    expect(results.single, isA<CommandApplied>());
     expect(tags.valuesOf(10, '읽음'), [null]);
   });
 }
 
 // ── 가짜 저장소 ──
 
-class _FakeQueue implements CommandQueueRepository {
-  final List<QueuedCommand> pending = [];
-  final List<String> removed = [];
-  final Map<String, CommandFailure> marked = {};
+/// 한 번의 해석이 무엇을 했는지 읽기 좋게 묶은 것.
+///
+/// 판정은 준 차례 그대로 돌아오므로, 명령을 짚는 수단은 **쌓은 자리**다.
+class _Outcome {
+  _Outcome(this.results);
 
-  /// [commit]이 불린 횟수. 패스가 결과를 반영하고 끝나는지 확인한다.
-  int commits = 0;
+  final List<ExternalCommandResult> results;
 
-  @override
-  Future<List<QueuedCommand>> takePending() async {
-    final taken = [...pending];
-    pending.clear();
-    return taken;
+  /// 적용된 명령들의 자리(쌓은 차례).
+  List<int> get appliedAt => [
+    for (var i = 0; i < results.length; i++)
+      if (results[i] is CommandApplied) i,
+  ];
+
+  /// [index]번째 명령의 거부 판정. 거부가 아니면 null.
+  CommandRejected? rejectedAt(int index) {
+    final result = results[index];
+    return result is CommandRejected ? result : null;
   }
 
-  @override
-  Future<void> markApplied(String id) async => removed.add(id);
-
-  @override
-  Future<void> markFailed(String id, CommandFailure failure) async {
-    marked[id] = failure;
-  }
-
-  @override
-  Future<void> commit() async => commits++;
+  int get applied => results.whereType<CommandApplied>().length;
+  int get failed => results.whereType<CommandRejected>().length;
+  int get held => results.whereType<CommandHeld>().length;
 }
 
 class _FakeNodes implements FileNodeRepository {

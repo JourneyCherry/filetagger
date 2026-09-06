@@ -2,13 +2,14 @@
 /// 등록(내용 해시로 중복 제거, 큰 이미지는 축소)하고, 참조되지 않는 캐시를 청소한다.
 ///
 /// 키 규약·축소 크기 계산 같은 순수 로직은 [thumbnail_cache]에 있고, 여기엔 파일
-/// I/O와 dart:ui 디코딩(플랫폼 의존)만 둔다. 이미지 크기는 새 의존성 없이 헤더 파서
-/// ([readImageDimensions])로 구하고, 축소·재인코딩만 dart:ui로 한다.
+/// I/O만 둔다. 이미지 크기는 새 의존성 없이 헤더 파서([readImageDimensions])로 구하고,
+/// **축소·재인코딩만 [ImageDownscaler]로 주입받는다** — 그 한 가지가 유일하게 플랫폼
+/// 디코더에 기대는 자리라, 구현을 여기 두면 이 파일을 지나는 경로 전체가 Flutter에
+/// 묶인다(같은 저장소를 쓰는 콘솔 진입점이 서지 못한다).
 library;
 
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -28,6 +29,17 @@ const int _maxThumbnailDimension = 1024;
 /// 반영되지 않은 파일이 실수로 청소되지 않도록 하는 유예다.
 const Duration _gcGrace = Duration(minutes: 1);
 
+/// 이미지 [bytes]를 주어진 크기로 축소해 PNG 바이트로 돌려주는 축소기. 못 하면 null.
+///
+/// 구현이 플랫폼 디코더에 기대므로 주입으로 받는다. 넘기지 않으면 축소하지 않고 원본을
+/// 그대로 보관한다 — 디코딩이 실패했을 때와 같은 자리로 접히므로 새 규칙이 아니다.
+typedef ImageDownscaler =
+    Future<Uint8List?> Function(
+      Uint8List bytes,
+      int targetWidth,
+      int targetHeight,
+    );
+
 /// 워크스페이스 루트에 대한 캐시 폴더 절대 경로.
 String thumbnailCacheDirPath(String workspaceRoot) =>
     p.join(filetaggerDirPath(workspaceRoot), thumbnailCacheDirName);
@@ -36,12 +48,14 @@ String thumbnailCacheDirPath(String workspaceRoot) =>
 /// 돌려준다. 이미지가 아니거나 읽지 못하면 null.
 ///
 /// - 중복 제거: 원본 내용 해시를 키로 써 같은 이미지는 한 파일만 둔다.
-/// - 축소: 가장 긴 변이 상한을 넘으면 비율을 유지해 줄여 PNG로 저장한다(용량 절감).
-///   상한 이하면 원본 바이트를 형식 그대로 보관한다.
+/// - 축소: 가장 긴 변이 상한을 넘고 [downscale]이 주어졌으면 비율을 유지해 줄여 PNG로
+///   저장한다(용량 절감). 상한 이하이거나 축소기가 없으면 원본 바이트를 형식 그대로
+///   보관한다.
 Future<String?> registerThumbnailImage(
   String workspaceRoot,
-  String sourcePath,
-) async {
+  String sourcePath, {
+  ImageDownscaler? downscale,
+}) async {
   final Uint8List bytes;
   try {
     bytes = await File(sourcePath).readAsBytes();
@@ -64,8 +78,8 @@ Future<String?> registerThumbnailImage(
       pixelSize.$2,
       _maxThumbnailDimension,
     );
-    if (target != null) {
-      final scaled = await _downscaleToPng(bytes, target.$1, target.$2);
+    if (target != null && downscale != null) {
+      final scaled = await downscale(bytes, target.$1, target.$2);
       if (scaled != null) {
         outBytes = scaled;
         ext = 'png';
@@ -148,26 +162,6 @@ String _extensionOf(String path) {
   final dot = path.lastIndexOf('.');
   if (dot < 0 || dot == path.length - 1) return '';
   return path.substring(dot + 1).toLowerCase();
-}
-
-/// [bytes]를 [tw]x[th]로 축소해 PNG 바이트로 인코딩한다. dart:ui 디코더로 목표
-/// 크기에 맞춰 디코딩하므로 원본 전체를 메모리에 펼치지 않는다. 실패 시 null.
-Future<Uint8List?> _downscaleToPng(Uint8List bytes, int tw, int th) async {
-  try {
-    final codec = await ui.instantiateImageCodec(
-      bytes,
-      targetWidth: tw,
-      targetHeight: th,
-    );
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    codec.dispose();
-    return data?.buffer.asUint8List();
-  } catch (_) {
-    return null;
-  }
 }
 
 /// 바이트열의 내용 주소를 16진 문자열로. 같은 내용을 같은 키로 접어 캐시가 중복

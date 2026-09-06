@@ -114,6 +114,7 @@ class AppMenuBar extends ConsumerWidget {
         const MenuCommand(AppCommandId.closeFolder),
         const MenuDivider(),
         const MenuCommand(AppCommandId.exportSelection),
+        const MenuCommand(AppCommandId.importTags),
         const MenuDivider(),
         const MenuCommand(AppCommandId.exitApp),
       ]),

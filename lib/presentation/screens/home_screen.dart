@@ -13,8 +13,12 @@ import '../../data/db/schema_probe.dart';
 import '../../data/fs/default_app_opener.dart';
 import '../../data/fs/node_renamer.dart';
 import '../../data/fs/reveal_in_file_manager.dart';
-import '../../data/queue/command_export.dart';
+import '../../data/commands/command_export.dart';
+import '../../data/commands/command_json.dart';
+import '../../data/commands/file_command_environment.dart';
+import '../../data/thumbnails/ui_image_downscaler.dart';
 import '../../domain/entities/assigned_tag.dart';
+import '../../domain/entities/external_tag_command.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/entities/file_tree_node.dart';
 import '../../domain/entities/folder_manage_mode.dart';
@@ -26,8 +30,10 @@ import '../../domain/entities/tag_value_type.dart';
 import '../../domain/entities/view_mode.dart';
 import '../../domain/entities/workspace_view_settings.dart';
 import '../../domain/repositories/workspace_scanner.dart';
+import '../../domain/usecases/apply_external_commands.dart';
 import '../../domain/usecases/export_tag_commands.dart';
 import '../../domain/usecases/folder_index_scope.dart';
+import '../../l10n/system_tag_names.dart';
 import '../../l10n/app_localizations.dart';
 import '../commands/app_commands.dart';
 import '../commands/command_scope.dart';
@@ -42,7 +48,6 @@ import '../common/preview_split.dart';
 import '../common/scan_progress_label.dart';
 import '../common/selection_controller.dart';
 import '../common/type_ahead.dart';
-import '../providers/command_queue_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
@@ -62,6 +67,7 @@ import '../shells/mobile_shell.dart';
 import '../widgets/app_about_dialog.dart';
 import '../widgets/dialog_utils.dart';
 import '../widgets/export_dialog.dart';
+import '../widgets/import_result_dialog.dart';
 import '../widgets/folder_manage_menu.dart';
 import '../widgets/help_dialog.dart';
 import '../widgets/keyword_dialog.dart';
@@ -107,16 +113,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ///
   /// 스캔은 시작할 때의 세대를 쥐고 있다가 끝날 때 다시 비교한다. 세대가 달라졌으면
   /// **화면 상태도 후속 작업도 건드리지 않는다** — 그 결과는 이미 없는 폴더의 것이라,
-  /// 늦게 도착해 새 폴더의 진행 표시를 지우거나 큐 적용을 부르면 안 된다.
+  /// 늦게 도착해 새 폴더의 진행 표시를 지우면 안 된다.
   int _workspaceEpoch = 0;
 
   /// 지금 도는 스캔들의 취소 손잡이. 수동 스캔과 백그라운드 재스캔이 겹칠 수 있어
   /// 하나가 아니라 집합으로 쥔다.
   final Set<ScanCancellation> _activeScans = {};
-
-  /// 외부 앱 큐 패스가 진행 중인지. 스캔 뒤와 큐 감시자 신호 양쪽에서 불려
-  /// 겹칠 수 있어 하나만 돌게 막는다.
-  bool _applyingQueue = false;
 
   /// 프리뷰 창을 목록 옆(또는 위)에 표시할지. 보기 토글로 전환한다.
   bool _previewVisible = true;
@@ -221,7 +223,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _scanning = true;
       _scanProgress = null;
     });
-    var scanned = false;
     try {
       final result = await usecase(
         root,
@@ -229,11 +230,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         cancel: cancel,
         onProgress: (progress) => _reportScanProgress(epoch, progress),
       );
-      scanned = true;
       if (!mounted || epoch != _workspaceEpoch) return;
       await _reconcileNestedDecisions(result.nestedFiletaggerDirs);
     } on ScanCancelledException {
       // 실패가 아니라 우리가 시킨 중단이다 — 알릴 것이 없다.
+    } on WorkspaceScanBusyException {
+      // 사고가 아니라 하지 않기로 한 것이다. 돌고 있는 스캔이 곧 같은 결과를 만든다.
+      if (mounted && epoch == _workspaceEpoch) {
+        _showSnack(AppLocalizations.of(context).homeScanBusy);
+      }
     } on WorkspaceUnreadableException catch (e) {
       // 원인이 분명한 실패라 예외 원문 대신 무엇이 일어났는지로 알린다. 정합이 돌지
       // 않았으므로 태그도 목록도 그대로임을 함께 말해 준다.
@@ -256,7 +261,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         });
       }
     }
-    if (scanned && epoch == _workspaceEpoch) await _applyQueue();
   }
 
   /// 스캐너가 알려 온 진행 상태를 화면에 반영한다. 보고 간격은 스캐너가 조절하므로
@@ -284,7 +288,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _backgroundScanning = true;
       _scanProgress = null;
     });
-    var scanned = false;
     try {
       await usecase(
         root,
@@ -292,7 +295,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         cancel: cancel,
         onProgress: (progress) => _reportScanProgress(epoch, progress),
       );
-      scanned = true;
     } catch (_) {
       // 백그라운드 재스캔 실패·취소는 조용히 무시한다(다음 변화 때 재시도).
     } finally {
@@ -307,30 +309,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       } else {
         _backgroundScanning = false;
       }
-    }
-    if (scanned && epoch == _workspaceEpoch) await _applyQueue();
-  }
-
-  /// 외부 앱이 떨궈 둔 명령 큐를 한 번 훑어 적용한다.
-  ///
-  /// **스캔이 끝난 뒤에만** 돈다 — 파일 추가와 태그 부여가 한 번에 성립하려면
-  /// 인덱스가 먼저 최신이어야 하고, 스캔이 실패한 판에 돌리면 멀쩡한 요청이 "대상
-  /// 없음"으로 판정된다. 큐 감시자의 신호로도 불리므로 겹쳐 돌지 않게 막는다.
-  Future<void> _applyQueue() async {
-    if (_scanning || _backgroundScanning || _applyingQueue) return;
-    final usecase = ref.read(applyExternalCommandsProvider);
-    if (usecase == null) return;
-
-    _applyingQueue = true;
-    try {
-      final outcome = await usecase(
-        rootManageMode: ref.read(rootManageModeProvider),
-      );
-      ref.read(lastCommandOutcomeProvider.notifier).record(outcome);
-    } catch (_) {
-      // 큐 적용 실패는 조용히 무시한다(항목별 실패는 큐 파일에 기록된다).
-    } finally {
-      _applyingQueue = false;
     }
   }
 
@@ -1126,10 +1104,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String get _exportFileName =>
       'filetagger-${_exportStamp.format(DateTime.now())}.json';
 
-  /// 고른 항목의 태그를 요청함 형식의 파일 하나로 내보낸다(이미지는 그 옆에 함께).
+  /// 고른 항목의 태그를 명령 파일 하나로 내보낸다(이미지는 그 옆에 함께).
   ///
-  /// 받는 쪽에 **import 경로가 따로 없다** — 큐가 이미 "이 항목에 이 태그를 붙여라"를
-  /// 말할 수 있어, 내보낸 파일을 그 워크스페이스의 요청함에 넣으면 그대로 적용된다.
+  /// **내보내기에 별도 형식이 없다** — 명령 표현이 이미 "이 항목에 이 태그를 붙여라"를
+  /// 말할 수 있어, 받는 쪽은 콘솔의 `import`로 그 파일을 그대로 먹으면 된다.
   Future<void> _exportSelection() async {
     final root = ref.read(workspaceRootProvider);
     if (root == null) return;
@@ -1190,7 +1168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     try {
       final result = await writeCommandExport(
-        // 확장자가 없으면 붙여 준다 — 요청함은 `.json`만 읽으므로, 이름만 적고 만
+        // 확장자가 없으면 붙여 준다 — 받는 쪽은 `.json`을 기대하므로, 이름만 적고 만
         // 파일은 받는 쪽에서 조용히 무시된다.
         filePath: location.path.toLowerCase().endsWith('.json')
             ? location.path
@@ -1206,6 +1184,74 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (e) {
       _showSnack(l10n.exportFailed('$e'));
     }
+  }
+
+  /// 내보낸 명령 파일을 골라 이 워크스페이스에 적용한다(내보내기의 짝).
+  ///
+  /// **판정은 콘솔의 가져오기와 같은 해석기가 한다** — 입구가 둘이어도 규칙은 하나다.
+  /// 상대 이미지 경로는 **고른 파일이 놓인 폴더**를 기준으로 푼다(내보내기가 이미지를
+  /// 파일 옆에 캐시 키 이름 그대로 두기 때문이다).
+  Future<void> _importTags() async {
+    final root = ref.read(workspaceRootProvider);
+    final nodes = ref.read(fileNodeRepositoryProvider);
+    final tags = ref.read(tagRepositoryProvider);
+    if (root == null || nodes == null || tags == null) return;
+    final l10n = _l10n;
+
+    final file = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(label: l10n.exportFileTypeLabel, extensions: const ['json']),
+      ],
+    );
+    if (file == null) return;
+
+    final String text;
+    try {
+      text = await file.readAsString();
+    } catch (e) {
+      if (mounted) _showSnack(l10n.importReadFailed('$e'));
+      return;
+    }
+
+    // 읽기는 예외를 던지지 않는다 — 형식 오류도 항목 하나의 판정일 뿐이라 나머지
+    // 항목의 처리를 막지 않는다.
+    final records = decodeCommandFile(text);
+    final commands = <ExternalTagCommand>[
+      for (final record in records)
+        if (record case ParsedCommand(:final command)) command,
+    ];
+    final unreadable = [
+      for (final record in records)
+        if (record is UnreadableCommand) record,
+    ].length;
+
+    if (commands.isEmpty && unreadable == 0) {
+      if (mounted) _showSnack(l10n.importNothingToApply);
+      return;
+    }
+
+    final results = await ApplyExternalCommands(
+      nodes: nodes,
+      tags: tags,
+      environment: FileCommandEnvironment(
+        root,
+        imageBaseDir: p.dirname(file.path),
+        downscale: downscaleImageWithUi,
+      ),
+      systemTagNames: allSystemTagNames,
+    )(commands, rootManageMode: ref.read(rootManageModeProvider));
+
+    if (!mounted) return;
+    // 전부 붙었으면 볼 것이 없다 — 다이얼로그를 띄우는 대신 한 줄로 알린다.
+    if (unreadable == 0 && results.every((r) => r is CommandApplied)) {
+      _showSnack(l10n.importAllApplied(results.length));
+      return;
+    }
+    await showImportResultDialog(
+      context,
+      results: results,
+      unreadable: unreadable,
+    );
   }
 
   /// 보존 노드의 원본 파일을 사용자가 골라 태그를 수동 재연결한다. 후보는
@@ -1679,6 +1725,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       exportSelection: (selection.isNotEmpty && isDesktopPlatform)
           ? _exportSelection
           : null,
+      // 가져오기의 대상은 파일 안에 적혀 있어 목록의 선택과 무관하다. 내보내기와 같은
+      // 자리(데스크톱 '파일' 메뉴)에 두므로 활성 조건도 같은 결로 맞춘다.
+      importTags: (hasWorkspace && isDesktopPlatform) ? _importTags : null,
       manageTags: hasWorkspace ? _openTagManagement : null,
       // 썸네일 태그 다이얼로그는 데스크톱 크롬(태그 메뉴)에만 있다.
       manageThumbnailTags: (hasWorkspace && isDesktopPlatform)
@@ -1803,6 +1852,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final workspaceRoot = ref.watch(workspaceRootProvider);
     // DB는 폴더가 열릴 때 생성/연결된다. 여기서 watch해 생명주기를 활성화한다.
     ref.watch(databaseProvider);
+    // 밖에서(콘솔 등) 들어온 변경을 알아채는 감시를 살려 둔다.
+    ref.watch(workspaceChangeWatchProvider);
     // 커스텀 이미지 캐시 청소기를 살려 둔다(부여가 사라진 캐시 파일 정리).
     ref.watch(thumbnailGcProvider);
     // 선택이 바뀌면 목록 하이라이트·프리뷰·명령 활성 상태가 함께 갱신된다.
@@ -1818,12 +1869,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // 디스크 변화(watcher, 디바운스됨)를 구독해 백그라운드 재스캔을 트리거한다.
     ref.listen(workspaceChangesProvider, (_, next) {
       next.whenData((_) => _backgroundScan());
-    });
-
-    // 외부 앱이 큐에 명령을 떨구면 재스캔이 아니라 큐 처리로 보낸다. 앱이 켜져
-    // 있는 동안 들어온 요청도 이 경로로 덮인다.
-    ref.listen(commandQueueChangesProvider, (_, next) {
-      next.whenData((_) => _applyQueue());
     });
 
     // 루트 관리 방식이 바뀌면(사용자 토글, 또는 폴더 열 때 뷰 설정 비동기 로드

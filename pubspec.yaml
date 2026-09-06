@@ -82,6 +82,9 @@ dependencies:
   # 서드파티(publisher leanflutter.dev)이며 그것의 의존성으로 이미 들어와 있으나,
   # 직접 쓰므로 직접 의존성으로 올린다.
   screen_retriever: ^0.2.2
+  # 콘솔 진입점의 하위 명령·옵션 해석. Dart 팀 공식(publisher tools.dart.dev)이며
+  # 도움말 출력과 사용법 오류까지 함께 낸다.
+  args: ^2.7.0
 
 dev_dependencies:
   flutter_test:

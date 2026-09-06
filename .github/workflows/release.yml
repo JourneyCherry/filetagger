@@ -125,13 +125,21 @@ jobs:
           --dart-define=FILETAGGER_VERSION=${{ env.VERSION }}
           --dart-define=FILETAGGER_CHANNEL=portable
 
-      # LICENSE와 README를 함께 넣는다 — 외부 앱 연동(태그 요청함) 계약이 README에
+      # 콘솔 진입점. Flutter 빌드에 실리지 않으므로 따로 만든다.
+      - name: CLI 빌드
+        run: dart build cli
+
+      # LICENSE와 README를 함께 넣는다 — 콘솔 표면과 명령 파일 형식의 계약이 README에
       # 있고, 포터블 사용자는 저장소를 보지 않을 수 있다.
       - name: 스테이징 · 압축
         run: |
           set -euo pipefail
           mkdir -p "dist/$STAGE_NAME"
           cp -r build/linux/x64/release/bundle/. "dist/$STAGE_NAME/"
+          # CLI는 제 번들(실행 파일 + 딸린 라이브러리)을 통째로 가져야 하고, GUI
+          # 번들에도 같은 이름의 자리가 있어 섞으면 서로를 덮는다. 폴더째 따로 둔다.
+          mkdir -p "dist/$STAGE_NAME/cli"
+          cp -r build/cli/linux_x64/bundle/. "dist/$STAGE_NAME/cli/"
           cp LICENSE README.md "dist/$STAGE_NAME/"
           tar -C dist -czf "dist/$STAGE_NAME.tar.gz" "$STAGE_NAME"
 

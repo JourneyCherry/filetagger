@@ -1,11 +1,9 @@
 import 'tag_value_type.dart';
 
-/// 외부 앱(브라우저 확장·스크립트 등)이 드롭인 큐에 떨궈 둔 명령 하나.
+/// 밖에서(콘솔 명령·명령 파일) 들어온 태그 조작 하나.
 ///
-/// 큐 항목은 **파일 하나에 명령 하나**이며, 앱은 스캔이 끝난 뒤 이를 읽어 적용한다.
-/// 성공한 항목은 파일째 지우고, 실패한 항목은 그 자리에 [CommandFailure]를 적어
-/// 둔다 — 외부 앱은 자기가 만든 경로를 그대로 다시 읽어 원인을 알 수 있고, 다시
-/// 시도하려면 그 필드 없이 같은 파일을 덮어쓰면 된다.
+/// 입구가 여럿이어도 **판정은 하나**여야 하므로, 어느 입구로 들어왔든 이 표현으로
+/// 접혀 같은 해석기를 지난다.
 ///
 /// 이 엔티티는 **표현**일 뿐 유효성을 판정하지 않는다. 대상 노드·태그 정의를 실제로
 /// 찾아보는 판정(시스템 태그 제외, 값 유형 대조, 없는 태그 처리 등)은 적용 유즈케이스가
@@ -160,17 +158,6 @@ enum MissingLinkPolicy {
   keep,
 }
 
-/// 큐에 들어 있는 명령 하나와, 그것을 다시 가리킬 손잡이.
-///
-/// [id]가 무엇인지는 저장 구현이 정한다 — 도메인은 "성공했으니 지워라 / 실패했으니
-/// 표식을 남겨라"를 이 손잡이로만 지시한다.
-class QueuedCommand {
-  const QueuedCommand({required this.id, required this.command});
-
-  final String id;
-  final ExternalTagCommand command;
-}
-
 /// 명령이 태그 부여에 가하는 조작.
 ///
 /// 다중 부여를 허용하지 않는 태그에서는 [add]와 [replace]가 같은 결과가 된다
@@ -197,48 +184,17 @@ enum MissingTagPolicy {
   create,
 }
 
-/// 앱이 큐 파일에 적어 두는 실패 표식. 외부 앱은 쓰지 않는 자리다.
-///
-/// 표식이 있는 항목은 이후 패스에서 적용을 건너뛴다 — 같은 실패를 앱이 켜질 때마다
-/// 되풀이하지 않기 위함이다.
-class CommandFailure {
-  const CommandFailure({required this.reason, required this.at, this.message});
-
-  final CommandFailureReason reason;
-
-  /// 표식을 적은 시각.
-  ///
-  /// 보존 정리(오래된 실패 항목 삭제)가 파일 수정 시각이 아니라 이 값을 보는 이유는,
-  /// 큐가 복사·이관되면(중첩 워크스페이스 흡수 등) 파일 시각이 갈리기 때문이다.
-  final DateTime at;
-
-  /// 사유만으로는 짚이지 않는 세부(어느 값이 어긋났는지 등). 사람이 읽는 용도이며
-  /// 외부 앱이 분기 판단에 쓰라고 두는 것은 [reason]이다.
-  final String? message;
-
-  @override
-  bool operator ==(Object other) =>
-      other is CommandFailure &&
-      other.reason == reason &&
-      other.at == at &&
-      other.message == message;
-
-  @override
-  int get hashCode => Object.hash(reason, at, message);
-}
-
-/// 큐 항목이 적용되지 못한 이유. 외부 앱이 기계적으로 분기할 수 있도록 이름으로
-/// 저장한다(값 순서 변경에 영향받지 않는다).
+/// 명령이 적용되지 못한 이유. 밖에서 기계적으로 분기할 수 있도록 이름으로 낸다
+/// (값 순서 변경에 영향받지 않는다).
 ///
 /// **"보류"는 여기 없다** — 디스크에는 있는데 인덱스에만 없는 대상(스캔이 아직 잡지
-/// 못한 순간)은 표식 없이 다음 패스로 넘긴다. 실패로 적으면 이후 건너뛰므로 경합
-/// 한 번이 영구 실패로 굳는다.
+/// 못한 것)은 사유가 아니라 별도의 판정이다. 기다려도 달라지지 않는 것만 여기 든다.
 enum CommandFailureReason {
   /// 항목을 명령으로 읽지 못했다(JSON이 아니거나, 필수 필드가 없거나, 모르는 이름).
   malformed,
 
-  /// 대상 경로가 디스크에 없다. 외부 앱은 파일을 먼저 쓴 뒤 큐에 넣기로 약속되어
-  /// 있으므로, 곧 나타나기를 기다리지 않고 즉시 실패로 본다.
+  /// 대상 경로가 디스크에 없다. 파일을 먼저 쓰고 나서 태그를 거는 것이 약속이므로,
+  /// 곧 나타나기를 기다리지 않고 즉시 실패로 본다.
   ///
   /// 키워드 대상도 이 사유를 쓴다. 키워드는 앱이 만들어야만 존재하므로 **기다릴 경합이
   /// 없어 보류가 아예 없다** — 없으면(그리고 [MissingKeywordPolicy.create]도 아니면)
@@ -249,7 +205,7 @@ enum CommandFailureReason {
   targetNotManaged,
 
   /// 시스템 태그는 외부 조작 대상이 아니다 — 자동 파생이고, 이름 태그는 편집이
-  /// 디스크 rename이라 큐가 파일을 옮기는 통로가 된다.
+  /// 디스크 rename이라 태그를 거는 명령이 파일을 옮기는 통로가 된다.
   systemTag,
 
   /// 그 이름의 태그가 없고 명령이 [MissingTagPolicy.create]도 아니다.
@@ -264,4 +220,43 @@ enum CommandFailureReason {
   /// 값을 태그의 값 유형으로 해석하지 못했다(숫자·날짜 형식, 없는 이미지 파일,
   /// 가리키는 노드가 없는 링크 등).
   invalidValue,
+}
+
+/// 사유만으로는 갈리지 않는 세부 갈래. [CommandFailureReason] 하나가 성격이 다른
+/// 실패 여럿을 덮을 때, 무엇을 고쳐야 하는지 짚어 주는 자리다.
+///
+/// **문장이 아니라 갈래로 두는 이유**는 이 계층이 순수 Dart라 번역본을 얻을 길이
+/// 없기 때문이다(`ARCHITECTURE.md`의 "domain은 이름을 짓지 않는다"). 사유를 문장으로
+/// 적어 두면 어느 언어로 낼지를 domain이 정해 버려, 콘솔이 고른 언어와 어긋난다.
+/// 받는 쪽(화면·콘솔)이 이 이름을 그대로 보인다.
+///
+/// **사유와 1:1로 갈리는 실패에는 붙이지 않는다** — 사유가 이미 말한 것을 되풀이할
+/// 뿐이라, 그런 자리는 세부가 없다(null).
+enum CommandFailureDetail {
+  /// 대상 경로가 관리 폴더 안의 상대 경로가 아니다.
+  pathOutsideWorkspace,
+
+  /// 키워드 이름이 규칙에 어긋난다. 어긋난 갈래는 함께 실린 원문이 말한다.
+  keywordNameInvalid,
+
+  /// 그 이름의 키워드가 없다(파일 대상이 없는 것과 가른다).
+  keywordMissing,
+
+  /// 값을 숫자로 읽지 못했다.
+  notNumber,
+
+  /// 값을 날짜로 읽지 못했다.
+  notDate,
+
+  /// 이미지를 캐시에 등록하지 못했다(이미지로 읽히지 않거나 읽을 수 없다).
+  imageUnusable,
+
+  /// 링크가 가리키는 키워드를 찾지 못했다.
+  linkKeywordMissing,
+
+  /// 링크가 가리키는 노드를 찾지 못했다.
+  linkTargetMissing,
+
+  /// 링크 값이 관리 폴더 안의 상대 경로가 아니다.
+  linkPathOutsideWorkspace,
 }

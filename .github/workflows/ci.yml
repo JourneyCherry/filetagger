@@ -95,3 +95,8 @@ jobs:
 
       - run: flutter pub get
       - run: flutter build ${{ matrix.target }} --release
+
+      # 콘솔 진입점은 Flutter 빌드에 실리지 않아 따로 태운다. `dart compile exe`가
+      # 아니라 이 명령이어야 한다 — 빌드 훅을 도는 쪽만이 네이티브 sqlite를 번들에
+      # 함께 놓는다.
+      - run: dart build cli

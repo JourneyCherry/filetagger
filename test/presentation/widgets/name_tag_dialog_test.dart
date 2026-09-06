@@ -6,6 +6,7 @@ import 'package:filetagger/domain/repositories/view_settings_repository.dart';
 import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/presentation/providers/file_view_provider.dart';
 import 'package:filetagger/presentation/providers/l10n_provider.dart';
+import 'package:filetagger/presentation/tag_visuals.dart';
 import 'package:filetagger/presentation/providers/tag_provider.dart';
 import 'package:filetagger/presentation/widgets/name_tag_dialog.dart';
 import 'package:flutter/material.dart';
@@ -79,21 +80,30 @@ void main() {
     await _openDialog(tester);
 
     expect(find.text(_title.name), findsOneWidget);
-    expect(find.text(koL10n.systemTagModifiedTime), findsOneWidget);
+    expect(
+      find.text(systemTagName(koL10n, SystemTag.modifiedTime)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('글자를 낼 수 없는 시스템 태그는 후보에서 빠진다', (tester) async {
     await _openDialog(tester);
 
     // 라벨은 값이 없어 고르면 늘 폴백한다 — 사용자 태그와 같은 판정을 받는다.
-    expect(find.text(koL10n.systemTagKeyword), findsNothing);
-    expect(find.text(koL10n.systemTagUnresolvedLink), findsNothing);
+    expect(find.text(systemTagName(koL10n, SystemTag.keyword)), findsNothing);
+    expect(
+      find.text(systemTagName(koL10n, SystemTag.unresolvedLink)),
+      findsNothing,
+    );
   });
 
   testWidgets('세워 둔 시스템 태그는 없는 태그가 아니라 그 태그로 보인다', (tester) async {
     await _openDialog(tester);
 
-    expect(find.text(koL10n.systemTagExtension), findsOneWidget);
+    expect(
+      find.text(systemTagName(koL10n, SystemTag.extension)),
+      findsOneWidget,
+    );
     expect(
       find.text(koL10n.sourceMissingTag(SystemTag.extension.id)),
       findsNothing,
@@ -104,7 +114,7 @@ void main() {
     final container = await _openDialog(tester);
     expect(container.read(nameSourcesProvider), [SystemTag.extension.id]);
 
-    await tester.tap(find.text(koL10n.systemTagModifiedTime));
+    await tester.tap(find.text(systemTagName(koL10n, SystemTag.modifiedTime)));
     await tester.pumpAndSettle();
 
     expect(container.read(nameSourcesProvider), [

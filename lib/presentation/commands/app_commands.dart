@@ -27,6 +27,7 @@ enum AppCommandId {
   removeMissing,
   revealInFileManager,
   exportSelection,
+  importTags,
   manageTags,
   manageThumbnailTags,
   manageNameTags,
@@ -190,13 +191,21 @@ final List<AppCommand> appCommands = [
     icon: Icons.open_in_new,
     shortcut: _primaryShift(LogicalKeyboardKey.keyR),
   ),
-  // 고른 항목의 태그를 요청함 파일로 내보낸다. 단축키는 두지 않는다 — 가끔 쓰는
+  // 고른 항목의 태그를 명령 파일로 내보낸다. 단축키는 두지 않는다 — 가끔 쓰는
   // 조작이라 남은 조합을 차지하기보다 메뉴·컨텍스트 메뉴로만 부른다(키워드 명령과 같은 결).
   AppCommand(
     id: AppCommandId.exportSelection,
     label: (l) => l.cmdExportSelection,
     intent: const ExportSelectionIntent(),
     icon: Icons.ios_share,
+  ),
+  // 내보내기의 짝. 대상이 파일 안에 적혀 있어 목록의 선택과 무관하므로, 고른 것이
+  // 없어도 쓸 수 있다.
+  AppCommand(
+    id: AppCommandId.importTags,
+    label: (l) => l.cmdImportTags,
+    intent: const ImportTagsIntent(),
+    icon: Icons.download_outlined,
   ),
   AppCommand(
     id: AppCommandId.manageTags,

@@ -57,6 +57,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cmdExportSelection => 'Export Tags…';
 
   @override
+  String get cmdImportTags => 'Import Tags…';
+
+  @override
   String get cmdManageTags => 'Manage Tags';
 
   @override
@@ -540,7 +543,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tipExportTagsBody =>
-      'There is no separate import feature. Select items and export, and a file in queue format comes out; drop that file into .filetagger/queue/ of the receiving folder and it is applied as is. Tags that are missing there are created with their value type and color intact.';
+      'Select items and choose File → Export Tags… and one command file comes out. The receiving side picks that file with File → Import Tags… and it is applied as is, with missing tags created with their value type and color intact. Files the scan has not picked up yet are held rather than rejected — scan and import the same file again and they attach then.';
 
   @override
   String get tipUnresolvedLinksTitle => 'Gathering Broken Links to Fix';
@@ -560,6 +563,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String homeScanFailed(String error) {
     return 'Scan failed: $error';
   }
+
+  @override
+  String get homeScanBusy =>
+      'Another program is scanning this folder, so the scan was skipped.';
 
   @override
   String homeScanRootUnreadable(String path) {
@@ -609,7 +616,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportNothingToExport => 'There are no tag assignments to export.';
 
   @override
-  String get exportFileTypeLabel => 'Queue file';
+  String get exportFileTypeLabel => 'Command file';
 
   @override
   String exportDone(int count) {
@@ -620,6 +627,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String exportDoneWithImages(int count, int images) {
     return 'Exported $count tags ($images images included).';
   }
+
+  @override
+  String importReadFailed(String error) {
+    return 'Could not read the file: $error';
+  }
+
+  @override
+  String get importNothingToApply => 'The file has no commands to apply.';
+
+  @override
+  String importAllApplied(int count) {
+    return 'Applied all $count entries.';
+  }
+
+  @override
+  String get importTitle => 'Import result';
+
+  @override
+  String importSummary(int applied, int held, int rejected) {
+    return 'Applied $applied · Held $held · Rejected $rejected';
+  }
+
+  @override
+  String importUnreadable(int count) {
+    return 'Unreadable entries: $count';
+  }
+
+  @override
+  String get importUnreadableHint =>
+      'Some entries in the file could not be read as commands. The import command of the command line tool says exactly what went wrong.';
+
+  @override
+  String get importHeldHint =>
+      'The scan has not picked these targets up yet. Scan and import the same file again and they apply as is — nothing already attached is attached twice.';
+
+  @override
+  String get importItemsToFix => 'Entries that did not apply';
+
+  @override
+  String get importHeldLabel => 'Held';
+
+  @override
+  String get importReasonMalformed => 'Malformed';
+
+  @override
+  String get importReasonTargetMissing => 'Target is missing';
+
+  @override
+  String get importReasonTargetNotManaged => 'Outside the managed range';
+
+  @override
+  String get importReasonSystemTag => 'System tag';
+
+  @override
+  String get importReasonTagMissing => 'No tag by that name';
+
+  @override
+  String get importReasonValueTypeMissing => 'Value type is missing';
+
+  @override
+  String get importReasonValueTypeMismatch => 'Value type does not match';
+
+  @override
+  String get importReasonInvalidValue => 'Could not read the value';
 
   @override
   String exportFailed(String error) {
@@ -1368,23 +1439,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusSettingsUnsaved => 'Settings are not being saved';
 
   @override
-  String get statusExternalHintWithFailures =>
-      'Tag changes requested by an external app. The reason for each failure is recorded in the queue file.';
-
-  @override
-  String get statusExternalHint => 'Tag changes requested by an external app.';
-
-  @override
-  String statusExternalApplied(int count) {
-    return 'Applied $count';
-  }
-
-  @override
-  String statusExternalFailed(int count) {
-    return 'Failed $count';
-  }
-
-  @override
   String listLoadFailed(String error) {
     return 'Could not load the list: $error';
   }
@@ -1491,7 +1545,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String exportPrompt(int count) {
-    return 'Exports the tags of $count items into one queue file. The receiving side only has to drop that file into the queue of its own folder.';
+    return 'Exports the tags of $count items into one command file. The receiving side reads that file with the command line tool.';
   }
 
   @override
@@ -1518,40 +1572,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exportIncludeImagesDetail =>
-      'Writes the custom thumbnail images alongside the queue file.';
+      'Writes the custom thumbnail images alongside the command file.';
 
   @override
   String get exportConfirm => 'Export…';
-
-  @override
-  String get systemTagFileSize => 'Size';
-
-  @override
-  String get systemTagModifiedTime => 'Modified';
-
-  @override
-  String get systemTagExtension => 'Extension';
-
-  @override
-  String get systemTagImageWidth => 'Image width';
-
-  @override
-  String get systemTagImageHeight => 'Image height';
-
-  @override
-  String get systemTagAspectRatio => 'Aspect ratio';
-
-  @override
-  String get systemTagFileName => 'File name';
-
-  @override
-  String get systemTagChildFileCount => 'Files inside';
-
-  @override
-  String get systemTagKeyword => 'Keyword';
-
-  @override
-  String get systemTagUnresolvedLink => 'Unresolved link';
 
   @override
   String get groupFolderHierarchy => 'Folder hierarchy';

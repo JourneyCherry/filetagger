@@ -57,6 +57,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get cmdExportSelection => '태그 내보내기…';
 
   @override
+  String get cmdImportTags => '태그 가져오기…';
+
+  @override
   String get cmdManageTags => '태그 관리';
 
   @override
@@ -530,7 +533,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get tipExportTagsBody =>
-      '가져오기 기능은 따로 없습니다. 항목을 골라 내보내면 요청함 형식의 파일이 나오고, 그 파일을 받는 폴더의 .filetagger/queue/에 넣기만 하면 그대로 적용됩니다. 태그가 없으면 값 유형·색까지 그대로 만들어집니다.';
+      '항목을 골라 \'파일 → 태그 내보내기…\'를 누르면 명령 파일 하나가 나옵니다. 받는 쪽은 \'파일 → 태그 가져오기…\'로 그 파일을 고르면 그대로 적용되고, 태그가 없으면 값 유형·색까지 그대로 만들어집니다. 스캔이 아직 잡지 못한 파일은 거부가 아니라 보류로 남아, 스캔한 뒤 같은 파일을 다시 가져오면 그때 붙습니다.';
 
   @override
   String get tipUnresolvedLinksTitle => '끊어진 링크 모아서 손보기';
@@ -550,6 +553,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String homeScanFailed(String error) {
     return '스캔에 실패했습니다: $error';
   }
+
+  @override
+  String get homeScanBusy => '다른 프로그램이 이 폴더를 훑고 있어 스캔을 건너뛰었습니다.';
 
   @override
   String homeScanRootUnreadable(String path) {
@@ -599,7 +605,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get exportNothingToExport => '내보낼 태그 부여가 없습니다.';
 
   @override
-  String get exportFileTypeLabel => '요청함 파일';
+  String get exportFileTypeLabel => '명령 파일';
 
   @override
   String exportDone(int count) {
@@ -610,6 +616,70 @@ class AppLocalizationsKo extends AppLocalizations {
   String exportDoneWithImages(int count, int images) {
     return '태그 $count건을 내보냈습니다 (이미지 $images개 동봉).';
   }
+
+  @override
+  String importReadFailed(String error) {
+    return '파일을 읽지 못했습니다: $error';
+  }
+
+  @override
+  String get importNothingToApply => '적용할 명령이 파일에 없습니다.';
+
+  @override
+  String importAllApplied(int count) {
+    return '$count건을 모두 적용했습니다.';
+  }
+
+  @override
+  String get importTitle => '태그 가져오기 결과';
+
+  @override
+  String importSummary(int applied, int held, int rejected) {
+    return '적용 $applied · 보류 $held · 거부 $rejected';
+  }
+
+  @override
+  String importUnreadable(int count) {
+    return '못 읽은 항목 $count';
+  }
+
+  @override
+  String get importUnreadableHint =>
+      '파일의 항목 몇 개를 명령으로 읽지 못했습니다. 무엇이 어긋났는지는 명령줄 도구의 가져오기가 자세히 알려 줍니다.';
+
+  @override
+  String get importHeldHint =>
+      '스캔이 대상을 아직 잡지 못했습니다. 스캔한 뒤 같은 파일을 다시 가져오면 그대로 적용됩니다 — 이미 붙은 것이 두 번 붙지는 않습니다.';
+
+  @override
+  String get importItemsToFix => '적용되지 않은 항목';
+
+  @override
+  String get importHeldLabel => '보류';
+
+  @override
+  String get importReasonMalformed => '적을 수 없는 형식';
+
+  @override
+  String get importReasonTargetMissing => '대상이 없음';
+
+  @override
+  String get importReasonTargetNotManaged => '관리 범위 밖';
+
+  @override
+  String get importReasonSystemTag => '시스템 태그';
+
+  @override
+  String get importReasonTagMissing => '그 이름의 태그가 없음';
+
+  @override
+  String get importReasonValueTypeMissing => '값 유형이 없음';
+
+  @override
+  String get importReasonValueTypeMismatch => '값 유형이 다름';
+
+  @override
+  String get importReasonInvalidValue => '값을 읽지 못함';
 
   @override
   String exportFailed(String error) {
@@ -1344,23 +1414,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get statusSettingsUnsaved => '설정이 저장되지 않는 중';
 
   @override
-  String get statusExternalHintWithFailures =>
-      '외부 앱이 요청한 태그 변경입니다. 실패한 항목은 큐 파일에 사유가 남아 있습니다.';
-
-  @override
-  String get statusExternalHint => '외부 앱이 요청한 태그 변경입니다.';
-
-  @override
-  String statusExternalApplied(int count) {
-    return '외부 적용 $count';
-  }
-
-  @override
-  String statusExternalFailed(int count) {
-    return '실패 $count';
-  }
-
-  @override
   String listLoadFailed(String error) {
     return '목록을 불러오지 못했습니다: $error';
   }
@@ -1462,7 +1515,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String exportPrompt(int count) {
-    return '$count개 항목의 태그를 요청함 파일 하나로 내보냅니다. 받는 쪽은 그 파일을 자기 폴더의 요청함에 넣기만 하면 됩니다.';
+    return '$count개 항목의 태그를 명령 파일 하나로 내보냅니다. 받는 쪽은 명령줄 도구로 그 파일을 읽으면 됩니다.';
   }
 
   @override
@@ -1487,40 +1540,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get exportIncludeImages => '이미지 파일 포함';
 
   @override
-  String get exportIncludeImagesDetail => '커스텀 썸네일 이미지를 요청 파일 옆에 함께 씁니다.';
+  String get exportIncludeImagesDetail => '커스텀 썸네일 이미지를 명령 파일 옆에 함께 씁니다.';
 
   @override
   String get exportConfirm => '내보내기…';
-
-  @override
-  String get systemTagFileSize => '크기';
-
-  @override
-  String get systemTagModifiedTime => '수정 시각';
-
-  @override
-  String get systemTagExtension => '확장자';
-
-  @override
-  String get systemTagImageWidth => '이미지 너비';
-
-  @override
-  String get systemTagImageHeight => '이미지 높이';
-
-  @override
-  String get systemTagAspectRatio => '화면비';
-
-  @override
-  String get systemTagFileName => '파일 이름';
-
-  @override
-  String get systemTagChildFileCount => '내부 파일 수량';
-
-  @override
-  String get systemTagKeyword => '키워드';
-
-  @override
-  String get systemTagUnresolvedLink => '미해결 링크';
 
   @override
   String get groupFolderHierarchy => '폴더 계층';

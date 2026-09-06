@@ -197,6 +197,12 @@ abstract class AppLocalizations {
   /// 명령 카탈로그의 라벨 — 메뉴·툴팁·도움말이 함께 쓴다
   ///
   /// In ko, this message translates to:
+  /// **'태그 가져오기…'**
+  String get cmdImportTags;
+
+  /// 명령 카탈로그의 라벨 — 메뉴·툴팁·도움말이 함께 쓴다
+  ///
+  /// In ko, this message translates to:
   /// **'태그 관리'**
   String get cmdManageTags;
 
@@ -1043,7 +1049,7 @@ abstract class AppLocalizations {
   /// 도움말 사용 팁 — 본문
   ///
   /// In ko, this message translates to:
-  /// **'가져오기 기능은 따로 없습니다. 항목을 골라 내보내면 요청함 형식의 파일이 나오고, 그 파일을 받는 폴더의 .filetagger/queue/에 넣기만 하면 그대로 적용됩니다. 태그가 없으면 값 유형·색까지 그대로 만들어집니다.'**
+  /// **'항목을 골라 \'파일 → 태그 내보내기…\'를 누르면 명령 파일 하나가 나옵니다. 받는 쪽은 \'파일 → 태그 가져오기…\'로 그 파일을 고르면 그대로 적용되고, 태그가 없으면 값 유형·색까지 그대로 만들어집니다. 스캔이 아직 잡지 못한 파일은 거부가 아니라 보류로 남아, 스캔한 뒤 같은 파일을 다시 가져오면 그때 붙습니다.'**
   String get tipExportTagsBody;
 
   /// 도움말 사용 팁 — 제목
@@ -1075,6 +1081,12 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'스캔에 실패했습니다: {error}'**
   String homeScanFailed(String error);
+
+  /// 다른 프로세스가 이미 스캔 중이라 스캔을 시작하지 않았을 때의 알림
+  ///
+  /// In ko, this message translates to:
+  /// **'다른 프로그램이 이 폴더를 훑고 있어 스캔을 건너뛰었습니다.'**
+  String get homeScanBusy;
 
   /// 루트 폴더 자체를 나열하지 못해 스캔이 서지 못했을 때의 알림
   ///
@@ -1154,10 +1166,10 @@ abstract class AppLocalizations {
   /// **'내보낼 태그 부여가 없습니다.'**
   String get exportNothingToExport;
 
-  /// 저장 다이얼로그의 파일 종류 이름 — 외부 앱 연동의 요청함 형식
+  /// 저장 다이얼로그의 파일 종류 이름 — 외부 앱 연동의 명령 파일 형식
   ///
   /// In ko, this message translates to:
-  /// **'요청함 파일'**
+  /// **'명령 파일'**
   String get exportFileTypeLabel;
 
   /// 내보내기 성공 알림 — 동봉한 이미지가 없을 때
@@ -1171,6 +1183,114 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'태그 {count}건을 내보냈습니다 (이미지 {images}개 동봉).'**
   String exportDoneWithImages(int count, int images);
+
+  /// 가져오기 — 파일 읽기 실패 알림
+  ///
+  /// In ko, this message translates to:
+  /// **'파일을 읽지 못했습니다: {error}'**
+  String importReadFailed(String error);
+
+  /// 가져오기 — 읽어 낸 명령이 하나도 없을 때
+  ///
+  /// In ko, this message translates to:
+  /// **'적용할 명령이 파일에 없습니다.'**
+  String get importNothingToApply;
+
+  /// 가져오기 — 전부 적용돼 볼 것이 없을 때의 알림
+  ///
+  /// In ko, this message translates to:
+  /// **'{count}건을 모두 적용했습니다.'**
+  String importAllApplied(int count);
+
+  /// 가져오기 결과 다이얼로그 제목
+  ///
+  /// In ko, this message translates to:
+  /// **'태그 가져오기 결과'**
+  String get importTitle;
+
+  /// 가져오기 결과 — 갈래별 건수 요약
+  ///
+  /// In ko, this message translates to:
+  /// **'적용 {applied} · 보류 {held} · 거부 {rejected}'**
+  String importSummary(int applied, int held, int rejected);
+
+  /// 가져오기 결과 — 명령으로 읽어 내지 못한 항목 수
+  ///
+  /// In ko, this message translates to:
+  /// **'못 읽은 항목 {count}'**
+  String importUnreadable(int count);
+
+  /// 가져오기 결과 — 형식 오류가 있을 때의 안내
+  ///
+  /// In ko, this message translates to:
+  /// **'파일의 항목 몇 개를 명령으로 읽지 못했습니다. 무엇이 어긋났는지는 명령줄 도구의 가져오기가 자세히 알려 줍니다.'**
+  String get importUnreadableHint;
+
+  /// 가져오기 결과 — 보류가 있을 때의 안내
+  ///
+  /// In ko, this message translates to:
+  /// **'스캔이 대상을 아직 잡지 못했습니다. 스캔한 뒤 같은 파일을 다시 가져오면 그대로 적용됩니다 — 이미 붙은 것이 두 번 붙지는 않습니다.'**
+  String get importHeldHint;
+
+  /// 가져오기 결과 — 보류·거부 목록의 제목
+  ///
+  /// In ko, this message translates to:
+  /// **'적용되지 않은 항목'**
+  String get importItemsToFix;
+
+  /// 가져오기 결과 — 보류된 항목의 사유 자리에 놓는 말
+  ///
+  /// In ko, this message translates to:
+  /// **'보류'**
+  String get importHeldLabel;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'적을 수 없는 형식'**
+  String get importReasonMalformed;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'대상이 없음'**
+  String get importReasonTargetMissing;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'관리 범위 밖'**
+  String get importReasonTargetNotManaged;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'시스템 태그'**
+  String get importReasonSystemTag;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'그 이름의 태그가 없음'**
+  String get importReasonTagMissing;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'값 유형이 없음'**
+  String get importReasonValueTypeMissing;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'값 유형이 다름'**
+  String get importReasonValueTypeMismatch;
+
+  /// 가져오기 거부 사유
+  ///
+  /// In ko, this message translates to:
+  /// **'값을 읽지 못함'**
+  String get importReasonInvalidValue;
 
   /// 내보내기가 예외로 끝났을 때의 알림
   ///
@@ -2480,30 +2600,6 @@ abstract class AppLocalizations {
   /// **'설정이 저장되지 않는 중'**
   String get statusSettingsUnsaved;
 
-  /// 외부 앱 연동 결과 툴팁 — 실패가 있었을 때
-  ///
-  /// In ko, this message translates to:
-  /// **'외부 앱이 요청한 태그 변경입니다. 실패한 항목은 큐 파일에 사유가 남아 있습니다.'**
-  String get statusExternalHintWithFailures;
-
-  /// 외부 앱 연동 결과 툴팁 — 모두 성공했을 때
-  ///
-  /// In ko, this message translates to:
-  /// **'외부 앱이 요청한 태그 변경입니다.'**
-  String get statusExternalHint;
-
-  /// 상태표시줄 — 외부 요청으로 적용된 건수
-  ///
-  /// In ko, this message translates to:
-  /// **'외부 적용 {count}'**
-  String statusExternalApplied(int count);
-
-  /// 상태표시줄 — 외부 요청 중 실패한 건수
-  ///
-  /// In ko, this message translates to:
-  /// **'실패 {count}'**
-  String statusExternalFailed(int count);
-
   /// 목록을 읽지 못했을 때의 알림
   ///
   /// In ko, this message translates to:
@@ -2687,7 +2783,7 @@ abstract class AppLocalizations {
   /// 태그 내보내기 다이얼로그의 안내 문구
   ///
   /// In ko, this message translates to:
-  /// **'{count}개 항목의 태그를 요청함 파일 하나로 내보냅니다. 받는 쪽은 그 파일을 자기 폴더의 요청함에 넣기만 하면 됩니다.'**
+  /// **'{count}개 항목의 태그를 명령 파일 하나로 내보냅니다. 받는 쪽은 명령줄 도구로 그 파일을 읽으면 됩니다.'**
   String exportPrompt(int count);
 
   /// 태그 내보내기 — 고를 태그 목록의 제목
@@ -2735,7 +2831,7 @@ abstract class AppLocalizations {
   /// 태그 내보내기 — 이미지 포함 스위치의 설명
   ///
   /// In ko, this message translates to:
-  /// **'커스텀 썸네일 이미지를 요청 파일 옆에 함께 씁니다.'**
+  /// **'커스텀 썸네일 이미지를 명령 파일 옆에 함께 씁니다.'**
   String get exportIncludeImagesDetail;
 
   /// 태그 내보내기 다이얼로그의 확인 버튼
@@ -2743,66 +2839,6 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'내보내기…'**
   String get exportConfirm;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'크기'**
-  String get systemTagFileSize;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'수정 시각'**
-  String get systemTagModifiedTime;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'확장자'**
-  String get systemTagExtension;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'이미지 너비'**
-  String get systemTagImageWidth;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'이미지 높이'**
-  String get systemTagImageHeight;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'화면비'**
-  String get systemTagAspectRatio;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'파일 이름'**
-  String get systemTagFileName;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'내부 파일 수량'**
-  String get systemTagChildFileCount;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'키워드'**
-  String get systemTagKeyword;
-
-  /// 시스템 태그의 이름 — 칩·피커·조건 텍스트가 함께 쓴다
-  ///
-  /// In ko, this message translates to:
-  /// **'미해결 링크'**
-  String get systemTagUnresolvedLink;
 
   /// 폴더 계층 그룹 키의 이름 — 그룹 줄과 조건 텍스트에서 태그 이름처럼 쓰인다
   ///

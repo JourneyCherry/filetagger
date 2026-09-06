@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/drift_file_node_repository.dart';
 import '../../data/scanner/directory_scanner.dart';
+import '../../data/scanner/locked_workspace_scan.dart';
 import '../../data/watcher/directory_workspace_watcher.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/repositories/file_node_repository.dart';
@@ -27,7 +28,7 @@ final fileNodeRepositoryProvider = Provider<FileNodeRepository?>((ref) {
 final scanWorkspaceProvider = Provider<ScanWorkspace?>((ref) {
   final repo = ref.watch(fileNodeRepositoryProvider);
   if (repo == null) return null;
-  return ScanWorkspace(ref.watch(workspaceScannerProvider), repo);
+  return LockedWorkspaceScan(ref.watch(workspaceScannerProvider), repo);
 });
 
 /// 현재 워크스페이스의 인덱싱된 파일/폴더 목록 스트림.

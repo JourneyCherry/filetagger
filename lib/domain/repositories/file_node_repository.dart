@@ -71,7 +71,7 @@ abstract interface class FileNodeRepository {
 
   /// 키워드를 새로 만든다. 이름 규칙을 어기거나 같은 이름의 키워드가 이미 있으면
   /// 만들지 않고 사유를 돌려준다(성공이면 null). 성공하면 만들어진 노드를 함께
-  /// 돌려준다 — 만들자마자 그 위에 태그를 매다는 호출부(외부 명령 큐)가 있다.
+  /// 돌려준다 — 만들자마자 그 위에 태그를 매다는 호출부(외부 명령 적용)가 있다.
   ///
   /// 이름 말고 받을 것이 없다 — 키워드는 이름이 전부이고, 부연 정보는 태그로 붙는다.
   Future<({FileNode? node, KeywordNameError? error})> createKeyword(

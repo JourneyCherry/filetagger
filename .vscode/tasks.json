@@ -25,6 +25,18 @@
 			"group": "build",
 			"label": "flutter: flutter build windows --release",
 			"detail": ""
+		},
+		{
+			"type": "dart",
+			"command": "dart",
+			"args": [
+				"build",
+				"cli"
+			],
+			"problemMatcher": [],
+			"group": "build",
+			"label": "dart: dart build cli",
+			"detail": ""
 		}
 	]
 }

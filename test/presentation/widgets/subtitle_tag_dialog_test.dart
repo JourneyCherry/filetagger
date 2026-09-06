@@ -6,6 +6,7 @@ import 'package:filetagger/domain/repositories/view_settings_repository.dart';
 import 'package:filetagger/l10n/app_localizations.dart';
 import 'package:filetagger/presentation/providers/file_view_provider.dart';
 import 'package:filetagger/presentation/providers/l10n_provider.dart';
+import 'package:filetagger/presentation/tag_visuals.dart';
 import 'package:filetagger/presentation/providers/tag_provider.dart';
 import 'package:filetagger/presentation/widgets/subtitle_tag_dialog.dart';
 import 'package:flutter/material.dart';
@@ -72,16 +73,19 @@ void main() {
     await _openDialog(tester);
 
     expect(find.text(_author.name), findsOneWidget);
-    expect(find.text(koL10n.systemTagImageWidth), findsOneWidget);
+    expect(
+      find.text(systemTagName(koL10n, SystemTag.imageWidth)),
+      findsOneWidget,
+    );
     // 라벨 시스템 태그는 이름 칸과 같은 판정으로 빠진다.
-    expect(find.text(koL10n.systemTagKeyword), findsNothing);
+    expect(find.text(systemTagName(koL10n, SystemTag.keyword)), findsNothing);
   });
 
   testWidgets('후보를 누르면 시스템 태그 id가 부제 출처에 실린다', (tester) async {
     final container = await _openDialog(tester);
     expect(container.read(subtitleSourcesProvider), isEmpty);
 
-    await tester.tap(find.text(koL10n.systemTagModifiedTime));
+    await tester.tap(find.text(systemTagName(koL10n, SystemTag.modifiedTime)));
     await tester.pumpAndSettle();
 
     expect(container.read(subtitleSourcesProvider), [

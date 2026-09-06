@@ -196,6 +196,19 @@ bool isEditableAssignment(AssignedTag tag) {
 /// 식별자로 시스템 태그를 찾는다. 없으면 null.
 SystemTag? systemTagById(int id) => _tagsById[id];
 
+/// 표시 이름 [name]을 입힌 시스템 태그 하나의 정의(항상 시스템 소유).
+///
+/// 이름은 표시 언어를 타므로 이 계층이 스스로 짓지 못하고 받는다. 화면(번역본에서)과
+/// 콘솔(이름표 표에서) 양쪽이 이름만 달리 구해 **같은 모양**을 세우도록 조립은 여기
+/// 하나에 둔다.
+TagDefinition systemTagDefinitionNamed(SystemTag tag, String name) =>
+    TagDefinition(
+      id: tag.id,
+      name: name,
+      valueType: tag.valueType,
+      isSystem: true,
+    );
+
 /// [node]가 가지는 시스템 태그의 부여 기록(값 있는 것만). 실제 존재하는 저장된
 /// 노드에만 붙인다 — 연결 끊김(미싱) 노드와 아직 저장 전(id 없음) 노드는 제외한다.
 /// 합성 부여이므로 [TagAssignment.id]는 null이다.

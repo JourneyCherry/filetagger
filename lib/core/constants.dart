@@ -61,12 +61,12 @@ const String viewSettingsFileName = 'view.json';
 /// 조작마다 통째로 다시 쓰이는 자리라 사용자가 손으로 만든 자산을 얹지 않기 위함이다.
 const String queryPresetsFileName = 'presets.json';
 
-/// 외부 앱이 명령 파일을 떨궈 두는 드롭인 큐 폴더 이름.
+/// 관리 폴더를 지금 훑고 있는 프로세스가 있는지 알리는 락 파일 이름.
 ///
-/// [filetaggerDirName] 폴더 안에 둔다 — 폴더 이동·복사 시 대기 중인 명령이 함께
-/// 따라오고, 스캔 제외도 그대로 물려받는다. **항목당 파일 하나**이며 외부 앱은
-/// 임시 이름으로 쓴 뒤 rename해 반쯤 쓰인 파일이 읽히지 않게 한다.
-const String commandQueueDirName = 'queue';
+/// [filetaggerDirName] 폴더 안에 둔다. 내용은 쓰지 않으며 **존재가 아니라 잠금
+/// 상태만이 뜻을 갖는다** — 프로세스가 죽으면 OS가 잠금을 풀어 주므로 남은 파일이
+/// 오해를 만들지 않는다.
+const String workspaceLockFileName = 'lock';
 
 /// 커스텀 이미지 태그가 등록한 외부 이미지의 캐시 폴더 이름.
 ///
@@ -74,3 +74,16 @@ const String commandQueueDirName = 'queue';
 /// 파일명으로 써 동일 이미지를 중복 저장하지 않는다. 스캔 대상이 아니며(캐시는 노드가
 /// 아니다) 사용자가 직접 다루지 않는다.
 const String thumbnailCacheDirName = 'thumbnails';
+
+/// 콘솔 도구의 **전역** 설정 파일 이름. 실행 파일과 같은 디렉토리에 둔다.
+///
+/// 콘솔 도구는 PATH에 걸어 두고 부르는 것이라, OS마다 다르고 사용자가 찾아가기 어려운
+/// 자리를 둘 값이 없다.
+const String consoleSettingsFileName = 'cli.json';
+
+/// 콘솔 도구의 **계정별** 설정 파일 이름. 전역 파일과 나란히 놓이고 계정 이름으로
+/// 갈린다.
+///
+/// 범위를 한 파일에 겹쳐 담지 않는 것은, 설치판에서 계정별 설정만 쓸 수 있는 자리로
+/// 옮겨 가야 하기 때문이다 — 겹쳐 두면 파일 하나가 두 자리에 있어야 한다.
+String consoleAccountSettingsFileName(String account) => 'cli.$account.json';

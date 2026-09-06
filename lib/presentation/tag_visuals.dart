@@ -17,6 +17,7 @@ import '../domain/usecases/keyword_name.dart';
 import '../domain/entities/tag_value_format.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/system_tag_names.dart';
 export '../domain/entities/tag_color_format.dart'
     show opaqueTagColorBits, parseTagColorHex, tagColorToHex;
 export '../domain/entities/tag_value_format.dart' show dateToStoredValue;
@@ -87,29 +88,16 @@ String keywordNameErrorMessage(AppLocalizations l10n, KeywordNameError error) =>
       KeywordNameError.duplicate => l10n.keywordNameDuplicate,
     };
 
-/// 시스템 태그의 이름. domain은 순수 Dart라 번역본을 얻을 길이 없어, 이름은 여기가
-/// 단일 출처다 — 칩·피커·조건 텍스트가 모두 이 이름으로 그 태그를 가리킨다.
-String systemTagName(AppLocalizations l10n, SystemTag tag) => switch (tag) {
-  SystemTag.fileSize => l10n.systemTagFileSize,
-  SystemTag.modifiedTime => l10n.systemTagModifiedTime,
-  SystemTag.extension => l10n.systemTagExtension,
-  SystemTag.imageWidth => l10n.systemTagImageWidth,
-  SystemTag.imageHeight => l10n.systemTagImageHeight,
-  SystemTag.aspectRatio => l10n.systemTagAspectRatio,
-  SystemTag.fileName => l10n.systemTagFileName,
-  SystemTag.childFileCount => l10n.systemTagChildFileCount,
-  SystemTag.keyword => l10n.systemTagKeyword,
-  SystemTag.unresolvedLink => l10n.systemTagUnresolvedLink,
-};
+/// 시스템 태그의 이름. 칩·피커·조건 텍스트가 모두 이 이름으로 그 태그를 가리킨다.
+///
+/// 이름표 자체는 [systemTagNamesFor]가 쥐고 있다 — 화면 밖(외부에서 들어온 명령의
+/// 이름 대조)에서도 같은 이름이 필요해 ARB에 둘 수 없기 때문이다.
+String systemTagName(AppLocalizations l10n, SystemTag tag) =>
+    systemTagNamesFor(l10n.localeName)[tag]!;
 
 /// 시스템 태그 하나의 표시용 정의(항상 회색·시스템 소유).
 TagDefinition systemTagDefinition(AppLocalizations l10n, SystemTag tag) =>
-    TagDefinition(
-      id: tag.id,
-      name: systemTagName(l10n, tag),
-      valueType: tag.valueType,
-      isSystem: true,
-    );
+    systemTagDefinitionNamed(tag, systemTagName(l10n, tag));
 
 /// 시스템 태그 → 표시용 정의. 노드마다 되풀이해 묻는 자리라
 /// ([systemAssignmentsFor]) 한 벌을 만들어 나눠 쓴다.

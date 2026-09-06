@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/file_types.dart';
 import '../../data/thumbnails/thumbnail_store.dart';
+import '../../data/thumbnails/ui_image_downscaler.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/workspace_provider.dart';
 
@@ -23,7 +24,11 @@ Future<String?> pickAndRegisterThumbnailImage(
   );
   final file = await openFile(acceptedTypeGroups: [group]);
   if (file == null) return null;
-  final key = await registerThumbnailImage(root, file.path);
+  final key = await registerThumbnailImage(
+    root,
+    file.path,
+    downscale: downscaleImageWithUi,
+  );
   if (key == null && context.mounted) {
     ScaffoldMessenger.of(
       context,

@@ -19,6 +19,7 @@ class CommandHandlers {
     this.removeMissing,
     this.revealInFileManager,
     this.exportSelection,
+    this.importTags,
     this.manageTags,
     this.manageThumbnailTags,
     this.manageNameTags,
@@ -67,6 +68,7 @@ class CommandHandlers {
   final VoidCallback? removeMissing;
   final VoidCallback? revealInFileManager;
   final VoidCallback? exportSelection;
+  final VoidCallback? importTags;
   final VoidCallback? manageTags;
   final VoidCallback? manageThumbnailTags;
   final VoidCallback? manageNameTags;
@@ -116,6 +118,7 @@ class CommandHandlers {
     AppCommandId.removeMissing => removeMissing,
     AppCommandId.revealInFileManager => revealInFileManager,
     AppCommandId.exportSelection => exportSelection,
+    AppCommandId.importTags => importTags,
     AppCommandId.manageTags => manageTags,
     AppCommandId.manageThumbnailTags => manageThumbnailTags,
     AppCommandId.manageNameTags => manageNameTags,

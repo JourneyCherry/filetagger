@@ -25,8 +25,9 @@ you **sort, filter, and browse** by those tags.
   like your own tags
 - Move tracking keeps tags attached when a file is moved or renamed, with live
   file-system watching
-- A **tag queue** lets an external app (a browser extension, a download script)
-  attach tags at the moment it saves a file — see "External app integration" below
+- A **command-line tool** for scripts and external tools to read, add, modify, and
+  remove tags, and **export / import** to carry tags between folders — see
+  "External app integration" below
 
 **Viewing and browsing**
 
@@ -73,365 +74,381 @@ being saved". The app never quietly writes them somewhere else instead.
 
 ## External app integration
 
-### The tag queue
+### Exporting and importing tags
 
-This is the doorway through which an external app can **attach tags at the moment
-it saves a file**, or add, change, and remove tags on files that are already
-indexed. It is not an HTTP server or a plugin runtime but **a folder you drop
-request files into**, so the app does not have to be running and all the external
-app needs is the ability to write one JSON file. Leave a request in the queue and
-the app applies it and clears it away the next time it opens that folder — or right
-away, if it is already running.
+Select items in the list and choose File → Export Tags… (or use the context menu),
+and the tags of the selected items are saved as **one** command file.
 
-#### The flow
-
-1. The external app **saves the file inside the managed folder first**.
-2. It puts a **request file** into `<managed folder>/.filetagger/queue/`. The name
-   is yours to choose, but the **extension must be `.json`** — only that extension
-   is read as a request. **Rename it to `.json` once it is fully written**: write
-   `a1b2c3.json.tmp` and move it to `a1b2c3.json`, and it can never be read
-   mid-write.
-3. The app reads and applies the queue **when a folder is opened (right after the
-   scan)** and **whenever the queue changes while it is running**. The scan comes
-   first so that adding a file and tagging it land together.
-4. Successful entries **leave the queue**; failed ones **stay where they are with
-   the reason written in**. When every entry in a file succeeds, the file itself is
-   deleted. The external app can simply read back the path it created to learn the
-   outcome.
-
-The app creates the `queue` folder itself when the managed folder is opened. Files
-that are not `.json` are never read as requests, so an image a request refers to can
-sit in the same folder (see `image` below). Such files are tidied up on the same
-schedule as failed entries once they get old.
-
-#### Several requests in one file
-
-Write an **array** at the top level to put several requests in one file. Results are
-recorded **per entry**, not per file — successful entries drop out, failed ones
-stay with their reason attached, and entries not yet processed stay as they are.
-When all of them succeed the file is deleted.
-
-```json
-[
-  { "path": "new/01.png", "tag": "read" },
-  { "path": "new/02.png", "tag": "artist", "value": "Jane Doe" }
-]
-```
-
-**Write an array file once and do not append to it.** The app rewrites the file to
-record what happened, so anything appended in between can be lost. An external app
-that pushes requests as they come should keep writing **one file per entry**, as
-before; the two forms can share a folder.
-
-#### Request file format
-
-| Field | Required | Value |
-| --- | --- | --- |
-| `path` | ✔ | The target's **path relative to the managed folder root** (or the keyword **name** when `nodeType: keyword`) |
-| `tag` | ✔ | The tag **name** |
-| `op` | | `add` (default) · `replace` · `remove` |
-| `value` | | The tag value (a string; numbers and booleans are accepted and read as strings) |
-| `missing` | | When no tag of that name exists: `fail` (default) · `create` |
-| `valueType` | | `label` · `text` · `number` · `date` · `link` · `image` |
-| `allowMultiple` | | Whether the tag being created may carry several values (default false) |
-| `color` | | The display color of the tag being created (ARGB integer) |
-| `nodeType` | | How to read `path`: `file` (default) · `directory` · `keyword` |
-| `valueNodeType` | | How to read a `link` value (same three, default `file`) |
-| `missingKeyword` | | When the named keyword does not exist: `fail` (default) · `create` |
-| `missingLink` | | When the target of a `link` value cannot be found: `fail` (default) · `keep` |
-
-- `op`
-  - `add` — attaches the value. On a multi-value tag the existing values stay and
-    one more is added.
-  - `replace` — removes every existing assignment of that tag and leaves this one
-    value.
-  - `remove` — with `value`, removes just that assignment; without it, detaches the
-    tag entirely.
-- `missing: create` **requires `valueType`** — with a default, a single typo would
-  conjure a phantom tag. `allowMultiple` and `color` are **used as written** and,
-  when absent, the tag is created single-valued and without a color. For a tag meant
-  to carry several values, be sure to write `allowMultiple: true`: on a single-value
-  tag, assigning again is an **update**, so only the last value survives.
-- If the tag **already exists**, only a differing `valueType` fails;
-  `allowMultiple` and `color` are ignored, because an outside request does not get
-  to change the nature of an existing tag.
-- An **unknown name** in `op`, `missing`, `valueType`, `nodeType`, `valueNodeType`,
-  `missingKeyword`, or `missingLink` is treated as a format error rather than
-  falling back to the default — so a misspelled `remove` never quietly becomes an
-  assignment.
-- Keys the app does not interpret (a request id of your own, say) may be included.
-  They are preserved when the entry comes back as a failure.
-
-#### What goes in `value`, by value type
-
-| Type | What `value` holds |
-| --- | --- |
-| `label` | Nothing (a tag without a value) |
-| `text` | The string as-is |
-| `number` | A string that reads as a number |
-| `date` | An ISO-8601 string (only the date part is stored) |
-| `link` | **The target item's path relative to the managed folder** (the app converts it to an internal identifier) |
-| `image` | **The path of an image file** — an absolute path points at that file; a **relative path is resolved against the queue folder** — and it is registered in the cache |
-
-An external app cannot address `link` or `image` by internal identifier or cache
-key: those are internal representations and are not exposed. That is why **removing
-an `image` always removes the whole tag** — there is no way to name the value to
-remove, and passing one would register a new image instead.
-
-#### Links whose target is not there yet (`missingLink`)
-
-When the item a `link` value points at is not in the managed folder, the default is
-**failure**, so that a misspelled path never quietly hardens into a value.
-
-Pass `missingLink: keep` and, instead of failing, the app **keeps the text you sent
-as the value and marks it as an unresolved link**. It attaches the system tag
-**`Unresolved link`** to that item, so you can gather them with a filter and either
-double-click the link chip to reconnect it or remove it.
-
-The setting exists for moving a body of tags to another managed folder: even if the
-link targets could not come along, the value is not thrown away and can be
-reattached later.
-
-```json
-{ "path": "new/01.png", "tag": "artist",
-  "value": "Jane Doe", "valueNodeType": "keyword", "missingLink": "keep" }
-```
-
-It does not overlap with `missingKeyword`. For a keyword link, **creation is decided
-first** (`missingKeyword: create` creates it and links it); only after deciding not
-to create does this setting decide whether to keep the value anyway. A file link has
-no creation option, so only this setting applies.
-
-#### Pointing at a keyword
-
-A **keyword** is an item that lives only in the tag store, with no file on disk. **A
-name is all it has**; anything further, such as an artist's nationality or account,
-is attached to the keyword **as tags**, so that it takes part in search and
-filtering. Because it is addressed by name rather than by file, a discriminating
-field goes alongside so it is not confused with a path.
-
-- `nodeType: keyword` — reads `path` as a **keyword name**. A file with the same
-  name does not collide with it; they live in different key spaces.
-- `valueNodeType: keyword` — reads the `link` value as a keyword name. It is kept
-  **separate from `nodeType`** because the two usually differ: the main use is
-  linking an artist **keyword** from a picture **file**.
-- The app does not distinguish `file` from `directory` — both are looked up by
-  path. Choose one when you want to record the intent.
-- A keyword name **cannot contain a path separator.** A value like `a/artist` is
-  not folded into a path but comes back as a format error.
-- If the named keyword does not exist, the request **fails immediately**. Unlike
-  files there is no waiting, because a keyword only exists once the app creates it,
-  so waiting will not make it appear.
-- Pass `missingKeyword: create` and the app creates a keyword of that name and
-  proceeds. A name is all there is, so there is nothing more to supply. The setting
-  applies to **both** `path` and the `link` value.
-- **A keyword's system tags cannot be changed either** — in particular, opening up
-  the name tag would turn the queue into a way of renaming keywords, for the same
-  reason the rename path is closed for files.
-
-```json
-{ "path": "new/01.png", "tag": "artist",
-  "value": "Jane Doe", "valueNodeType": "keyword", "missingKeyword": "create" }
-```
-
-```json
-{ "path": "Jane Doe", "nodeType": "keyword", "tag": "nationality", "value": "Korea" }
-```
-
-Send both and the picture gets a link to the artist, and that artist keyword gets a
-nationality.
-
-#### Example: tagging a downloaded image
-
-The managed folder is `D:\comics`, and an external app has just downloaded `01.png`
-into `D:\comics\new\`.
-
-**1) Save the file first.**
-
-```
-D:\comics\
-├─ .filetagger\            ← created by the app
-│  ├─ filetagger.sqlite
-│  ├─ view.json
-│  └─ queue\               ← where requests go
-└─ new\
-   └─ 01.png               ← the file just saved
-```
-
-**2) Write the request file and move it to `.json` once it is complete.**
-
-```
-D:\comics\.filetagger\queue\a1b2c3.json.tmp ← write here
-D:\comics\.filetagger\queue\a1b2c3.json     ← move to this name when done
-```
-
-The name is yours as long as it is unique within the queue. Only the **`.json`**
-extension is read as a request, so a temporary file being written is safe to keep in
-the same folder.
-
-**3) The contents** are a single UTF-8 JSON object. `path` is the **path relative to
-the managed folder root** (everything after `D:\comics`), and either `/` or `\`
-works as the separator.
-
-```json
-{
-  "path": "new/01.png",
-  "tag": "artist",
-  "value": "Jane Doe",
-  "missing": "create",
-  "valueType": "text"
-}
-```
-
-**4) What the app does**
-
-- If the app is **running with `D:\comics` open**, it notices the file appear and
-  processes it right away. **If it was closed**, it processes the queue the next
-  time that folder is opened, right after the scan.
-- It finds `new/01.png` in the index, creates the `artist` tag as a text tag since
-  it does not exist, and attaches the value `Jane Doe`.
-- The request succeeded, so `queue\a1b2c3.json` is **deleted**. An empty queue
-  leaves no trace behind.
-- The desktop status bar quietly shows "Applied 1" — no dialog, no notification.
-
-**If it failed**, the file is not deleted; it stays where it is with a `failure`
-appended to its contents. For instance, if `missing` was omitted so the `artist` tag
-could not be created:
-
-```json
-{
-  "path": "new/01.png",
-  "tag": "artist",
-  "value": "Jane Doe",
-  "failure": {
-    "reason": "tagMissing",
-    "at": "2026-08-01T12:34:56.000",
-    "message": "그 이름의 태그가 없습니다."
-  }
-}
-```
-
-The external app can read back the path it created (`queue\a1b2c3.json`) to learn
-the outcome. **No file means success; a file means either not yet processed, or a
-`failure` with the reason written in.** Branch on `reason`, which is a fixed
-machine-readable token; `message` is human-readable detail and is written in the
-app's authoring language.
-
-#### Other request examples
-
-Attaching a label tag that already exists (no value):
-
-```json
-{ "path": "new/01.png", "tag": "read" }
-```
-
-Clearing every existing value and leaving just this one:
-
-```json
-{ "path": "new/01.png", "tag": "rating", "op": "replace", "value": 5 }
-```
-
-Removing one value from a multi-value tag (omit `value` to detach the tag entirely):
-
-```json
-{ "path": "new/01.png", "tag": "genre", "op": "remove", "value": "fantasy" }
-```
-
-Setting an image file as a folder's cover thumbnail:
-
-```json
-{
-  "path": "new",
-  "tag": "cover",
-  "value": "C:/Downloads/cover.jpg",
-  "missing": "create",
-  "valueType": "image"
-}
-```
-
-When the image sits **next to the request file**, point at it with a relative path,
-resolved against the queue folder. This exists so that moving a handful of files is
-all a migration takes.
-
-```json
-{ "path": "new", "tag": "cover", "value": "cover.jpg",
-  "missing": "create", "valueType": "image" }
-```
-
-Pointing at another item **inside** the managed folder (the value is its relative
-path):
-
-```json
-{ "path": "new/01.png", "tag": "next chapter", "value": "new/02.png" }
-```
-
-#### Failure reasons and retrying
-
-A failure mark **leaves what you wrote untouched** and appends only `failure`. Keys
-the app does not interpret (your request id, say) are still there, so you can tell
-which request the result belongs to. `reason` is there to branch on mechanically;
-`message` is human-readable detail.
-
-| `reason` | Meaning |
-| --- | --- |
-| `malformed` | Could not be read as a request (not JSON, a required field missing, an unknown name) |
-| `targetMissing` | `path` is not on disk |
-| `targetNotManaged` | On disk, but outside the managed scope, so it is not indexed |
-| `systemTag` | System tags cannot be changed from outside |
-| `tagMissing` | No tag of that name, and `missing: create` was not given |
-| `valueTypeMissing` | The tag has to be created but `valueType` is absent |
-| `valueTypeMismatch` | The existing tag has a different value type |
-| `invalidValue` | The value could not be read as that type (number or date format, a missing image file, a missing link target) |
-
-- **Entries carrying a `failure` are skipped on later passes**, so the same failure
-  is not repeated every time the app starts. **To retry, overwrite the same file
-  without `failure`.**
-- Failed entries are tidied up once they get old or pile up too high. Entries not
-  yet processed (with no mark) are never removed on age alone.
-- On desktop, the status bar quietly shows how many entries were applied and how
-  many failed on the last pass.
-
-#### Rules worth knowing
-
-- **Targets are addressed by path only.** There is no size or hash to cross-check
-  against, so if a new file of the same name appears where a deleted one was, the
-  tags land on that file.
-- **Write the file to disk before putting the request in the queue.** That order is
-  assumed: if the target is not on disk, the app does not wait but records a failure
-  at once. If it is on disk and the app simply has not scanned it yet, no failure is
-  recorded and the entry moves to the next pass.
-- **System tags** (size, modification time, file name, and so on) are not valid
-  targets.
-- **Sending the same command again gives the same result** — a retry does not pile
-  duplicates onto a multi-value tag.
-- When a subfolder has a `.filetagger/` of its own, **its queue is processed when
-  that folder is opened in the app.** Absorbing it into the parent moves only the
-  pending entries into the parent queue.
-- **The app holds no rules about which file should get which tag.** Deciding that
-  and building the request is the external app's job.
-
-### Exporting tags
-
-The app **also exports in the same format**. Select items in the list and choose
-File → Export Tags… (or use the context menu), and the tags of the selected items
-are saved as **one** request file.
-
-The receiving side has **no separate import feature** — drop the exported file into
-that managed folder's `.filetagger/queue/` and the queue reads and applies it.
+The receiving side takes it either way — **File → Import Tags…** in the app picks
+that file, or `filetagger_cli import <file>` reads it. **The same code decides in
+both cases, so the outcome never differs.** If images were exported along with it,
+they have to travel next to the file to attach.
 
 - Only the tags the selected items actually carry are offered, and all of them are
   selected by default.
 - Turning off **Include tag values** attaches the tags with their values left empty.
 - Turning on **Include image files** writes the custom thumbnail images **next to**
-  the request file. Both files have to travel together for the images to attach, as
-  the queue resolves relative paths against its own folder.
+  the exported file. Both have to travel together for the images to attach (relative
+  paths are resolved against the folder that file sits in).
 - Value type, multi-value permission, and color travel along so the tags can be
   created if missing.
 - Link values are unwound into the target's path (a keyword's name) and carry
   `missingLink: keep` — **the value survives even if the target did not travel
   along**, waiting on the receiving side as an unresolved link.
-- System tags are not included; they are derived automatically, and the queue
-  refuses them.
+- System tags are not included; they are derived automatically, and the receiving
+  side refuses them.
+
+Importing expands **only the entries that did not apply**. A file the scan has not
+picked up yet is a **hold** rather than a rejection, so importing the same file again
+after a scan attaches it then — and nothing already attached is attached twice.
+
+### The command-line tool (`filetagger_cli`)
+
+Handles tags **in a single command**. It is meant for scripts and for the user
+commands of a file manager, and it decides with the **same code** as the app, so the
+outcome never differs.
+
+The portable build carries it under `cli/bin/`. To build it yourself, run `dart build
+cli` in the repository and it lands in `build/cli/<platform>/bundle/bin/`
+(`dart compile exe` cannot produce it — the native sqlite has to be bundled along).
+
+#### Commands
+
+The surface splits into **nouns and verbs**. `tag` handles tag **definitions**,
+`list` handles the **assignments** on files, and both take the same four verbs.
+
+| Command | What it does |
+| --- | --- |
+| `tag add <name> <value type>` | Creates a tag definition. Leaves it alone if one of the same name and value type is already there |
+| `tag modify <name>` | Changes the name, value type, multi-value permission, or color (only what you write changes) |
+| `tag delete <name>` | Deletes a tag definition, and its assignments with it |
+| `tag show [name]` | Lists the tag definitions **you created**. Give a name for just that one |
+| `list add <target> <tag> [value]` | Assigns a tag. On a tag that allows multiple values, one more value is added |
+| `list modify <target> <tag> [value]` | Clears that tag's existing assignments and leaves the one value given |
+| `list delete <target> <tag> [value]` | Detaches an assignment. With a value, **only the assignments of that value**; without one, the whole tag |
+| `list show <target>` | Lists the tags attached to the target |
+| `list show --filter <condition>` | Lists the **targets** the condition catches (`--sort` and `--group` order and group them) |
+| `scan` | Walks the managed folder and brings the index up to date |
+| `import <file>` | Reads an exported command file and applies it as written |
+| `image <image file>` | Registers an outside image in the cache and prints its cache key |
+| `status` | Prints how many nodes, keywords, and tags the index holds |
+| `systemtags` | Prints the **system tags** available to conditions and their properties (no managed folder needed) |
+| `config show` | Prints the console settings in force and where the settings files sit (no managed folder needed) |
+| `config set <key> <value>` | Writes one console setting |
+| `config unset <key>` | Removes one console setting |
+
+`<target>` is a **path relative to the managed folder** (a keyword name if
+`--keyword` is given). Instead of naming targets one at a time, `--filter` names a
+**set** — and then the positional arguments shift by one
+(`list add --filter "<condition>" <tag> [value]`).
+
+**`tag add` is the only way in for creating a tag.** `list` refuses a tag that does
+not exist — writing "create it if missing" into every assignment would let the same
+tag be born with different properties (value type, multi-value permission) depending
+on where it was called from. `tag add` does nothing and succeeds when the same name
+and value type are already there, so it can simply sit at the top of a script.
+
+The value types are `label` `text` `number` `date` `link` `image`.
+
+**System tags are not mixed into `tag show`.** They are a fixed list derived from the
+file, so they can be neither created nor changed, and columns like the assignment
+count carry no meaning for them. `systemtags` prints that list — the values are held
+in code, so it answers from anywhere, **without opening a managed folder**.
+
+#### Options
+
+**Every command** takes these three (`--workspace` only on the ones that open a
+managed folder).
+
+| Option | Meaning |
+| --- | --- |
+| `-C, --workspace <path>` | The managed folder. Falls back to the `workspace` setting, then the current directory |
+| `--json` | Output for machines to read rather than people |
+| `--lang <language>` | The language the console prints in. Beats the settings |
+
+**The commands that judge** (`list add`, `list modify`, `list delete`, `import`) can
+scan on their own when the index does not know the target.
+
+| Option | Meaning |
+| --- | --- |
+| `--auto-scan` | Scan once and judge again when the index does not know the target |
+
+**The commands that print a table** (`tag show`, `list show <target>`, `systemtags`,
+`config show`) name the columns on the first line. Machine output (`--json`) does not
+get one — its keys already do that — and neither does `list show --filter`, whose
+lines are meant to be the next command's arguments. Strip it in a pipe with
+`tail -n +2`.
+
+`tag add` · `tag modify`:
+
+| Option | Meaning |
+| --- | --- |
+| `--multiple` | Lets the tag be assigned to one file more than once |
+| `--color <#RRGGBB>` | The chip color |
+| `--rename <new name>` | (modify) Renames the tag |
+| `--type <value type>` | (modify) Changes the value type |
+| `--clear-color` | (modify) Clears the chip color |
+
+`list`:
+
+| Option | Meaning |
+| --- | --- |
+| `--keyword` | Reads the target as a keyword name rather than a path |
+| `--value-keyword` | Reads a link value as a keyword name rather than a path |
+| `--create-keyword` | Creates the named keyword if it is missing and carries on |
+| `--keep-link` | Keeps the text as an unresolved link when the link target cannot be found |
+| `--filter <condition>` | Applies to every target the condition catches |
+| `--auto-scan` | Scans once and judges again when the index does not know the target |
+| `--sort <keys>` · `--group <keys>` | (show) Orders the output and groups it |
+| `--system` / `--no-system` | (show) Whether to include the derived system tags |
+
+**The querying commands** (`tag show`, `list show`, `systemtags`) can cap how much
+they print.
+
+| Option | Meaning |
+| --- | --- |
+| `--top <n>` | Only this many from the front |
+| `--tail <n>` | Only this many from the back |
+| `--range <start>:<end>` | From this position to that one (counting from 1, both ends included) |
+
+Only **one** of the three can be used. Asking for more than there is, or for a range
+that runs past the end, is not an error — as much as can be printed is printed. The
+length of the list is something the caller cannot know in advance, and if failing to
+guess it made the command fail, a script would always have to count first. Nothing is
+printed when the start runs past the list or the end comes before the start. When the
+output is grouped (`--group`), what gets counted is the **top-level rows**.
+
+`--help` prints the full list.
+
+#### Attaching without scanning first (`--auto-scan`)
+
+The console never walks the folder unless told to, so tagging a file you just created
+ends as a **hold** (exit code `75` — "run scan first"). With `--auto-scan` it walks
+once at that point and judges the same command again.
+
+```bash
+# create a file and tag it right away (without calling scan separately)
+filetagger_cli -C ~/pictures list add 2026/new.png source pixiv --auto-scan
+```
+
+- **It only fires on holds.** A rejection catches in the same place after a scan, and
+  a condition that caught nothing is the condition's answer, not a reason to walk. The
+  one exception is `--filter`, which walks **before** choosing — conditions stand on
+  the index, so a later walk cannot recover what was never picked.
+- **It judges again only once.** A second hold is not a race but a place a walk does
+  not reach, so repeating would give the same answer.
+- If another program is already walking, it is skipped and the earlier hold stands.
+
+A full scan is expensive, so it is **not the default**. A script that touches many
+files is far better off calling `scan` once and attaching the rest.
+
+#### Console settings (`config`)
+
+These hold the **defaults** for the values that are tedious to type on every command.
+
+| Key | Meaning |
+| --- | --- |
+| `lang` | The language the console speaks. Used by runs that pass no `--lang` |
+| `workspace` | The default managed folder. Opened by commands that pass no `-C` |
+
+`config --help` and `config set --help` print that list with a description of each, so
+there is nowhere else to look for what you may write.
+
+The language is read before the command runs, so even the `--help` text comes out in
+that language.
+
+**The settings files sit next to the executable.** The tool is meant to sit on your
+PATH, so there is nothing to gain from a place that differs per operating system and
+is hard to find (the same rule as the portable GUI build, and the two do not share
+what they store anyway).
+
+**Each scope is its own file** — `cli.json` applies to everyone who calls this binary,
+and `cli.<account>.json` applies to that account alone. The per-account value
+overrides the global one.
+
+```json
+{ "lang": "ko", "workspace": "/home/you/pictures" }
+```
+
+The file itself is the scope, so only setting names and values go inside. They are
+kept apart so that, once there is an installed build, the per-account file can simply
+**move to a place it is allowed to write** — one combined file would have to be in two
+places at once.
+
+Each key has the same four steps, and **only the last one differs** — with nothing
+written anywhere, the language falls back to the OS and the managed folder to wherever
+the command was called from.
+
+```
+--lang  >  per-account settings  >  global settings  >  the OS language
+-C      >  per-account settings  >  global settings  >  the current directory
+```
+
+```bash
+# what is in force, and where the settings file sits
+filetagger_cli config show
+
+# write for this account only (where it goes without a scope)
+filetagger_cli config set lang en
+
+# stop typing -C on every command (a relative path is stored expanded)
+filetagger_cli config set workspace ~/pictures
+
+# write for everyone who calls this binary
+filetagger_cli config set lang ko --global
+
+# remove it — the next place down (the OS, or the current directory) takes over
+filetagger_cli config unset lang
+```
+
+It is JSON you can open and edit by hand. The account is named by whatever name the
+operating system reports, and `config show` prints that along with where both files
+sit.
+
+**Writing goes to the account by default** so that, on a machine several people share,
+writing does not change everyone's settings. If the environment reports no account
+name, the per-account write fails rather than quietly moving to the global scope.
+
+**Nothing a machine reads follows the language.** The keys and values of `--json`,
+the exit codes, the names of rejection reasons and their details, and value type
+names are the same whatever the language is. What follows it is the wording people
+read and the **system tag names** — and condition text is still understood with the
+system tag names of any supported language.
+
+#### Conditions — choosing, ordering, grouping
+
+The condition grammar is **the same as the condition bar on screen.** Filter, sort,
+and group text built in the toolbar can be pasted straight across.
+
+| Option | How to write it |
+| --- | --- |
+| `--filter` | `artist==john -rating<3` — a tag name followed by `==` `!=` `<` `<=` `>` `>=` `~` (contains) `!~`. A bare name means "is attached", and a leading `-` excludes |
+| `--sort` | `rating artist` — earlier keys win. A leading `-` on a name sorts descending, `?` randomly |
+| `--group` | `artist "Folder hierarchy"` — buckets by tag value, and groups by folder hierarchy |
+
+- **Quote a name that contains a space** (`"Image width">1000`). This is where the
+  condition grammar's own quoting sits on top of the shell's.
+- **A single fragment that cannot be read rejects the whole command** (exit code
+  `64`). Dropping a typo silently would run the command over an inverted set — one
+  `-` falling off `-rating<3` is enough.
+- **When the condition catches nothing**, a writing command ends as a rejection
+  (exit code `65`).
+
+**System tags** (size, extension, modification time, image dimensions, and so on)
+are not stored tags but values derived from the file, computed on the spot when they
+are asked for. They are always available to conditions, and their names are read in
+any supported language. `systemtags` shows the list and their properties.
+
+#### Scanning only happens when you ask
+
+`scan` is the **only place a full scan runs.** No other command sweeps the folder
+behind your back — walking a whole folder is not what attaching one tag should cost,
+and when to walk it is the caller's decision.
+
+So a file **the index does not know yet** (one just created, say) does not get the
+tag, and the answer is not a rejection but "not yet" (exit code `75`). Run `scan`
+first, or wait for the scan the app runs when it opens the folder or notices a
+file-system change, and it goes through.
+
+A **lock is held** while a full scan runs. A scan decides that "a node not observed
+is a node that is gone", so two overlapping scans would read the part one of them has
+not reached yet as deleted. If something is already walking the folder, the command
+does not queue up — it skips (exit code `69`).
+
+#### The app may be running
+
+**Just use it.** SQLite serializes several writers on the same database on its own,
+and a running app notices changes that came from outside and redraws (it checks
+periodically while its window is in front). What you type shows up in the list
+shortly after.
+
+#### Custom images
+
+The stored value of an image tag is a **cache key** (a file name made from a hash of
+the content) inside the managed folder's cache. A lone string in the value position
+therefore cannot say whether it means "the path of an outside file" or "a key that is
+already registered" — and the two are told apart **by the command name**.
+
+- `list add <target> <image tag> <image file>` — takes the **path** of an outside
+  file and registers it as well. A relative path is resolved against where the
+  command was typed.
+- `image <image file>` — only registers, and prints the cache key along with a path
+  relative to the managed folder. Use it when **only the key is wanted**, as when
+  writing a command file by hand.
+
+#### Output
+
+By default the output is shaped for reading in a console, with columns separated by
+tabs (`cut` and `awk` can pick them out). `--json` prints JSON instead, shaped for an
+external tool or an AI to take the result and act on it.
+
+- `list show <target>` is **the same command list as an export**, so it can be
+  carried straight over to another managed folder. System tags cannot be assigned
+  from outside, so **they are left out of the machine-readable form** (the
+  human-readable one shows them); `--system` flips that.
+- `list show --filter …` prints **targets, not tags** — one line goes straight into
+  the next command as an argument. `--group` makes an indented tree, but every line
+  still carries the whole path.
+- A write result is that command with `result` attached (and `failure` if it was
+  rejected), and it is **an array even for a single entry** — so the receiving side
+  never has to tell shapes apart by count.
+
+#### Exit codes
+
+`sysexits` conventions, so a script can branch on them.
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Done |
+| `64` | The command was used wrongly |
+| `65` | The command was rejected (no such tag, a value type mismatch, and so on — the reason comes with it) |
+| `66` | Not a managed folder |
+| `69` | Something else is already walking the folder, so the scan was skipped |
+| `74` | A file could not be read or written |
+| `75` | **Not yet** — the index does not know the target. `scan` has to run first |
+
+In `import`, which handles many entries at once, **a rejection outranks a hold** — a
+hold stands once it is fed back after a scan, while a rejection would catch on the
+same spot again.
+
+#### Examples
+
+```bash
+# Set the tags up (leaves them alone if they are already there)
+filetagger_cli -C ~/pictures tag add source text
+filetagger_cli -C ~/pictures tag add artist link
+
+# Put a newly created file into the index and attach a tag
+filetagger_cli -C ~/pictures scan
+filetagger_cli -C ~/pictures list add 2026/new.png source pixiv
+
+# Link it to an artist keyword (creating the keyword if it is missing)
+filetagger_cli -C ~/pictures list add 2026/new.png artist john --value-keyword --create-keyword
+
+# Read the attached tags back as a command list
+filetagger_cli -C ~/pictures list show 2026/new.png --json
+
+# Check the system tag names available to conditions (no folder needed)
+filetagger_cli systemtags
+
+# make the console speak English for this account
+filetagger_cli config set lang en
+
+# Look at just the five most recently modified
+filetagger_cli -C ~/pictures list show --sort '-Modified' --top 5
+
+# Look at what a condition catches (jpgs rated 4 or higher, highest first)
+filetagger_cli -C ~/pictures list show --filter 'rating>=4 Extension==jpg' --sort '-rating'
+
+# Attach a tag to everything the condition catches
+filetagger_cli -C ~/pictures list add --filter 'artist==john' favorite
+
+# Hand what the condition catches to another tool
+filetagger_cli -C ~/pictures list show --filter 'Extension==png' | while read -r p; do echo "$p"; done
+
+# Take in tags someone else exported
+filetagger_cli -C ~/pictures import ~/received/filetagger-20260904.json
+```
 
 ## Downloading / building
 
@@ -554,6 +571,7 @@ lib/
   domain/        entities, repository interfaces, use cases (platform-independent)
   data/          the database (Drift), the file-system scanner, repository implementations
   presentation/  Riverpod providers, screens, widgets
+  cli/           the console command surface (runs without Flutter)
   core/          shared utilities and constants
   l10n/          ARB translation files and the code generated from them
 ```

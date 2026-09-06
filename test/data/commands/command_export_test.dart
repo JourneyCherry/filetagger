@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:filetagger/data/queue/command_export.dart';
-import 'package:filetagger/data/queue/command_json.dart';
+import 'package:filetagger/data/commands/command_export.dart';
+import 'package:filetagger/data/commands/command_json.dart';
 import 'package:filetagger/data/thumbnails/thumbnail_store.dart';
 import 'package:filetagger/domain/entities/external_tag_command.dart';
 import 'package:filetagger/domain/usecases/export_tag_commands.dart';
@@ -43,13 +43,13 @@ void main() {
     );
 
     expect(result.commands, 2);
-    final decoded = decodeCommandFile(File(path).readAsStringSync());
+    final text = File(path).readAsStringSync();
     // 항목이 하나여도 배열이어야 한다 — 받는 쪽이 항목마다 결과를 가른다.
-    expect(decoded.isArray, isTrue);
-    expect(decoded.items, hasLength(2));
+    expect(text.trimLeft(), startsWith('['));
+    expect(decodeCommandFile(text), hasLength(2));
   });
 
-  test('참조하는 캐시 파일을 요청 파일 옆에 같은 이름으로 복사한다', () async {
+  test('참조하는 캐시 파일을 명령 파일 옆에 같은 이름으로 복사한다', () async {
     cacheFile('cafe01.png');
     final path = p.join(out.path, 'tags.json');
 
@@ -60,7 +60,8 @@ void main() {
     );
 
     expect(result.images, 1);
-    // 큐가 이미지의 상대 경로를 요청함 폴더 기준으로 찾으므로 나란히 있으면 맞는다.
+    // 받는 쪽이 이미지의 상대 경로를 명령 파일이 놓인 폴더 기준으로 찾으므로,
+    // 나란히 있으면 맞는다.
     final copied = File(p.join(out.path, 'cafe01.png'));
     expect(copied.readAsStringSync(), '이미지 바이트 cafe01.png');
   });

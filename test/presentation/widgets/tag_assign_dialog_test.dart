@@ -86,4 +86,27 @@ void main() {
       findsNothing,
     );
   });
+
+  desktopTestWidgets('태그를 고르면 값 입력칸이 포커스를 받는다', (tester) async {
+    await _openDialog(tester);
+
+    // 콤보를 열어 태그 하나를 고른다(자동완성으로 골랐을 때와 같은 경로다).
+    await tester.tap(find.byType(DropdownMenu<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(MenuItemButton, '태그1').first);
+    await tester.pumpAndSettle();
+
+    // 값 칸이 포커스를 쥐고 있어야 곧바로 값을 칠 수 있다(Tab을 배울 필요가 없다).
+    expect(_valueField(tester).focusNode?.hasFocus, isTrue);
+  });
+}
+
+/// 추가 영역의 값 입력칸. 라벨로 짚어 부여 목록의 다른 입력들과 가른다.
+TextField _valueField(WidgetTester tester) {
+  final l10n = AppLocalizations.of(tester.element(find.byType(AlertDialog)));
+  return tester.widget<TextField>(
+    find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.labelText == l10n.tagValueField,
+    ),
+  );
 }

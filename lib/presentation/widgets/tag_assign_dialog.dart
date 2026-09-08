@@ -82,6 +82,10 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   /// 부여할 태그 선택과 유형별 값 입력 상태.
   int? _addTagId;
   final TextEditingController _addValue = TextEditingController();
+
+  /// 추가 영역의 값 입력칸이 쥘 포커스. 태그를 고르면 여기로 넘겨 준다
+  /// ([_focusAddValue]) — 글자·숫자 유형에만 입력칸이 있어 그때만 쓰인다.
+  final FocusNode _addValueFocus = FocusNode();
   DateTime? _addDate;
 
   /// 링크 태그를 부여할 때 고른 대상 노드 id(문자열). 미선택이면 null.
@@ -135,6 +139,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
   @override
   void dispose() {
     _addValue.dispose();
+    _addValueFocus.dispose();
     super.dispose();
   }
 
@@ -321,14 +326,17 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
         TagPicker(
           definitions: definitions,
           selectedId: _addTagId,
-          onSelected: (id) => setState(() {
-            _addTagId = id;
-            _addValue.clear();
-            _addDate = null;
-            _addLinkId = null;
-            _addImageKey = null;
-            _addError = null;
-          }),
+          onSelected: (id) {
+            setState(() {
+              _addTagId = id;
+              _addValue.clear();
+              _addDate = null;
+              _addLinkId = null;
+              _addImageKey = null;
+              _addError = null;
+            });
+            _focusAddValue(_defOf(definitions, id));
+          },
         ),
         if (def != null && def.hasValue) ...[
           const SizedBox(height: 12),
@@ -344,6 +352,23 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
         ),
       ],
     );
+  }
+
+  /// 태그를 고른 직후 값 입력칸으로 포커스를 옮긴다. 이름을 고르고 곧바로 값을 치는
+  /// 것이 이 자리의 유일한 다음 동작이라, 손이 키보드를 떠나지 않게 한다.
+  ///
+  /// **프레임이 끝난 뒤에 옮긴다** — 입력칸은 방금의 setState로 *이제 막* 생기므로 그
+  /// 전에는 받아 갈 포커스 대상이 없다. 입력칸이 없는 유형(날짜·링크·이미지·라벨)은
+  /// 고를 것이 버튼이라 포커스를 건드리지 않고 둔다.
+  void _focusAddValue(TagDefinition? def) {
+    if (def == null) return;
+    final typed =
+        def.valueType == TagValueType.text ||
+        def.valueType == TagValueType.number;
+    if (!typed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _addValueFocus.requestFocus();
+    });
   }
 
   Widget _buildAddValueField(TagDefinition def) {
@@ -463,6 +488,7 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
     final isNumber = def.valueType == TagValueType.number;
     return TextField(
       controller: _addValue,
+      focusNode: _addValueFocus,
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true, signed: true)
           : TextInputType.text,

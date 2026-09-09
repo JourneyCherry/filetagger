@@ -11,7 +11,9 @@ import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../../domain/usecases/thumbnail_cache.dart';
 import '../../l10n/app_localizations.dart';
+import '../../domain/usecases/tag_display_order.dart';
 import '../providers/file_node_provider.dart';
+import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../tag_visuals.dart';
@@ -151,10 +153,12 @@ class _TagAssignDialogState extends ConsumerState<_TagAssignDialog> {
         ref.watch(tagDefinitionsProvider).valueOrNull ?? const [];
     final byFile = ref.watch(assignmentsByFileProvider).valueOrNull ?? const {};
 
-    // 선택된 파일들에 걸린 부여 기록을 모은다.
-    final selectedAssignments = <AssignedTag>[
+    // 선택된 파일들에 걸린 부여 기록을 모으고, 목록 행·프리뷰와 **같은 표시 순서**로
+    // 세운다 — 여기만 순서를 안 걸면 같은 태그가 화면마다 다른 자리에 놓인다.
+    // 다중 선택의 정의별 묶음도 이 순서를 물려받는다(아래 Map이 삽입 순서를 지킨다).
+    final selectedAssignments = orderAssignedTags(<AssignedTag>[
       for (final id in widget.fileNodeIds) ...(byFile[id] ?? const []),
-    ];
+    ], ref.watch(effectiveTagDisplayOrderProvider));
 
     // 부여 목록과 추가 영역을 따로 만든다 — 부여된 태그가 많을 때 함께 스크롤되면
     // 추가 영역이 아래로 밀려 나가므로, 스크롤은 목록 쪽에만 걸고 추가 영역은 늘

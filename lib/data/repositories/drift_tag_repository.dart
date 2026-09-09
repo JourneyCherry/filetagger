@@ -126,6 +126,9 @@ class DriftTagRepository implements TagRepository {
         _db.tagDefinitions.id.equalsExp(_db.tagAssignments.tagDefinitionId),
       ),
     ]);
+    // 부여한 순서를 못박는다. 정렬을 걸지 않으면 같은 내용이라도 질의 계획에 따라
+    // 순서가 달라져, 표시 순서를 따로 적용하지 않는 화면에서 칩 자리가 흔들린다.
+    query.orderBy([OrderingTerm(expression: _db.tagAssignments.id)]);
     return query.watch().map((rows) {
       // 부여마다 정의 row가 딸려 오지만 정의는 몇 안 된다 — id로 한 벌만 만들어
       // 나눠 쓴다(부여 수만큼 같은 정의를 새로 만들지 않는다).

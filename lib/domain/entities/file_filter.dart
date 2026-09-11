@@ -68,6 +68,7 @@ class FilterCondition {
     this.operator = FilterOperator.exists,
     this.operand,
     this.exclude = false,
+    this.orWithPrevious = false,
   });
 
   final int tagDefinitionId;
@@ -78,6 +79,17 @@ class FilterCondition {
 
   /// true면 제외 조건(만족 시 숨김), false면 표시 조건(만족해야 표시).
   final bool exclude;
+
+  /// **앞 조건과 한 묶음**인지. 참이면 앞 조건과 OR로 이어지고, 거짓이면 새 묶음을
+  /// 시작한다([FileFilter.matches]).
+  ///
+  /// **묶음 번호가 아니라 이어붙임으로 둔다.** 번호를 두면 조건을 지우거나 옮길 때
+  /// 번호가 흩어져 "어느 묶음이 비었는지"를 따로 건사해야 하지만, 이어붙임은 목록의
+  /// 차례만 보면 되어 지금의 추가·재배치가 그대로 산다. 텍스트 문법도 조각 하나가
+  /// 조건 하나라는 규칙을 지킨 채 접두사 하나로 표현된다.
+  ///
+  /// 목록의 **첫 조건**에 붙으면 이을 앞이 없으므로 무시된다(제 묶음을 시작한다).
+  final bool orWithPrevious;
 
   /// 이 조건이 한 노드(그 부여 기록들)를 만족시키는지.
   ///
@@ -136,12 +148,14 @@ class FilterCondition {
     String? operand,
     bool clearOperand = false,
     bool? exclude,
+    bool? orWithPrevious,
   }) {
     return FilterCondition(
       tagDefinitionId: tagDefinitionId ?? this.tagDefinitionId,
       operator: operator ?? this.operator,
       operand: clearOperand ? null : (operand ?? this.operand),
       exclude: exclude ?? this.exclude,
+      orWithPrevious: orWithPrevious ?? this.orWithPrevious,
     );
   }
 
@@ -153,19 +167,29 @@ class FilterCondition {
       other.tagDefinitionId == tagDefinitionId &&
       other.operator == operator &&
       other.operand == operand &&
-      other.exclude == exclude;
+      other.exclude == exclude &&
+      other.orWithPrevious == orWithPrevious;
 
   @override
-  int get hashCode => Object.hash(tagDefinitionId, operator, operand, exclude);
+  int get hashCode =>
+      Object.hash(tagDefinitionId, operator, operand, exclude, orWithPrevious);
 }
 
 const _conditions = ListEquality<FilterCondition>();
 
 /// 순서 있는 조건 목록으로 파일을 걸러내는 필터.
 ///
-/// 표시 조건은 모두 만족해야 하고(AND), 제외 조건은 하나라도 만족하면 숨긴다.
-/// 조건 순서는 결과에 영향을 주지 않지만 태그처럼 추가·재배치하는 UI를 위해
-/// 목록으로 보존한다.
+/// 조건은 **묶음** 단위로 판정된다 — [FilterCondition.orWithPrevious]가 참인 조건은
+/// 앞 조건의 묶음에 붙고, 거짓이면 새 묶음을 연다. 묶음 하나는 **하나라도 만족하면
+/// 만족**(OR)이고, 묶음끼리는 **모두 만족해야** 한다(AND). 이어붙임이 하나도 없으면
+/// 묶음마다 조건이 하나씩이라 예전의 전부-AND와 같다.
+///
+/// 표시 묶음은 만족해야 통과하고, 제외 묶음은 만족하면 숨긴다. 묶음의 성격은
+/// **첫 조건의 [FilterCondition.exclude]**가 정한다 — 제외는 원래 "하나라도 걸리면
+/// 숨김"이라 묶어도 뜻이 같지만, 성격을 조건마다 다시 보면 한 묶음 안에서 판정이
+/// 갈려 읽는 사람이 결과를 셀 수 없다.
+///
+/// 조건 순서는 이제 **묶음의 경계를 정하므로 결과에 영향을 준다**.
 class FileFilter {
   const FileFilter({this.conditions = const <FilterCondition>[]});
 
@@ -175,15 +199,25 @@ class FileFilter {
 
   bool matches(Iterable<AssignedTag> tags) {
     final list = tags is List<AssignedTag> ? tags : tags.toList();
+    var exclude = false;
+    var satisfied = false;
+    var open = false;
+
+    // 묶음 하나를 닫는다. 표시 묶음은 만족해야 하고, 제외 묶음은 만족하면 숨긴다.
+    bool closes() => open && (exclude ? satisfied : !satisfied);
+
     for (final c in conditions) {
-      final satisfied = c.matches(list);
-      if (c.exclude) {
-        if (satisfied) return false;
-      } else if (!satisfied) {
-        return false;
+      // 첫 조건은 이을 앞이 없어 제 묶음을 연다.
+      if (!c.orWithPrevious || !open) {
+        if (closes()) return false;
+        exclude = c.exclude;
+        satisfied = false;
+        open = true;
       }
+      // 이미 만족한 묶음은 더 볼 것이 없다(값 해석을 아끼는 자리이기도 하다).
+      satisfied = satisfied || c.matches(list);
     }
-    return true;
+    return !closes();
   }
 
   FileFilter add(FilterCondition condition) =>

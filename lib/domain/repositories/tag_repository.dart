@@ -86,4 +86,13 @@ abstract interface class TagRepository {
     required List<int> fileNodeIds,
     required int tagDefinitionId,
   });
+
+  /// 정의가 없는 태그를 가리키는 부여를 지우고 그 수를 준다.
+  ///
+  /// **평소에는 늘 0이다** — 외래키가 정의 삭제에 부여를 딸려 지우고, 시스템 태그는
+  /// 애초에 정의 행이 없어 부여될 수 없다. 그럼에도 두는 것은 **외래키가 연결마다
+  /// 켜지는 설정**이라, 그것이 서지 않은 채 쓰인 적이 있는 DB를 지금 와서 가려낼 길이
+  /// 없기 때문이다. 가리키는 곳이 없는 부여는 어느 화면에도 뜨지 않아 손으로 지울
+  /// 수단도 없다.
+  Future<int> deleteDanglingAssignments();
 }

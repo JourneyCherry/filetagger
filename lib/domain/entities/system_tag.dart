@@ -184,6 +184,14 @@ final Map<int, SystemTag> _tagsById = {
 /// 식별자가 시스템 태그의 것(음수)인지.
 bool isSystemTagId(int id) => id < 0;
 
+/// **쓰였다가 없앤** 시스템 태그의 id인지 — 음수이면서 지금의 카탈로그에 없는 것.
+///
+/// 없앤 id는 다시 쓰지 않는다는 규칙 덕에 따로 목록을 들 필요가 없다. 이 갈래는
+/// 사용자가 지운 태그와 **성격이 다르다**: 사용자 태그는 실수로 지웠을 수 있어 저장된
+/// 참조를 남겨 두지만(불러올 때만 걸러 낸다), 없앤 시스템 태그는 **영영 돌아오지
+/// 않으므로** 남겨 둘 값이 없다([purgeRetiredSystemTags]).
+bool isRetiredSystemTagId(int id) => isSystemTagId(id) && _tagsById[id] == null;
+
 /// 이 부여를 칩에서 눌러 값을 편집할 수 있는지. 시스템 태그는 수정 가능한 것
 /// (파일 이름)만, 사용자 태그는 값을 갖는 것만 편집 가능하다.
 bool isEditableAssignment(AssignedTag tag) {

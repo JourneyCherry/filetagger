@@ -21,6 +21,10 @@ TagDefinition _definition({
   allowMultiple: allowMultiple,
 );
 
+/// 열 이름으로 한 줄에서 그 칸을 집는다 — 열이 늘어도 테스트가 자리를 세지 않는다.
+String _column(String line, String column) =>
+    line.split('\t')[definitionColumns(_strings).indexOf(column)];
+
 void main() {
   group('사람용 한 줄', () {
     test('없는 성질도 자리를 비우지 않는다', () {
@@ -28,7 +32,7 @@ void main() {
       final columns = line.split('\t');
 
       // 열이 밀리면 cut·awk로 집어 쓸 수 없다.
-      expect(columns.length, 5);
+      expect(columns.length, definitionColumns(_strings).length);
       expect(columns.every((c) => c.isNotEmpty), isTrue);
     });
 
@@ -51,7 +55,7 @@ void main() {
         8: 99,
       }, _strings);
 
-      expect(line.split('\t').last, '3');
+      expect(_column(line, _strings.columnAssignments), '3');
     });
 
     test('아직 저장 전인 정의는 부여가 없다', () {
@@ -60,7 +64,15 @@ void main() {
         1: 5,
       }, _strings);
 
-      expect(line.split('\t').last, '0');
+      expect(_column(line, _strings.columnAssignments), '0');
+      expect(_column(line, _strings.columnId), _strings.labelNone);
+    });
+
+    test('id를 맨 뒤에 붙여 앞자리를 밀지 않는다', () {
+      final line = definitionLine(_definition(id: 7), const {}, _strings);
+
+      expect(line.split('\t').first, _definition().name);
+      expect(line.split('\t').last, '7');
     });
   });
 

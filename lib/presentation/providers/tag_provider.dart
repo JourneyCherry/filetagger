@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/drift_tag_repository.dart';
@@ -7,10 +9,18 @@ import '../../domain/repositories/tag_repository.dart';
 import 'database_provider.dart';
 
 /// 현재 워크스페이스 DB에 종속된 태그 저장소. 열린 폴더가 없으면 null.
+///
+/// **폴더를 열 때 가리키는 곳이 없는 부여를 한 번 걷어낸다.** 정의 없는 부여는 이름도
+/// 유형도 없어 어느 화면에도 뜨지 않으므로 사용자가 지울 수단이 없고, 남아 있으면 부여
+/// 수만 부풀린다. 평소에는 지울 것이 없다(외래키가 이미 딸려 지운다) — 외래키가 서지
+/// 않은 채 쓰인 적이 있는 DB를 위한 자리다. 콘솔은 `prune`이 같은 일을 한다.
 final tagRepositoryProvider = Provider<TagRepository?>((ref) {
   final db = ref.watch(databaseProvider);
   if (db == null) return null;
-  return DriftTagRepository(db);
+  final repo = DriftTagRepository(db);
+  // 결과를 기다리지 않는다 — 지울 것이 있었다면 부여 스트림이 곧 그 뒤 모습을 낸다.
+  unawaited(repo.deleteDanglingAssignments());
+  return repo;
 });
 
 /// 전체 태그 정의 목록(이름순) 스트림.

@@ -40,8 +40,12 @@ class ImageCommand extends CliCommand {
     // 플랫폼 디코더에 기대는 일이라 콘솔에는 없다.
     final key = await registerThumbnailImage(root, source);
     if (key == null) {
-      stderr.writeln(strings.notAnImage(source));
-      return exitRejected;
+      return fail(
+        exitRejected,
+        ConsoleFailure.notAnImage,
+        strings.notAnImage(source),
+        subject: source,
+      );
     }
     final relative = p
         .relative(p.join(thumbnailCacheDirPath(root), key), from: root)

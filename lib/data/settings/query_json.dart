@@ -21,6 +21,9 @@ Map<String, dynamic> filterToJson(FileFilter filter) => {
         'op': c.operator.name,
         if (c.operand != null) 'operand': c.operand,
         'exclude': c.exclude,
+        // 이어붙임은 참일 때만 담는다 — 대부분의 조건에 뜻이 없는 칸이고, 없으면
+        // 거짓으로 읽혀 예전 파일이 그대로 선다.
+        if (c.orWithPrevious) 'or': true,
       },
   ],
 };
@@ -42,6 +45,7 @@ FileFilter filterFromJson(Object? json) {
         operator: op,
         operand: item['operand'] as String?,
         exclude: item['exclude'] == true,
+        orWithPrevious: item['or'] == true,
       ),
     );
   }

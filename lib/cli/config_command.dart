@@ -11,7 +11,6 @@
 /// 그 목록이 `config`·`set`·`unset`의 도움말 꼬리에 그대로 붙는다.
 library;
 
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -123,20 +122,16 @@ class ConfigCommand extends CliCommandGroup {
 }
 
 /// 설정을 상대하는 명령들의 공통 앞머리.
-abstract class _ConfigCommand extends Command<int> {
+abstract class _ConfigCommand extends Command<int> with CliOutput {
   _ConfigCommand(this.strings, ConsoleSettingsStore? store)
     : store = store ?? ConsoleSettingsStore() {
     argParser.addFlag(optJson, negatable: false, help: strings.optJsonHelp);
     addLanguageOption(argParser, strings);
   }
 
+  @override
   final ConsoleStrings strings;
   final ConsoleSettingsStore store;
-
-  bool get asJson => argResults![optJson] as bool;
-
-  void writeJson(Object? json) =>
-      stdout.writeln(const JsonEncoder.withIndent('  ').convert(json));
 
   String labelOf(ConsoleSettingsScope scope) => switch (scope) {
     ConsoleSettingsScope.global => strings.labelGlobalScope,
@@ -168,7 +163,14 @@ abstract class _ConfigWriteCommand extends _ConfigCommand {
   /// 인자에서 키 하나를 읽는다. 모르는 이름이면 사유를 내고 null.
   ConfigKey? readKey(String raw) {
     final key = ConfigKey.of(raw);
-    if (key == null) stderr.writeln(strings.unknownConfigKey(raw));
+    if (key == null) {
+      fail(
+        exitUsage,
+        ConsoleFailure.unknownConfigKey,
+        strings.unknownConfigKey(raw),
+        subject: raw,
+      );
+    }
     return key;
   }
 
@@ -177,12 +179,19 @@ abstract class _ConfigWriteCommand extends _ConfigCommand {
     // 계정 이름을 모르면 계정별 자리를 가리킬 수단이 없다. 전역으로 몰래 옮겨 적으면
     // 부른 사람이 뜻하지 않게 모두의 설정을 바꾸게 된다.
     if (scope == ConsoleSettingsScope.user && store.accountName == null) {
-      stderr.writeln(strings.noAccountToWrite);
-      return exitIoError;
+      return fail(
+        exitIoError,
+        ConsoleFailure.noAccount,
+        strings.noAccountToWrite,
+      );
     }
     if (!store.save(scope, key.put(store.load(scope), value))) {
-      stderr.writeln(strings.configWriteFailed(pathOf(scope)));
-      return exitIoError;
+      return fail(
+        exitIoError,
+        ConsoleFailure.configWriteFailed,
+        strings.configWriteFailed(pathOf(scope)),
+        subject: pathOf(scope),
+      );
     }
     if (asJson) {
       writeJson({
@@ -330,8 +339,14 @@ class _ConfigSetCommand extends _ConfigWriteCommand {
     final raw = rest[1];
     final refused = key.refuse(raw, strings);
     if (refused != null) {
-      stderr.writeln(refused);
-      return exitUsage;
+      // 지금 막히는 키는 언어 하나뿐이다. 키가 늘어 갈래가 갈리면 [ConfigKey]가
+      // 문구와 함께 갈래도 내주어야 한다.
+      return fail(
+        exitUsage,
+        ConsoleFailure.unknownLanguage,
+        refused,
+        subject: raw,
+      );
     }
     return write(key, key.normalize(raw));
   }

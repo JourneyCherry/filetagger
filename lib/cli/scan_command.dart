@@ -69,12 +69,15 @@ class ScanCommand extends CliCommand {
       } on WorkspaceScanBusyException {
         _endProgress();
         // 실패가 아니라 하지 않기로 한 것이다. 돌고 있는 스캔이 곧 같은 결과를 만든다.
-        stderr.writeln(strings.scanBusy);
-        return exitBusy;
+        return fail(exitBusy, ConsoleFailure.scanBusy, strings.scanBusy);
       } on WorkspaceUnreadableException {
         _endProgress();
-        stderr.writeln(strings.workspaceUnreadable(root));
-        return exitIoError;
+        return fail(
+          exitIoError,
+          ConsoleFailure.workspaceUnreadable,
+          strings.workspaceUnreadable(root),
+          subject: root,
+        );
       }
     });
   }

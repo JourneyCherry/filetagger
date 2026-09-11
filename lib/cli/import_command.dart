@@ -38,8 +38,12 @@ class ImportCommand extends CliCommand {
     try {
       text = await file.readAsString();
     } catch (_) {
-      stderr.writeln(strings.fileUnreadable(file.path));
-      return exitIoError;
+      return fail(
+        exitIoError,
+        ConsoleFailure.fileUnreadable,
+        strings.fileUnreadable(file.path),
+        subject: file.path,
+      );
     }
 
     // 읽기는 예외를 던지지 않는다 — 형식 오류도 항목 하나의 판정일 뿐이라 나머지

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:filetagger/data/commands/command_json.dart';
 import 'package:filetagger/domain/entities/external_tag_command.dart';
+import 'package:filetagger/domain/entities/tag_color_format.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -59,19 +60,51 @@ void main() {
 
     test('다중 부여 허용과 색상을 그대로 다시 읽는다', () {
       // 받지 않으면 다중값 태그를 내보내 되받을 때 값이 하나로 조용히 접힌다.
-      const command = ExternalTagCommand(
+      final command = ExternalTagCommand(
         targetPath: 'a.png',
         tagName: '장르',
         value: '판타지',
         missingTag: MissingTagPolicy.create,
         createValueType: TagValueType.text,
         createAllowMultiple: true,
-        createColor: 123456,
+        createColor: parseTagColorHex('#3366CC'),
       );
 
       final record = only(encodeCommandFile(command));
 
       expect((record as ParsedCommand).command, command);
+    });
+
+    test('색은 16진 표기로 내되 저장 정수로 적힌 것도 읽는다', () {
+      // 사람이 열어 고치는 파일이라 내는 것은 16진 표기 하나뿐이고, 정수만 내던
+      // 시절의 파일이 밖에 있으므로 읽기는 둘 다 받는다.
+      final color = parseTagColorHex('#3366CC')!;
+      final written = ExternalTagCommand(
+        targetPath: 'a.png',
+        tagName: '장르',
+        missingTag: MissingTagPolicy.create,
+        createValueType: TagValueType.label,
+        createColor: color,
+      );
+
+      expect(commandToJson(written)['color'], tagColorToHex(color));
+
+      final asInt = only(
+        jsonEncode({'path': 'a.png', 'tag': '장르', 'color': color}),
+      );
+      expect((asInt as ParsedCommand).command.createColor, color);
+    });
+
+    test('링크 값의 판별은 내지 않는다', () {
+      // 링크가 아닌 태그에도 값만 있으면 붙어 잡음이 되던 필드다(사용자 결정).
+      const command = ExternalTagCommand(
+        targetPath: '신작/01.png',
+        tagName: '작가',
+        value: '작가 A',
+        valueKind: ExternalNodeKind.keyword,
+      );
+
+      expect(commandToJson(command).containsKey('valueNodeType'), isFalse);
     });
 
     test('대상과 링크 값의 판별은 서로 독립이다', () {

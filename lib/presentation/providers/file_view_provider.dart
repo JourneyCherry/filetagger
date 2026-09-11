@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/settings/view_settings_store.dart';
@@ -16,6 +18,7 @@ import '../../domain/repositories/view_settings_repository.dart';
 import '../../domain/usecases/apply_query_preset.dart';
 import '../../domain/usecases/build_grouped_tree.dart';
 import '../../domain/usecases/folder_index_scope.dart';
+import '../../domain/usecases/purge_retired_system_tags.dart';
 import '../../domain/usecases/query_files.dart';
 import '../../domain/usecases/tag_display_order.dart';
 import '../common/flat_tree.dart';
@@ -63,8 +66,13 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
     final loaded = await repo.load();
     // 로드 도중 워크스페이스가 바뀌어 저장소가 교체됐으면 결과를 버린다.
     if (_repo != repo) return;
-    state = loaded;
+    // **없앤 시스템 태그 참조는 정의 목록을 기다리지 않고 여기서 걷어낸다.** 그 갈래는
+    // 카탈로그만 보면 판정이 서고(사용자 태그와 달리 나중에 실려 올 것이 없다), 남겨
+    // 두면 어느 화면에서도 보이지 않는 조건이 목록을 통째로 비울 수 있다.
+    final purged = purgeRetiredFromViewSettings(loaded);
+    state = purged.value;
     _loaded = true;
+    if (purged.changed) unawaited(repo.save(purged.value));
     // 로드가 태그 정의보다 늦었을 수 있으니, 현재 정의 기준으로 즉시 정리한다.
     _reconcileWith(ref.read(tagDefinitionsProvider));
   }

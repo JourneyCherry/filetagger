@@ -43,6 +43,23 @@ AssignedTag _tag(
   definition: def,
 );
 
+/// 링크 값의 판별만 기본값으로 되돌린 같은 명령. 형식이 그 필드를 내지 않으므로
+/// 되받은 명령과 견줄 때 이만큼을 덜어 낸다.
+ExternalTagCommand _withoutValueKind(ExternalTagCommand c) =>
+    ExternalTagCommand(
+      targetPath: c.targetPath,
+      tagName: c.tagName,
+      operation: c.operation,
+      value: c.value,
+      missingTag: c.missingTag,
+      createValueType: c.createValueType,
+      targetKind: c.targetKind,
+      missingKeyword: c.missingKeyword,
+      missingLink: c.missingLink,
+      createAllowMultiple: c.createAllowMultiple,
+      createColor: c.createColor,
+    );
+
 ExportedCommands _build({
   required List<FileNode> nodes,
   required Map<int, List<AssignedTag>> assignments,
@@ -238,6 +255,8 @@ void main() {
 
   test('내보낸 명령은 가져오기가 그대로 읽는다(왕복)', () {
     // 내보내기가 채우는 필드를 코덱이 하나라도 흘리면 여기서 드러난다.
+    // **링크 값의 판별만 예외다** — 형식이 그 필드를 더는 내지 않으므로(사용자 결정)
+    // 키워드를 가리키던 링크가 되받을 때 경로로 읽힌다. 값 자체는 남는다.
     final exported = _build(
       nodes: [_file, _artist],
       assignments: {
@@ -256,6 +275,29 @@ void main() {
     final decoded = decodeCommandFile(text);
 
     expect(text.trimLeft(), startsWith('['));
-    expect(decoded.map((i) => (i as ParsedCommand).command), exported.commands);
+    expect(
+      decoded.map((i) => (i as ParsedCommand).command),
+      exported.commands.map(_withoutValueKind),
+    );
+  });
+
+  test('키워드를 가리키는 링크는 판별을 잃는다', () {
+    // 잃는 것이 무엇인지 한자리에 못 박아 둔다 — 값은 이름 그대로 남고, 받는 쪽이
+    // 경로로 찾다 놓치면 `missingLink: keep`이 미해결 링크로 앉힌다.
+    final exported = _build(
+      nodes: [_file],
+      assignments: {
+        1: [_tag(_file, artistTag, '2')],
+      },
+    );
+    final command = exported.commands.single;
+    expect(command.valueKind, ExternalNodeKind.keyword);
+
+    final decoded = decodeCommandFile(encodeCommandFile(command)).single;
+
+    final read = (decoded as ParsedCommand).command;
+    expect(read.value, _artist.path);
+    expect(read.valueKind, ExternalNodeKind.file);
+    expect(read.missingLink, MissingLinkPolicy.keep);
   });
 }

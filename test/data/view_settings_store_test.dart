@@ -32,6 +32,7 @@ void main() {
             operand: '5',
           ),
           FilterCondition(tagDefinitionId: 3, exclude: true),
+          FilterCondition(tagDefinitionId: 4, orWithPrevious: true),
         ],
       ),
       sort: FileSortOrder(
@@ -50,12 +51,15 @@ void main() {
     await store.save(settings);
     final loaded = await store.load();
 
-    expect(loaded.filter.conditions, hasLength(3));
+    expect(loaded.filter.conditions, hasLength(4));
     final c1 = loaded.filter.conditions[1];
     expect(c1.tagDefinitionId, 2);
     expect(c1.operator, FilterOperator.greaterThan);
     expect(c1.operand, '5');
     expect(loaded.filter.conditions[2].exclude, isTrue);
+    // 이어붙임은 참일 때만 담기므로, 담기지 않은 조건은 거짓으로 돌아와야 한다.
+    expect(loaded.filter.conditions[3].orWithPrevious, isTrue);
+    expect(loaded.filter.conditions[0].orWithPrevious, isFalse);
 
     expect(loaded.sort.keys, hasLength(3));
     expect(loaded.sort.keys[0].tagDefinitionId, 2);

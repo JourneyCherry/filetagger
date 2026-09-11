@@ -31,7 +31,7 @@ import 'console_workspace.dart';
 /// 관리 폴더와 출력 형식은 **잎 명령마다 따로 받는다**. 명령 묶음(`tag`·`list`)의
 /// 자리에 두면 `tag --json add ...`처럼 하위 명령 **앞에만** 쓸 수 있게 되는데,
 /// 사람이 치는 순서는 `tag add <인자> --json` 쪽이다. 언어도 같은 이유로 여기 있다.
-abstract class CliCommand extends Command<int> {
+abstract class CliCommand extends Command<int> with CliOutput {
   CliCommand(this.strings) {
     argParser
       ..addOption(
@@ -45,12 +45,11 @@ abstract class CliCommand extends Command<int> {
   }
 
   /// 이 실행이 낼 문구. 표면을 세우기 전에 정해져 명령마다 그대로 건네진다.
+  @override
   final ConsoleStrings strings;
 
   /// 관리 폴더의 기본값이 적힌 자리. 옵션을 주지 않은 명령만 여기를 본다.
   late final ConsoleSettingsStore settingsStore = ConsoleSettingsStore();
-
-  bool get asJson => argResults![optJson] as bool;
 
   /// 이름을 지을 때 쓰는 언어. 시스템 태그 이름이 이것을 탄다.
   String get localeName => strings.languageCode;
@@ -71,7 +70,12 @@ abstract class CliCommand extends Command<int> {
       store: settingsStore,
     ).path;
     if (!File(databaseFilePath(root)).existsSync()) {
-      stderr.writeln(strings.notWorkspace(root));
+      fail(
+        exitNoWorkspace,
+        ConsoleFailure.notWorkspace,
+        strings.notWorkspace(root),
+        subject: root,
+      );
       return null;
     }
     return root;
@@ -156,10 +160,15 @@ abstract class CliCommand extends Command<int> {
       )(root, rootManageMode: mode);
       return true;
     } on WorkspaceScanBusyException {
-      stderr.writeln(strings.scanBusy);
+      fail(exitBusy, ConsoleFailure.scanBusy, strings.scanBusy);
       return false;
     } on WorkspaceUnreadableException {
-      stderr.writeln(strings.workspaceUnreadable(root));
+      fail(
+        exitIoError,
+        ConsoleFailure.workspaceUnreadable,
+        strings.workspaceUnreadable(root),
+        subject: root,
+      );
       return false;
     }
   }
@@ -167,7 +176,8 @@ abstract class CliCommand extends Command<int> {
   /// 판정 묶음을 내고 종료 코드를 돌려준다.
   ///
   /// 기계용은 **항목이 하나여도 배열**이다 — 받는 쪽이 개수에 따라 모양이 갈리는 것을
-  /// 가려내지 않아도 되게 한다. 사람용은 여럿일 때만 맺음 줄을 덧붙인다.
+  /// 가려내지 않아도 되게 한다. 사람용은 갈래별 수를 **맨 위에** 세운다 — 판정 줄이
+  /// 길게 흐르는 자리라 아래에 두면 스크롤 밖으로 밀린다.
   ///
   /// [unreadable]은 명령으로 **읽어 내지도 못한** 항목이다(명령 파일에서만 난다).
   /// 판정이 아니라 형식 오류지만 고쳐야 넘어가는 것은 같으므로 거부와 한자리에 둔다.
@@ -181,6 +191,9 @@ abstract class CliCommand extends Command<int> {
         for (final record in unreadable) unreadableToJson(record),
       ]);
     } else {
+      stdout.writeln(
+        summaryLine(results, strings, unreadable: unreadable.length),
+      );
       for (final result in results) {
         final line = resultLine(result, strings);
         if (result is CommandApplied) {
@@ -192,22 +205,51 @@ abstract class CliCommand extends Command<int> {
       for (final record in unreadable) {
         stderr.writeln(unreadableLine(record, strings));
       }
-      if (results.length + unreadable.length > 1) {
-        stdout.writeln(
-          summaryLine(results, strings, unreadable: unreadable.length),
-        );
-      }
     }
     final code = exitCodeFor(results);
     return unreadable.isEmpty ? code : exitRejected;
   }
 
-  void writeJson(Object? json) => stdout.writeln(_encoder.convert(json));
-
   /// 보류를 만나면 스스로 훑을지. [addAutoScanOption]을 붙이지 않은 명령은 늘 거짓이다.
   bool get autoScan =>
       argParser.options.containsKey(optAutoScan) &&
       argResults![optAutoScan] as bool;
+}
+
+/// 콘솔이 내는 두 표현을 다루는 골격.
+///
+/// **[CliCommand]와 따로 두는 이유**는 관리 폴더를 열지 않는 명령(`systemtags`)이
+/// 그것을 딛지 못하기 때문이다 — 낼 것이 있는 자리는 같으므로 형식을 가르는 규칙이
+/// 두 벌로 갈리면 안 된다.
+mixin CliOutput on Command<int> {
+  /// 이 실행이 낼 문구.
+  ConsoleStrings get strings;
+
+  bool get asJson => argResults![optJson] as bool;
+
+  void writeJson(Object? json) => stdout.writeln(_encoder.convert(json));
+
+  /// 실패 하나를 내고 [code]를 그대로 돌려준다.
+  ///
+  /// **자리는 늘 stderr다.** 표준 출력은 결과 하나만 담는다는 약속이 있어야 받는 쪽이
+  /// 통째로 파싱할 수 있고, 실패했는지는 종료 코드가 이미 말한다. `--$optJson`을 준
+  /// 실행에는 사람용 문장 대신 **갈래 이름**이 간다 — 문장은 언어를 타서 스크립트가
+  /// 분기할 수 없다.
+  ///
+  /// [message]는 사람이 읽을 문장, [subject]는 갈래가 가리키는 원문(오타 난 이름 등)
+  /// 이다. 갈래만으로 짚이면 [subject]는 없다.
+  int fail(int code, ConsoleFailure reason, String message, {String? subject}) {
+    stderr.writeln(
+      asJson
+          ? _encoder.convert(consoleFailureToJson(reason, subject: subject))
+          : message,
+    );
+    return code;
+  }
+
+  /// 목록 대신 갯수만 낼지. [addCountOption]을 붙이지 않은 명령은 늘 거짓이다.
+  bool get countOnly =>
+      argParser.options.containsKey(optCount) && argResults![optCount] as bool;
 
   /// 표의 머리글을 낸다. **사람용에만** 붙는다 — 기계용은 이미 JSON의 키가 같은
   /// 일을 하고, 사람이 읽는 자리에서는 열이 무엇인지 늘 보여야 한다. 필요 없는
@@ -216,6 +258,32 @@ abstract class CliCommand extends Command<int> {
     if (asJson) return;
     stdout.writeln(columns.join('\t'));
   }
+
+  /// 낼 것이 몇 개인지 앞세운다. **낼 것이 남았으면 참**이고, 거짓이면 이 명령은
+  /// 여기서 끝이다([optCount]를 준 실행).
+  ///
+  /// **사람용에만 줄이 붙는다**(`ls`의 `total`과 같은 자리). 기계용은 배열의 길이가
+  /// 이미 같은 것을 말하므로, 갯수를 실으려고 최상위를 객체로 바꾸면 받는 쪽이
+  /// 목록을 한 겹 더 들추게 될 뿐이다 — 그 수가 따로 필요하면 [optCount]가 낸다.
+  bool writeCount(int count) {
+    if (countOnly) {
+      // 이 형태의 쓰임은 수 하나를 받아 다음 판단에 쓰는 것이라, 사람용도 꾸미지
+      // 않고 수만 낸다.
+      if (asJson) {
+        writeJson({kCount: count});
+      } else {
+        stdout.writeln('$count');
+      }
+      return false;
+    }
+    if (!asJson) stdout.writeln('${strings.labelTotal}\t$count');
+    return true;
+  }
+}
+
+/// 목록 대신 갯수만 내는 옵션을 [parser]에 붙인다.
+void addCountOption(ArgParser parser, ConsoleStrings strings) {
+  parser.addFlag(optCount, negatable: false, help: strings.optCountHelp);
 }
 
 /// 하위 명령만 갖는 묶음(`tag`·`list`·`config`). 스스로 하는 일이 없다.
@@ -251,5 +319,6 @@ const String executableName = 'filetagger_cli';
 const String optWorkspace = 'workspace';
 const String optJson = 'json';
 const String optAutoScan = 'auto-scan';
+const String optCount = 'count';
 
 const JsonEncoder _encoder = JsonEncoder.withIndent('  ');

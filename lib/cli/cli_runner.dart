@@ -6,7 +6,8 @@
 /// 부르는 자리마다 다른 성질로 태어난다.
 ///
 /// 나머지는 홀로 서는 동사·명사들이다 — `scan`(전체 스캔이 도는 **유일한** 자리),
-/// `import`(명령 파일 먹기), `image`(바깥 이미지를 캐시 키로), `status`(요약),
+/// `prune`(가리키는 곳이 없어진 참조 걷어내기), `import`(명령 파일 먹기),
+/// `image`(바깥 이미지를 캐시 키로), `status`(요약),
 /// `systemtags`(파생 태그의 카탈로그), `config`(콘솔 자신의 설정). 뒤의 둘은 관리
 /// 폴더를 열지 않고도 답한다.
 ///
@@ -14,6 +15,7 @@
 /// 값이라, 언어가 파싱 뒤에 정해지면 이미 늦다([resolveConsoleLanguage]).
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
@@ -26,6 +28,7 @@ import 'console_locale.dart';
 import 'image_command.dart';
 import 'import_command.dart';
 import 'list_commands.dart';
+import 'prune_command.dart';
 import 'scan_command.dart';
 import 'status_command.dart';
 import 'system_tags_command.dart';
@@ -39,6 +42,7 @@ CommandRunner<int> buildCliRunner([ConsoleStrings? strings]) {
     ..addCommand(TagCommand(s))
     ..addCommand(ListCommand(s))
     ..addCommand(ScanCommand(s))
+    ..addCommand(PruneCommand(s))
     ..addCommand(ImportCommand(s))
     ..addCommand(ImageCommand(s))
     ..addCommand(StatusCommand(s))
@@ -61,8 +65,12 @@ Future<int> runCli(List<String> args) async {
   // 적어 준 언어를 낼 문구가 없으면 조용히 눕지 않는다 — 직접 적은 것이 무시되면
   // 왜 그대로인지 알 길이 없다(설정에 적힌 값은 `config set`이 이미 막는다).
   if (option != null && language.fellBack) {
-    stderr.writeln(strings.unknownLanguage(option, consoleStringLanguages));
-    return exitUsage;
+    return _fail(
+      args,
+      ConsoleFailure.unknownLanguage,
+      strings.unknownLanguage(option, consoleStringLanguages),
+      subject: option,
+    );
   }
 
   final runner = buildCliRunner(strings);
@@ -70,7 +78,33 @@ Future<int> runCli(List<String> args) async {
     return await runner.run(args) ?? exitOk;
   } on UsageException catch (e) {
     // 잘못 쓴 것은 결과가 아니므로 표준 출력에 섞지 않는다.
-    stderr.writeln(e);
-    return exitUsage;
+    return _fail(args, ConsoleFailure.usage, '$e', subject: e.message);
   }
+}
+
+/// 명령이 서기 전에 끝난 실패. **형식은 인자를 훑어 본다** — 파싱이 끝나지 않았거나
+/// (사용법 오류) 표면을 세우기도 전이라(모르는 언어) 물어볼 `argResults`가 없다.
+int _fail(
+  List<String> args,
+  ConsoleFailure reason,
+  String message, {
+  String? subject,
+}) {
+  stderr.writeln(
+    _wantsJson(args)
+        ? const JsonEncoder.withIndent(
+            '  ',
+          ).convert(consoleFailureToJson(reason, subject: subject))
+        : message,
+  );
+  return exitUsage;
+}
+
+/// `--json`을 적었는지. 파서가 보는 것과 같은 자리에서 끊는다(`--` 뒤는 값이다).
+bool _wantsJson(List<String> args) {
+  for (final arg in args) {
+    if (arg == '--') return false;
+    if (arg == '--$optJson') return true;
+  }
+  return false;
 }

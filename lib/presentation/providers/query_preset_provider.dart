@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/settings/query_preset_store.dart';
 import '../../domain/entities/query_preset.dart';
 import '../../domain/repositories/query_preset_repository.dart';
+import '../../domain/usecases/purge_retired_system_tags.dart';
 import 'file_view_provider.dart';
 import 'workspace_provider.dart';
 
@@ -42,7 +45,12 @@ class QueryPresetsNotifier extends Notifier<List<QueryPreset>> {
     final loaded = await repo.load();
     // 로드 도중 워크스페이스가 바뀌었거나 사용자가 이미 고쳤으면 결과를 버린다.
     if (_repo != repo || _dirty) return;
-    state = loaded;
+    // **없앤 시스템 태그 참조만 실제로 지운다.** 사용자가 지운 태그의 참조는 프리셋에
+    // 그대로 두고 불러오는 순간에만 걸러 내지만(실수로 지웠을 수 있다), 없앤 시스템
+    // 태그의 id는 영영 돌아오지 않아 남겨 둘 값이 없다.
+    final purged = purgeRetiredFromPresets(loaded);
+    state = purged.value;
+    if (purged.changed) unawaited(repo.save(purged.value));
   }
 
   /// 지금 걸린 것을 [name]으로 저장한다. 같은 이름이 이미 있으면 **그 자리에서**

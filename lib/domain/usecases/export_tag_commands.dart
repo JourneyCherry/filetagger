@@ -34,6 +34,9 @@ class ExportedCommands {
 /// - 링크 값은 노드 id를 **대상의 경로(키워드는 이름)**로 풀고 `missingLink: keep`을
 ///   단다 — 대상이 선택 밖이어도 값을 빼지 않는다. 받는 쪽이 미해결 링크로 들고 있으면
 ///   사용자가 나중에 재연결할 수 있지만, 값을 버리면 그 기회가 사라진다.
+/// - **키워드 대상은 없으면 만들도록 한다**(`missingKeyword: create`). 키워드는 앱이
+///   만들어야만 존재하므로, 그러지 않으면 키워드에 붙은 태그는 받는 쪽에서 통째로
+///   거부된다 — 태그가 없으면 만들라는 위 결정과 같은 자리다.
 ExportedCommands buildExportCommands({
   required List<FileNode> nodes,
   required Map<int, List<AssignedTag>> assignmentsByFile,
@@ -92,6 +95,7 @@ ExportedCommands buildExportCommands({
           createValueType: def.valueType,
           createAllowMultiple: def.allowMultiple,
           createColor: def.color,
+          missingKeyword: MissingKeywordPolicy.create,
           missingLink: MissingLinkPolicy.keep,
         ),
       );

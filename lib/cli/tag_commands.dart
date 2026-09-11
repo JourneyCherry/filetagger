@@ -53,10 +53,33 @@ abstract class _TagCommand extends CliCommand {
       usageException(strings.needTagName);
     }
     if (allSystemTagNames.contains(name)) {
-      stderr.writeln(strings.systemTagNotEditable(name));
+      fail(
+        exitRejected,
+        ConsoleFailure.systemTag,
+        strings.systemTagNotEditable(name),
+        subject: name,
+      );
       return null;
     }
     return name;
+  }
+
+  /// `--color`를 저장 표현으로 읽는다. 적지 않았으면 둘 다 비어 있고, 읽지 못했으면
+  /// [_Color.invalid]가 참이며 사유는 이미 냈다. **옵션을 단 명령만 부른다.**
+  _Color readColor() {
+    final raw = argResults![_optColor] as String?;
+    if (raw == null) return const _Color();
+    final parsed = parseTagColorHex(raw);
+    if (parsed == null) {
+      fail(
+        exitRejected,
+        ConsoleFailure.badColor,
+        strings.badColor(raw),
+        subject: raw,
+      );
+      return const _Color(invalid: true);
+    }
+    return _Color(value: parsed);
   }
 }
 
@@ -87,6 +110,11 @@ class _TagAddCommand extends _TagCommand {
       '$executableName tag add <${strings.tokenTagName}>'
       ' <${strings.tokenValueType}>';
 
+  /// 값 유형이 **위치 인자**라 파서가 후보를 내주지 못한다(`--type`은 `allowed`가
+  /// 대신 낸다). 사용법 꼬리에 직접 붙여 두 자리의 안내를 맞춘다.
+  @override
+  String get usageFooter => valueTypesHelp(strings);
+
   @override
   Future<int> run() async {
     if (rest.length != 2) usageException(strings.needNameAndType);
@@ -94,10 +122,14 @@ class _TagAddCommand extends _TagCommand {
     if (name == null) return exitRejected;
     final valueType = _valueTypeByName(rest[1]);
     if (valueType == null) {
-      stderr.writeln(strings.unknownValueType(rest[1]));
-      return exitRejected;
+      return fail(
+        exitRejected,
+        ConsoleFailure.unknownValueType,
+        '${strings.unknownValueType(rest[1])}\n${valueTypesHelp(strings)}',
+        subject: rest[1],
+      );
     }
-    final color = _parseColor(argResults![_optColor] as String?, strings);
+    final color = readColor();
     if (color.invalid) return exitRejected;
 
     return withWorkspace((root, db) async {
@@ -108,8 +140,12 @@ class _TagAddCommand extends _TagCommand {
         // 다만 값 유형이 다르면 조용히 넘어가면 안 된다 — 뒤따르는 부여가 엉뚱한
         // 유형으로 해석된다.
         if (existing.valueType != valueType) {
-          stderr.writeln(strings.typeMismatch(existing.valueType.name));
-          return exitRejected;
+          return fail(
+            exitRejected,
+            ConsoleFailure.valueTypeMismatch,
+            strings.typeMismatch(existing.valueType.name),
+            subject: existing.valueType.name,
+          );
         }
         return _emit(
           existing,
@@ -195,10 +231,14 @@ class _TagModifyCommand extends _TagCommand {
 
     final rename = argResults![_optRename] as String?;
     if (rename != null && allSystemTagNames.contains(rename)) {
-      stderr.writeln(strings.systemTagNotEditable(rename));
-      return exitRejected;
+      return fail(
+        exitRejected,
+        ConsoleFailure.systemTag,
+        strings.systemTagNotEditable(rename),
+        subject: rename,
+      );
     }
-    final color = _parseColor(argResults![_optColor] as String?, strings);
+    final color = readColor();
     if (color.invalid) return exitRejected;
     final clearColor = argResults![_optClearColor] as bool;
     if (clearColor && color.value != null) {
@@ -210,15 +250,23 @@ class _TagModifyCommand extends _TagCommand {
       final tags = DriftTagRepository(db);
       final existing = await tags.definitionByName(name);
       if (existing == null) {
-        stderr.writeln(strings.noSuchTag(name));
-        return exitRejected;
+        return fail(
+          exitRejected,
+          ConsoleFailure.tagMissing,
+          strings.noSuchTag(name),
+          subject: name,
+        );
       }
       // 이름을 옮길 자리가 이미 차 있으면 유니크 제약에 걸린다. 예외로 터지기 전에
       // 사유를 말한다.
       if (rename != null && rename != name) {
         if (await tags.definitionByName(rename) != null) {
-          stderr.writeln(strings.nameTaken(rename));
-          return exitRejected;
+          return fail(
+            exitRejected,
+            ConsoleFailure.nameTaken,
+            strings.nameTaken(rename),
+            subject: rename,
+          );
         }
       }
       final updated = existing.copyWith(
@@ -273,8 +321,12 @@ class _TagDeleteCommand extends _TagCommand {
       final existing = await tags.definitionByName(name);
       final id = existing?.id;
       if (existing == null || id == null) {
-        stderr.writeln(strings.noSuchTag(name));
-        return exitRejected;
+        return fail(
+          exitRejected,
+          ConsoleFailure.tagMissing,
+          strings.noSuchTag(name),
+          subject: name,
+        );
       }
       // 함께 지워지는 부여의 수를 **지우기 전에** 센다. 되돌릴 수 없는 조작이라
       // 무엇이 사라졌는지는 말해 줘야 한다.
@@ -303,6 +355,7 @@ class _TagDeleteCommand extends _TagCommand {
 class _TagShowCommand extends CliCommand {
   _TagShowCommand(super.strings) {
     addWindowOptions(argParser, strings);
+    addCountOption(argParser, strings);
   }
 
   @override
@@ -320,8 +373,7 @@ class _TagShowCommand extends CliCommand {
 
     final window = resolveWindow(argResults!, strings);
     if (window case WindowUnreadable(:final message)) {
-      stderr.writeln(message);
-      return exitUsage;
+      return fail(exitUsage, ConsoleFailure.badWindow, message);
     }
 
     return withWorkspace((root, db) async {
@@ -335,12 +387,17 @@ class _TagShowCommand extends CliCommand {
       } else {
         final one = await tags.definitionByName(rest.first);
         if (one == null) {
-          stderr.writeln(strings.noSuchTag(rest.first));
-          return exitRejected;
+          return fail(
+            exitRejected,
+            ConsoleFailure.tagMissing,
+            strings.noSuchTag(rest.first),
+            subject: rest.first,
+          );
         }
         definitions = [one];
       }
 
+      if (!writeCount(definitions.length)) return exitOk;
       if (asJson) {
         writeJson([for (final d in definitions) definitionToJson(d, counts)]);
       } else {
@@ -358,6 +415,8 @@ class _TagShowCommand extends CliCommand {
 
 /// 정의 하나의 사람용 한 줄. 없는 성질은 자리를 비우지 않고 표식을 둔다 — 열이 밀리면
 /// `cut`·`awk`로 집어 쓸 수 없다.
+///
+/// **id는 맨 뒤에 둔다** — 앞에 끼우면 이름을 집던 자리가 밀린다.
 String definitionLine(
   TagDefinition definition,
   Map<int, int> counts,
@@ -371,6 +430,7 @@ String definitionLine(
     definition.allowMultiple ? strings.labelMultiple : strings.labelNone,
     color == null ? strings.labelNone : tagColorToHex(color),
     '${id == null ? 0 : counts[id] ?? 0}',
+    id == null ? strings.labelNone : '$id',
   ].join('\t');
 }
 
@@ -381,6 +441,7 @@ List<String> definitionColumns(ConsoleStrings strings) => [
   strings.columnMultiple,
   strings.columnColor,
   strings.columnAssignments,
+  strings.columnId,
 ];
 
 /// 정의 하나의 기계용 표현.
@@ -396,6 +457,8 @@ Map<String, dynamic> definitionToJson(
     _kAllowMultiple: definition.allowMultiple,
     if (color != null) _kColor: tagColorToHex(color),
     _kAssignments: id == null ? 0 : counts[id] ?? 0,
+    // 저장된 정의를 짚는 내부 식별자. 아직 저장 전이면 없다.
+    if (id != null) _kId: id,
   };
 }
 
@@ -411,24 +474,18 @@ Future<Map<int, int>> _countsByTag(AppDatabase db) async {
   return counts;
 }
 
+/// 고를 수 있는 값 유형의 목록. **이름은 열거에서 뽑는다** — 손으로 적어 두면 유형이
+/// 늘었을 때 도움말만 옛것으로 남는다.
+String valueTypesHelp(ConsoleStrings strings) =>
+    '${strings.valueTypesHeading}\n'
+    '  ${[for (final t in TagValueType.values) t.name].join(', ')}';
+
 TagValueType? _valueTypeByName(String? name) {
   if (name == null) return null;
   for (final type in TagValueType.values) {
     if (type.name == name) return type;
   }
   return null;
-}
-
-/// `--color`를 저장 표현으로 읽는다. 적지 않았으면 둘 다 비어 있고, 읽지 못했으면
-/// [_Color.invalid]가 참이며 사유는 이미 냈다.
-_Color _parseColor(String? raw, ConsoleStrings strings) {
-  if (raw == null) return const _Color();
-  final parsed = parseTagColorHex(raw);
-  if (parsed == null) {
-    stderr.writeln(strings.badColor(raw));
-    return const _Color(invalid: true);
-  }
-  return _Color(value: parsed);
 }
 
 class _Color {
@@ -452,6 +509,7 @@ const String _kValueType = 'valueType';
 const String _kAllowMultiple = 'allowMultiple';
 const String _kColor = 'color';
 const String _kAssignments = 'assignments';
+const String _kId = 'id';
 const String _kAction = 'action';
 
 // 기계용 출력이 무엇을 했는지 말하는 값. **사람용 동사와 갈라 둔다** — 받는 쪽이

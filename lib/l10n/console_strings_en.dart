@@ -1,6 +1,7 @@
 /// 콘솔 문구의 영어 번역본. 원문은 [ConsoleStringsKo]다.
 library;
 
+import '../domain/entities/file_filter.dart';
 import 'console_strings.dart';
 
 class ConsoleStringsEn extends ConsoleStrings {
@@ -57,10 +58,59 @@ class ConsoleStringsEn extends ConsoleStrings {
   @override
   String get optAutoScanHelp =>
       'Scan once and judge again when the index does not know the target.';
+  @override
+  String get optCountHelp => 'Emit just the count instead of the listing.';
+  @override
+  String get labelTotal => 'total';
 
   @override
   String get optFilterHelp =>
       'Pick targets by tag condition. Same syntax as the filter row in the app.';
+  @override
+  String get optFilterHelpHelp =>
+      'Emit the syntax of conditions, sorting and grouping.';
+  @override
+  String get filterHelpHeading =>
+      'Condition syntax — the same as the condition row in the app.';
+  @override
+  String filterHelpChunks(String quote, String escape) =>
+      'One chunk is one condition, and chunks are split on whitespace.\n'
+      'Wrap names and values holding a space in $quote. '
+      'Put $escape before a $quote or a $escape of your own.';
+  @override
+  String filterHelpConditions(String excludePrefix, String orPrefix) =>
+      '  <tag>                     the tag is attached\n'
+      '  <tag><operator><value>    compare the value\n'
+      '  $excludePrefix<tag condition>           hide what matches (exclude)\n'
+      '  $orPrefix<tag condition>           join the previous condition (OR)\n'
+      '\n'
+      '  Every condition must hold; joined ones need only one of them.\n'
+      '\n'
+      '  operators';
+  @override
+  String filterHelpAlias(String aliases, String canonical) =>
+      '($aliases reads as $canonical too)';
+  @override
+  String filterOperatorName(FilterOperator op) => switch (op) {
+    FilterOperator.exists => 'exists',
+    FilterOperator.equals => 'equals',
+    FilterOperator.notEquals => 'differs',
+    FilterOperator.lessThan => 'less than',
+    FilterOperator.lessOrEqual => 'at most',
+    FilterOperator.greaterThan => 'greater than',
+    FilterOperator.greaterOrEqual => 'at least',
+    FilterOperator.contains => 'contains',
+    FilterOperator.notContains => 'does not contain',
+  };
+  @override
+  String filterHelpSort(String descendingPrefix, String randomPrefix) =>
+      '  <tag>                     ascending\n'
+      '  $descendingPrefix<tag>                    descending\n'
+      '  $randomPrefix<tag>                    random';
+  @override
+  String filterHelpGroup(String folderHierarchyName) =>
+      '  <tag>                     group by that tag value\n'
+      '  $folderHierarchyName          group by folder hierarchy';
   @override
   String get optSortHelp => 'Sort by tag value (earlier criteria win).';
   @override
@@ -126,6 +176,8 @@ class ConsoleStringsEn extends ConsoleStrings {
   String get columnEditable => 'editable';
   @override
   String get columnId => 'id';
+  @override
+  String get columnTagId => 'tag id';
 
   @override
   String get tagDescription =>
@@ -158,6 +210,8 @@ class ConsoleStringsEn extends ConsoleStrings {
   @override
   String get optTypeHelp =>
       'Change the value type. Existing values stay, so they may not read as the new type.';
+  @override
+  String get valueTypesHeading => 'Value types:';
 
   @override
   String get verbAdded => 'added';
@@ -227,7 +281,10 @@ class ConsoleStringsEn extends ConsoleStrings {
       'Keep what was written as an unresolved link when the target is not found.';
   @override
   String get optSystemHelp =>
-      'Emit derived system tags too. By default they show for people and not for machines.';
+      'Emit derived system tags too. By default they show when listing and not when exporting.';
+  @override
+  String get optExportHelp =>
+      'Emit a command file (JSON) another workspace can eat. import reads this format.';
 
   @override
   String get labelUser => 'user';
@@ -286,6 +343,14 @@ class ConsoleStringsEn extends ConsoleStrings {
   String get needImageFile => 'One image file to register is required.';
   @override
   String notAnImage(String path) => 'Could not read it as an image: $path';
+
+  @override
+  String get pruneDescription =>
+      'Drop stale references to retired system tags from view settings and presets.';
+  @override
+  String get labelViewSettings => 'view settings';
+  @override
+  String get labelPresets => 'presets';
 
   @override
   String get statusDescription =>

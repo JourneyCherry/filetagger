@@ -61,6 +61,85 @@ int exitCodeFor(List<ExternalCommandResult> results) {
   return held ? exitHeld : exitOk;
 }
 
+// ── 명령이 서기도 전에 끝난 실패 ──
+
+/// 콘솔이 낸 실패의 갈래.
+///
+/// **문장이 아니라 이름**이라 받는 도구가 분기할 수 있다 — 적용 판정의
+/// [CommandFailureReason]과 같은 원칙이고, 그쪽이 덮지 못하는 실패(명령을 세우기도
+/// 전에 끝나는 것)를 여기 든다. 종료 코드만으로는 "잘못 썼다" 안의 무엇이 잘못됐는지가
+/// 갈리지 않으므로, `--json`을 준 실행은 이 이름을 받는다.
+enum ConsoleFailure {
+  /// 가리킨 자리가 관리 폴더가 아니다.
+  notWorkspace,
+
+  /// 관리 폴더를 읽지 못했다.
+  workspaceUnreadable,
+
+  /// 다른 프로세스가 이미 전체 스캔을 돌리고 있다.
+  scanBusy,
+
+  /// 파일을 읽지 못했다.
+  fileUnreadable,
+
+  /// 이미지로 읽히지 않는다.
+  notAnImage,
+
+  /// 명령을 잘못 썼다(인자 수·모르는 옵션). [subject]가 파서의 말을 싣는다.
+  usage,
+
+  /// 낼 수량을 정하는 옵션을 잘못 썼다.
+  badWindow,
+
+  /// 조건 조각을 읽지 못했다.
+  badCondition,
+
+  /// 조건에 아무것도 걸리지 않았다.
+  noMatch,
+
+  /// 인덱스에 그 대상이 없다.
+  noSuchTarget,
+
+  /// 시스템 태그는 콘솔이 다루지 않는다.
+  systemTag,
+
+  /// 그 이름의 태그가 없다.
+  tagMissing,
+
+  /// 옮겨 갈 이름을 이미 다른 태그가 쓰고 있다.
+  nameTaken,
+
+  /// 같은 이름의 태그가 다른 값 유형으로 이미 있다.
+  valueTypeMismatch,
+
+  /// 값 유형 이름을 모른다.
+  unknownValueType,
+
+  /// 색을 읽지 못했다.
+  badColor,
+
+  /// 낼 문구를 가진 언어가 아니다.
+  unknownLanguage,
+
+  /// 설정 키 이름을 모른다.
+  unknownConfigKey,
+
+  /// 계정을 알 수 없어 계정별 자리에 적지 못했다.
+  noAccount,
+
+  /// 설정 파일을 쓰지 못했다.
+  configWriteFailed,
+}
+
+/// 실패 하나의 기계용 표현. 판정의 실패([resultToJson]의 `failure`)와 **같은 키를
+/// 쓴다** — 받는 쪽이 어디서 온 실패든 같은 자리를 보면 된다.
+Map<String, dynamic> consoleFailureToJson(
+  ConsoleFailure reason, {
+  String? subject,
+}) => {
+  kFailure: {kReason: reason.name, if (subject != null) kSubject: subject},
+};
+
 // ── 판정의 두 표현 ──
 
 /// 판정 하나의 기계용 표현. **명령 파일과 같은 모양에 결과만 얹는다** — 거부된 항목은
@@ -114,7 +193,7 @@ String unreadableLine(UnreadableCommand record, ConsoleStrings strings) =>
 String branchLabel(String branch, String? subject) =>
     subject == null ? branch : '$branch: $subject';
 
-/// 판정 묶음의 맺음 줄. 항목이 여럿일 때만 뜻이 있다.
+/// 판정 묶음의 갯수 줄. 사람용 출력의 맨 윗줄이다.
 String summaryLine(
   List<ExternalCommandResult> results,
   ConsoleStrings strings, {
@@ -143,6 +222,10 @@ String summaryLine(
 // 명령 필드와 섞이지 않는 이름을 쓴다.
 
 const String kResult = 'result';
+
+/// 목록 대신 갯수만 낼 때의 유일한 키. 조회가 늘 배열을 내는 것과 가르려고 객체에
+/// 담는다 — 받는 쪽이 모양만 보고 어느 쪽인지 안다.
+const String kCount = 'count';
 const String kFailure = 'failure';
 const String kReason = 'reason';
 const String kDetail = 'detail';

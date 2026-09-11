@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/file_filter.dart';
 import '../../domain/entities/tag_definition.dart';
 import '../../domain/entities/tag_value_type.dart';
+import '../../domain/usecases/filter_query_text.dart';
 import '../../l10n/app_localizations.dart';
 import '../tag_visuals.dart';
 import 'tag_capsule.dart';
@@ -52,9 +53,7 @@ class FilterConditionChip extends StatelessWidget {
       background: colors.background,
       foreground: colors.foreground,
       name: def == null ? l10n.chipDeletedTag : def.name,
-      namePrefix: condition.exclude
-          ? Icon(Icons.block, size: kCapsuleIconSize, color: colors.foreground)
-          : null,
+      namePrefix: _namePrefix(condition, colors.foreground),
       value: value == null ? null : Text(value),
       onTap: onTap,
       dragIndex: dragIndex,
@@ -62,6 +61,27 @@ class FilterConditionChip extends StatelessWidget {
       margin: margin,
     );
   }
+}
+
+/// 캡슐 이름 앞에 붙는 표식들. 차례는 텍스트 조각의 접두사와 같다 — 묶음 잇기가
+/// 먼저이고 제외가 뒤다.
+///
+/// **묶음 잇기(OR)는 아직 칩으로 고칠 수 없다**(텍스트 입력과 콘솔에서만 붙는다).
+/// 그래도 보이기는 해야 한다 — 보이지 않으면 칩을 끌어 옮겼을 때 무엇이 달라졌는지
+/// 알 수 없고, 첫 자리로 옮겨 뜻을 잃은 것도 눈에 띄지 않는다.
+Widget? _namePrefix(FilterCondition condition, Color color) {
+  final marks = <Widget>[
+    if (condition.orWithPrevious)
+      Text(
+        kFilterOrPrefix,
+        style: TextStyle(color: color, fontWeight: FontWeight.bold),
+      ),
+    if (condition.exclude)
+      Icon(Icons.block, size: kCapsuleIconSize, color: color),
+  ];
+  if (marks.isEmpty) return null;
+  if (marks.length == 1) return marks.first;
+  return Row(mainAxisSize: MainAxisSize.min, children: marks);
 }
 
 /// 조건 캡슐의 배경·글자색. 캡슐에 얹는 조각(제외 아이콘 등)이 같은 색을 쓰도록

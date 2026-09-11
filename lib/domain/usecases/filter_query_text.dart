@@ -27,6 +27,19 @@ import 'query_text_syntax.dart';
 /// 조건을 제외 조건으로 만드는, 태그 이름 앞의 부정 접두사.
 const String kFilterExcludePrefix = '-';
 
+/// 조건을 **앞 조건과 한 묶음으로** 잇는 접두사(OR).
+///
+/// 조각을 나누는 규칙은 그대로 두고 접두사 하나로 표현하는 것이 요점이다 — 조각
+/// 사이에 홀로 서는 연산자를 두면 "조각 하나가 조건 하나"가 깨지고, 되펼침·자동완성·
+/// 캡슐이 모두 그 예외를 알아야 한다.
+///
+/// 두 접두사를 함께 쓸 때는 **이것이 앞**이다(`|-태그`) — 묶음을 잇는 것이 먼저이고
+/// 제외는 그 조건 자신의 성질이다.
+const String kFilterOrPrefix = '|';
+
+/// 태그 이름 앞에 올 수 있는 접두사 전부. 이 글자로 시작하는 이름은 인용해야 한다.
+const Set<String> kFilterPrefixes = {kFilterOrPrefix, kFilterExcludePrefix};
+
 /// 값 비교 연산자의 정식 입력 토큰. 프로그래밍 언어의 비교 연산자를 따른다.
 /// [FilterOperator.exists]는 토큰이 없다(이름만 쓴다). 포매터는 이 표기로 되펼친다.
 const Map<FilterOperator, String> _operatorTokens = <FilterOperator, String>{
@@ -42,9 +55,11 @@ const Map<FilterOperator, String> _operatorTokens = <FilterOperator, String>{
 
 /// 입력에서만 받아 주는 별칭. 검색 질의 언어의 관용대로 같음을 한 글자로 쓰는
 /// 사람이 있어 함께 읽는다. 되펼칠 땐 정식 토큰으로 정규화된다.
-const Map<String, FilterOperator> _operatorAliases = <String, FilterOperator>{
-  '=': FilterOperator.equals,
-};
+///
+/// 문법 안내가 이 표를 읽어 "이것도 받는다"를 낸다 — 받는 것을 손으로 또 적어 두면
+/// 표를 고쳤을 때 안내만 옛것으로 남는다.
+const Map<String, FilterOperator> filterOperatorAliases =
+    <String, FilterOperator>{'=': FilterOperator.equals};
 
 /// [op]의 정식 입력 토큰. 값이 없는 존재 연산이면 null(태그 이름만으로 표현된다).
 String? filterOperatorToken(FilterOperator op) => _operatorTokens[op];
@@ -54,7 +69,7 @@ String? filterOperatorToken(FilterOperator op) => _operatorTokens[op];
 final List<MapEntry<String, FilterOperator>> _matchOrder =
     <MapEntry<String, FilterOperator>>[
       for (final e in _operatorTokens.entries) MapEntry(e.value, e.key),
-      ..._operatorAliases.entries,
+      ...filterOperatorAliases.entries,
     ]..sort((a, b) => b.key.length.compareTo(a.key.length));
 
 /// 연산자 토큰이 시작될 수 있는 글자들. 인용하지 않은 태그 이름은 여기서 끝난다.
@@ -134,13 +149,27 @@ FileFilter filterFromSegments(Iterable<FilterQuerySegment> segments) =>
       ],
     );
 
-FilterQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
+/// 조각 앞에 붙은 접두사들과 그 뒤(이름이 시작하는 자리).
+///
+/// 파싱과 자동완성이 **같은 함수를 본다** — 자리를 따로 세면 접두사가 늘었을 때 한쪽만
+/// 따라오지 못해, 커서가 이름 자리인지 아닌지가 파싱과 어긋난다.
+({bool orWithPrevious, bool exclude, int end}) _readPrefixes(String raw) {
   var cursor = 0;
-  var exclude = false;
-  if (raw.startsWith(kFilterExcludePrefix)) {
-    exclude = true;
-    cursor = kFilterExcludePrefix.length;
-  }
+  // 묶음을 잇는 것이 먼저이고, 제외는 그 조건 자신의 성질이다.
+  final or = raw.startsWith(kFilterOrPrefix);
+  if (or) cursor = kFilterOrPrefix.length;
+  final exclude = raw.startsWith(kFilterExcludePrefix, cursor);
+  if (exclude) cursor += kFilterExcludePrefix.length;
+  return (orWithPrevious: or, exclude: exclude, end: cursor);
+}
+
+int _prefixLength(String raw) => _readPrefixes(raw).end;
+
+FilterQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
+  final prefixes = _readPrefixes(raw);
+  final orWithPrevious = prefixes.orWithPrevious;
+  final exclude = prefixes.exclude;
+  var cursor = prefixes.end;
 
   final name = readClosedQueryField(
     raw,
@@ -158,7 +187,11 @@ FilterQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
   if (cursor == raw.length) {
     return FilterQueryCondition(
       raw,
-      FilterCondition(tagDefinitionId: def.id!, exclude: exclude),
+      FilterCondition(
+        tagDefinitionId: def.id!,
+        exclude: exclude,
+        orWithPrevious: orWithPrevious,
+      ),
     );
   }
 
@@ -196,6 +229,7 @@ FilterQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
       operator: op,
       operand: operand,
       exclude: exclude,
+      orWithPrevious: orWithPrevious,
     ),
   );
 }
@@ -235,6 +269,7 @@ String? _normalizeOperand(TagValueType type, String value) {
 /// 그대로 다시 파싱하면 같은 조건이 나온다.
 String formatFilterCondition(FilterCondition condition, TagDefinition def) {
   final buffer = StringBuffer();
+  if (condition.orWithPrevious) buffer.write(kFilterOrPrefix);
   if (condition.exclude) buffer.write(kFilterExcludePrefix);
   buffer.write(filterTagToken(def));
   final token = filterOperatorToken(condition.operator);
@@ -266,7 +301,7 @@ String formatFilterQuery(
 String filterTagToken(TagDefinition def) => quoteQueryToken(
   def.name,
   reserved: _operatorStartChars,
-  reservedPrefixes: {kFilterExcludePrefix},
+  reservedPrefixes: kFilterPrefixes,
 );
 
 // ── 자동완성 ──
@@ -345,9 +380,7 @@ FilterQueryCompletions filterQueryCompletions(
   final chunk = range == null ? '' : text.substring(range.start, range.end);
   final local = at - chunkStart;
 
-  final nameStart = chunk.startsWith(kFilterExcludePrefix)
-      ? kFilterExcludePrefix.length
-      : 0;
+  final nameStart = _prefixLength(chunk);
   final name = readQueryField(chunk, nameStart, stopChars: _operatorStartChars);
 
   // 이름 끝까지는 태그 자리다(부정 접두사 위의 커서도 여기 포함된다).

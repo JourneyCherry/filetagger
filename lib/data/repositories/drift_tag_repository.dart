@@ -72,6 +72,15 @@ class DriftTagRepository implements TagRepository {
   }
 
   @override
+  Future<int> deleteDanglingAssignments() async {
+    final definitions = _db.selectOnly(_db.tagDefinitions)
+      ..addColumns([_db.tagDefinitions.id]);
+    return (_db.delete(
+      _db.tagAssignments,
+    )..where((t) => t.tagDefinitionId.isNotInQuery(definitions))).go();
+  }
+
+  @override
   Future<void> mergeDefinitions({
     required int targetId,
     required List<int> sourceIds,

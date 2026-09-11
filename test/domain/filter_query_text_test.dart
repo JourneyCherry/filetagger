@@ -26,6 +26,7 @@ const _operatorish = TagDefinition(
   valueType: TagValueType.number,
 );
 const _dashed = TagDefinition(id: 7, name: '-급', valueType: TagValueType.text);
+const _piped = TagDefinition(id: 8, name: '|급', valueType: TagValueType.text);
 
 /// 시스템 태그는 음수 id를 쓰며 이름 해석 대상에 함께 들어간다.
 const _system = TagDefinition(
@@ -43,6 +44,7 @@ const _defs = <TagDefinition>[
   _spaced,
   _operatorish,
   _dashed,
+  _piped,
   _system,
 ];
 
@@ -84,6 +86,25 @@ void main() {
 
     test('부정 접두사는 제외 조건으로 읽는다', () {
       expect(_condition('-숨김').exclude, isTrue);
+    });
+
+    test('이어붙임 접두사는 앞 조건과 한 묶음으로 읽는다', () {
+      expect(_condition('|숨김').orWithPrevious, isTrue);
+      expect(_condition('숨김').orWithPrevious, isFalse);
+    });
+
+    test('두 접두사를 함께 쓰면 이어붙임이 앞이다', () {
+      final c = _condition('|-숨김');
+      expect(c.orWithPrevious, isTrue);
+      expect(c.exclude, isTrue);
+      // 반대 차례는 접두사가 아니라 이름의 일부로 읽혀 태그를 찾지 못한다.
+      expect(_error('-|숨김'), FilterQueryError.unknownTag);
+    });
+
+    test('접두사 글자로 시작하는 이름은 인용해 짚는다', () {
+      final c = _condition('"|급"');
+      expect(c.tagDefinitionId, _piped.id);
+      expect(c.orWithPrevious, isFalse);
     });
 
     test('라벨 태그는 존재/미존재 두 형태뿐이다', () {
@@ -327,6 +348,7 @@ void main() {
       expect(parsed.operator, condition.operator, reason: text);
       expect(parsed.operand, condition.operand, reason: text);
       expect(parsed.exclude, condition.exclude, reason: text);
+      expect(parsed.orWithPrevious, condition.orWithPrevious, reason: text);
     }
 
     test('존재·제외·값 비교 조건이 왕복한다', () {
@@ -349,6 +371,30 @@ void main() {
           operator: FilterOperator.lessThan,
           operand: '-5',
           exclude: true,
+        ),
+        _number,
+      );
+    });
+
+    test('이어붙인 조건이 왕복한다', () {
+      roundTrip(
+        const FilterCondition(tagDefinitionId: 1, orWithPrevious: true),
+        _label,
+      );
+      roundTrip(
+        const FilterCondition(
+          tagDefinitionId: 1,
+          exclude: true,
+          orWithPrevious: true,
+        ),
+        _label,
+      );
+      roundTrip(
+        const FilterCondition(
+          tagDefinitionId: 3,
+          operator: FilterOperator.greaterOrEqual,
+          operand: '4',
+          orWithPrevious: true,
         ),
         _number,
       );

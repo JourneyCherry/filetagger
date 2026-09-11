@@ -15,6 +15,7 @@ library;
 import 'dart:convert';
 
 import '../../domain/entities/external_tag_command.dart';
+import '../../domain/entities/tag_color_format.dart';
 import '../../domain/entities/tag_value_type.dart';
 import '../settings/query_json.dart';
 
@@ -87,7 +88,7 @@ enum CommandReadError {
   /// 다중 허용이 참/거짓이 아니다.
   badAllowMultiple,
 
-  /// 색이 정수(ARGB)가 아니다.
+  /// 색을 읽지 못했다(16진 표기도 저장 정수도 아니다).
   badColor,
 }
 
@@ -206,8 +207,20 @@ CommandRecord _decodeItem(Object? element) {
   if (rawAllowMultiple != null && rawAllowMultiple is! bool) {
     return const UnreadableCommand(CommandReadError.badAllowMultiple);
   }
+  // 색은 **16진 표기로 낸다**(사람이 열어 고치는 자리라 정수는 읽히지 않는다).
+  // 읽기는 저장 정수도 함께 받는다 — 이 형식이 정수만 내던 시절의 파일이 밖에 있다.
   final rawColor = source[_kColor];
-  if (rawColor != null && rawColor is! int) {
+  final int? color;
+  if (rawColor == null) {
+    color = null;
+  } else if (rawColor is int) {
+    color = rawColor;
+  } else if (rawColor is String) {
+    color = parseTagColorHex(rawColor);
+    if (color == null) {
+      return const UnreadableCommand(CommandReadError.badColor);
+    }
+  } else {
     return const UnreadableCommand(CommandReadError.badColor);
   }
 
@@ -237,7 +250,7 @@ CommandRecord _decodeItem(Object? element) {
       missingKeyword: missingKeyword,
       missingLink: missingLink,
       createAllowMultiple: rawAllowMultiple as bool?,
-      createColor: rawColor as int?,
+      createColor: color,
     ),
   );
 }
@@ -259,14 +272,17 @@ String encodeCommandObjects(
 }
 
 /// 명령 하나의 JSON 객체 표현.
+///
+/// **[ExternalTagCommand.valueKind]는 내지 않는다**(읽기는 그대로 받는다 — 사용자
+/// 결정). 링크가 아닌 태그에서도 값만 있으면 붙어 잡음이 되던 필드라 걷어냈고, 그
+/// 대가로 **키워드를 가리키는 링크가 왕복하지 못한다** — 받는 쪽이 기본값(경로)으로
+/// 읽어 대상을 찾지 못하고, [MissingLinkPolicy.keep]이면 미해결 링크로 앉는다.
 Map<String, dynamic> commandToJson(ExternalTagCommand command) => {
   _kPath: command.targetPath,
   _kNodeType: command.targetKind.name,
   _kOp: command.operation.name,
   _kTag: command.tagName,
   if (command.value != null) _kValue: command.value,
-  // 링크 대상 판별은 값이 있을 때만 뜻이 있다(없는 값에 대한 판별은 잡음이다).
-  if (command.value != null) _kValueNodeType: command.valueKind.name,
   _kMissing: command.missingTag.name,
   _kMissingKeyword: command.missingKeyword.name,
   _kMissingLink: command.missingLink.name,
@@ -274,7 +290,7 @@ Map<String, dynamic> commandToJson(ExternalTagCommand command) => {
     _kValueType: command.createValueType!.name,
   if (command.createAllowMultiple != null)
     _kAllowMultiple: command.createAllowMultiple,
-  if (command.createColor != null) _kColor: command.createColor,
+  if (command.createColor != null) _kColor: tagColorToHex(command.createColor!),
 };
 
 // ── 직렬화 세부 ──

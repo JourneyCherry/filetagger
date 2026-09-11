@@ -18,18 +18,64 @@ import '../domain/entities/file_sort.dart';
 import '../domain/entities/tag_definition.dart';
 import '../domain/usecases/filter_query_text.dart';
 import '../domain/usecases/group_query_text.dart';
+import '../domain/usecases/query_text_syntax.dart';
 import '../domain/usecases/sort_query_text.dart';
 import '../l10n/console_strings.dart';
 import '../l10n/system_tag_names.dart';
 
-/// 대상 집합을 고르는 조건 하나를 [parser]에 붙인다.
+/// 대상 집합을 고르는 조건 하나를 [parser]에 붙인다. 문법 안내도 함께 단다 —
+/// 조건을 칠 수 있는 자리면 어디서나 문법을 물어볼 수 있어야 한다.
 void addFilterOption(ArgParser parser, ConsoleStrings strings) {
-  parser.addOption(
-    optFilter,
-    valueHelp: strings.tokenCondition,
-    help: strings.optFilterHelp,
-  );
+  parser
+    ..addOption(
+      optFilter,
+      valueHelp: strings.tokenCondition,
+      help: strings.optFilterHelp,
+    )
+    ..addFlag(optFilterHelp, negatable: false, help: strings.optFilterHelpHelp);
 }
+
+/// 조건 문법 안내 한 벌.
+///
+/// **토큰은 문법의 단일 출처에서 뽑는다** — 기호를 문구에 손으로 적어 두면 문법을
+/// 고쳤을 때 안내만 옛것으로 남는다(`CLAUDE.md`의 "주석·문서에 실제 값 금지"와 같은
+/// 자리다). 문구를 고르는 것은 언어를 아는 [ConsoleStrings]의 몫이고, 여기서는 그
+/// 문구에 코드가 쥔 기호를 끼워 넣는다.
+String filterHelpText(ConsoleStrings strings, {required String localeName}) {
+  final rows = <String>[
+    for (final op in FilterOperator.values)
+      if (filterOperatorToken(op) case final token?)
+        '  ${token.padRight(_tokenColumnWidth)}${strings.filterOperatorName(op)}',
+  ];
+  return [
+    strings.filterHelpHeading,
+    '',
+    strings.filterHelpChunks(kQueryQuote, kQueryEscape),
+    '',
+    '--$optFilter',
+    strings.filterHelpConditions(kFilterExcludePrefix, kFilterOrPrefix),
+    ...rows,
+    '  ${strings.filterHelpAlias(_equalsAliases, _canonicalEquals)}',
+    '',
+    '--$optSort',
+    strings.filterHelpSort(kSortDescendingPrefix, kSortRandomPrefix),
+    '',
+    '--$optGroup',
+    strings.filterHelpGroup(folderHierarchyNameFor(localeName)),
+  ].join('\n');
+}
+
+/// 정식 토큰이 아니라 **입력에서만 받는** 같음의 별칭들.
+final String _equalsAliases = [
+  for (final entry in filterOperatorAliases.entries)
+    if (entry.value == FilterOperator.equals) entry.key,
+].join(' ');
+
+/// 별칭이 정규화되어 되펼쳐지는 정식 토큰.
+final String _canonicalEquals = filterOperatorToken(FilterOperator.equals)!;
+
+/// 안내 표에서 토큰 칸이 차지하는 너비. 뜻이 같은 자리에서 시작해야 훑어 읽힌다.
+const int _tokenColumnWidth = 6;
 
 /// 낼 차례를 정하는 조건 둘을 [parser]에 붙인다.
 void addSortGroupOptions(ArgParser parser, ConsoleStrings strings) {
@@ -147,3 +193,4 @@ String _problem(String option, String text, String reason) =>
 const String optFilter = 'filter';
 const String optSort = 'sort';
 const String optGroup = 'group';
+const String optFilterHelp = 'filter-help';

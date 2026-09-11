@@ -14,6 +14,7 @@
 /// 두었을 때처럼 키가 조용히 비는 자리가 없다.
 library;
 
+import '../domain/entities/file_filter.dart';
 import 'console_strings_en.dart';
 import 'console_strings_ko.dart';
 
@@ -79,6 +80,10 @@ abstract class ConsoleStrings {
   String get optJsonHelp;
   String get optLangHelp;
   String get optAutoScanHelp;
+  String get optCountHelp;
+
+  /// 사람용 출력 맨 윗줄에서 낸 것이 몇 개인지 말하는 표식.
+  String get labelTotal;
 
   // ── 조건 계층 ──
 
@@ -88,6 +93,32 @@ abstract class ConsoleStrings {
 
   /// 조건 조각을 읽지 못했음을 알리는 줄 앞머리.
   String get labelBadCondition;
+
+  // ── 조건 문법 안내 ──
+  //
+  // **기호는 문구에 적지 않고 받는다.** 문법의 단일 출처는 파서 쪽 토큰 표이고,
+  // 여기서 하는 일은 그 기호에 말을 입히는 것뿐이다.
+
+  String get optFilterHelpHelp;
+  String get filterHelpHeading;
+
+  /// 한 줄이 조각으로 나뉘는 규칙(인용부호와 탈출 문자).
+  String filterHelpChunks(String quote, String escape);
+
+  /// 조건 하나가 갖는 모양(존재·값 비교·제외)과, 앞 조건과 묶는 이어붙임.
+  String filterHelpConditions(String excludePrefix, String orPrefix);
+
+  /// 정식 토큰은 아니지만 입력에서 받아 주는 표기.
+  String filterHelpAlias(String aliases, String canonical);
+
+  /// 연산자 하나의 짧은 이름. 표의 오른쪽 칸에 앉는다.
+  String filterOperatorName(FilterOperator op);
+
+  /// 정렬 조각의 방향 접두사.
+  String filterHelpSort(String descendingPrefix, String randomPrefix);
+
+  /// 묶기 조각이 받는 것(태그 이름과 폴더 계층 키).
+  String filterHelpGroup(String folderHierarchyName);
 
   // ── 낼 수량 ──
 
@@ -129,6 +160,9 @@ abstract class ConsoleStrings {
   String get columnEditable;
   String get columnId;
 
+  /// 부여를 낼 때 그 태그 **정의**를 짚는 id 열(줄의 id는 부여 자신의 것이다).
+  String get columnTagId;
+
   // ── `tag` ──
 
   String get tagDescription;
@@ -143,6 +177,9 @@ abstract class ConsoleStrings {
   String get optClearColorHelp;
   String get optRenameHelp;
   String get optTypeHelp;
+
+  /// 도움말 꼬리에 붙는 값 유형 후보 목록의 머리.
+  String get valueTypesHeading;
 
   String get verbAdded;
   String get verbKept;
@@ -179,6 +216,7 @@ abstract class ConsoleStrings {
   String get optCreateKeywordHelp;
   String get optKeepLinkHelp;
   String get optSystemHelp;
+  String get optExportHelp;
 
   String get labelUser;
   String get labelSystem;
@@ -213,6 +251,14 @@ abstract class ConsoleStrings {
   String get imageDescription;
   String get needImageFile;
   String notAnImage(String path);
+
+  // ── `prune` ──
+
+  String get pruneDescription;
+
+  /// 걷어낸 참조가 어디 있던 것인지 가르는 표식.
+  String get labelViewSettings;
+  String get labelPresets;
 
   // ── `status` ──
 

@@ -96,6 +96,67 @@ void main() {
       expect(filter.matches([_tag(1, TagValueType.label, null)]), isFalse);
     });
 
+    test('이어붙인 조건은 하나만 만족해도 그 묶음이 선다(OR)', () {
+      const filter = FileFilter(
+        conditions: [
+          FilterCondition(tagDefinitionId: 1),
+          FilterCondition(tagDefinitionId: 2, orWithPrevious: true),
+        ],
+      );
+      expect(filter.matches([_tag(1, TagValueType.label, null)]), isTrue);
+      expect(filter.matches([_tag(2, TagValueType.label, null)]), isTrue);
+      expect(filter.matches(const []), isFalse);
+    });
+
+    test('묶음끼리는 여전히 모두 만족해야 한다', () {
+      // (1 또는 2) 그리고 3.
+      const filter = FileFilter(
+        conditions: [
+          FilterCondition(tagDefinitionId: 1),
+          FilterCondition(tagDefinitionId: 2, orWithPrevious: true),
+          FilterCondition(tagDefinitionId: 3),
+        ],
+      );
+      expect(
+        filter.matches([
+          _tag(2, TagValueType.label, null),
+          _tag(3, TagValueType.label, null),
+        ]),
+        isTrue,
+      );
+      expect(filter.matches([_tag(2, TagValueType.label, null)]), isFalse);
+      expect(filter.matches([_tag(3, TagValueType.label, null)]), isFalse);
+    });
+
+    test('첫 조건의 이어붙임은 이을 앞이 없어 제 묶음을 연다', () {
+      const filter = FileFilter(
+        conditions: [
+          FilterCondition(tagDefinitionId: 1, orWithPrevious: true),
+          FilterCondition(tagDefinitionId: 2),
+        ],
+      );
+      expect(filter.matches([_tag(1, TagValueType.label, null)]), isFalse);
+      expect(
+        filter.matches([
+          _tag(1, TagValueType.label, null),
+          _tag(2, TagValueType.label, null),
+        ]),
+        isTrue,
+      );
+    });
+
+    test('묶음의 성격은 첫 조건이 정한다 — 이어붙인 제외는 하나만 걸려도 숨긴다', () {
+      const filter = FileFilter(
+        conditions: [
+          FilterCondition(tagDefinitionId: 8, exclude: true),
+          FilterCondition(tagDefinitionId: 9, orWithPrevious: true),
+        ],
+      );
+      expect(filter.matches(const []), isTrue);
+      expect(filter.matches([_tag(9, TagValueType.label, null)]), isFalse);
+      expect(filter.matches([_tag(8, TagValueType.label, null)]), isFalse);
+    });
+
     test('제외 조건은 만족하면 무조건 숨김', () {
       const filter = FileFilter(
         conditions: [

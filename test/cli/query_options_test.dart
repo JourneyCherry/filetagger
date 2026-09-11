@@ -1,10 +1,13 @@
 import 'package:args/args.dart';
 import 'package:filetagger/cli/query_options.dart';
+import 'package:filetagger/domain/entities/file_filter.dart';
 import 'package:filetagger/domain/entities/file_grouping.dart';
 import 'package:filetagger/domain/entities/system_tag.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
+import 'package:filetagger/domain/usecases/filter_query_text.dart';
 import 'package:filetagger/domain/usecases/group_query_text.dart';
+import 'package:filetagger/domain/usecases/sort_query_text.dart';
 import 'package:filetagger/l10n/console_strings.dart';
 import 'package:filetagger/l10n/system_tag_names.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,6 +152,36 @@ void main() {
 
       // 화면의 조건 줄과 같은 문법이라, 공백이 든 이름은 콘솔에서도 인용해야 한다.
       expect(_resolve(['--filter', name]), isA<QueryUnreadable>());
+    });
+  });
+
+  group('문법 안내', () {
+    final help = filterHelpText(
+      consoleStringsFor(_locale),
+      localeName: _locale,
+    );
+
+    test('연산자 토큰을 하나도 빠뜨리지 않는다', () {
+      // 안내가 토큰 표에서 뽑아 쓰는지를 지킨다 — 손으로 적기 시작하면 문법을
+      // 고쳤을 때 안내만 옛것으로 남는다.
+      for (final op in FilterOperator.values) {
+        final token = filterOperatorToken(op);
+        if (token == null) continue;
+        expect(help, contains(token));
+      }
+    });
+
+    test('제외·정렬 방향·별칭도 코드가 쥔 기호 그대로 낸다', () {
+      expect(help, contains(kFilterExcludePrefix));
+      expect(help, contains(kSortDescendingPrefix));
+      expect(help, contains(kSortRandomPrefix));
+      for (final alias in filterOperatorAliases.keys) {
+        expect(help, contains(alias));
+      }
+    });
+
+    test('폴더 계층 키를 그 언어의 이름으로 낸다', () {
+      expect(help, contains(folderHierarchyNameFor(_locale)));
     });
   });
 }

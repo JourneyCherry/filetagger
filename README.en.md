@@ -112,6 +112,13 @@ The portable build carries it under `cli/bin/`. To build it yourself, run `dart 
 cli` in the repository and it lands in `build/cli/<platform>/bundle/bin/`
 (`dart compile exe` cannot produce it — the native sqlite has to be bundled along).
 
+`bin/` and the `lib/` next to it are **one pair** — the native sqlite is found through a
+path relative to the executable, so an executable taken out on its own cannot find the
+library at run time. Move the **whole bundle folder**, and put the `bin` inside it on
+your PATH. Placing the library next to the executable, or into a system directory
+(`System32`, `/usr/lib`, …), does not help. On Linux, to hook it into a shared `bin`,
+use a symlink or a wrapper script instead of copying the executable.
+
 #### Commands
 
 The surface splits into **nouns and verbs**. `tag` handles tag **definitions**,

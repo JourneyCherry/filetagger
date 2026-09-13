@@ -97,8 +97,25 @@ void main() {
       final c = _condition('|-숨김');
       expect(c.orWithPrevious, isTrue);
       expect(c.exclude, isTrue);
-      // 반대 차례는 접두사가 아니라 이름의 일부로 읽혀 태그를 찾지 못한다.
-      expect(_error('-|숨김'), FilterQueryError.unknownTag);
+      // 반대 차례는 접두사가 아니라 이름의 일부로 읽혀 태그를 찾지 못한다 — 오타가
+      // 아니라 자리를 잘못 잡은 것이므로 그렇게 말한다.
+      expect(_error('-|숨김'), FilterQueryError.orPrefixMisplaced);
+    });
+
+    test('띄우지 않은 잇기 접두사는 오타와 갈라 말한다', () {
+      // 조각이 공백으로 나뉘므로 붙여 쓰면 접두사가 이름 안으로 들어간다. 사유가
+      // "없는 태그"로만 나오면 이름을 잘못 적은 줄 알고 엉뚱한 데를 고치게 된다.
+      expect(_error('숨김|메모'), FilterQueryError.orPrefixMisplaced);
+      // 띄우면 그대로 선다 — 고칠 자리가 이름이 아니라 공백임을 짝으로 못 박는다.
+      final joined = _parse('숨김 |메모').last;
+      expect((joined as FilterQueryCondition).condition.orWithPrevious, isTrue);
+    });
+
+    test('일부러 이름에 넣은 글자는 건드리지 않는다', () {
+      // 인용하거나 탈출해 적었다면 그 글자를 이름으로 쓴 것이다 — 없는 이름이면
+      // 없는 이름이라고 해야 한다.
+      expect(_error('"|없는태그"'), FilterQueryError.unknownTag);
+      expect(_error(r'\|없는태그'), FilterQueryError.unknownTag);
     });
 
     test('접두사 글자로 시작하는 이름은 인용해 짚는다', () {

@@ -241,6 +241,33 @@ void main() {
       expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.targetMissing);
     });
 
+    test('같은 이름의 키워드가 있으면 그 사실을 사유에 싣는다', () async {
+      // 키 공간이 갈라져 있어 이름이 같아도 서로를 밀어내지 않는다 — 종류만 바로잡으면
+      // 서는 자리를 "없다"로만 답하면 부르는 쪽이 엉뚱한 데를 찾는다.
+      nodes.keywords['Ankha'] = const FileNode(
+        id: 61,
+        path: 'Ankha',
+        kind: NodeKind.keyword,
+      );
+      give(const ExternalTagCommand(targetPath: 'Ankha', tagName: '읽음'));
+
+      await run();
+
+      expect(outcome.rejectedAt(0)?.reason, CommandFailureReason.targetMissing);
+      expect(
+        outcome.rejectedAt(0)?.detail,
+        CommandFailureDetail.keywordWithSameName,
+      );
+    });
+
+    test('이름이 겹치지 않으면 세부 갈래를 달지 않는다', () async {
+      give(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));
+
+      await run();
+
+      expect(outcome.rejectedAt(0)?.detail, isNull);
+    });
+
     test('디스크엔 있고 인덱스에만 없으면 손대지 않고 보류한다', () async {
       env.onDisk.add('a.png');
       give(const ExternalTagCommand(targetPath: 'a.png', tagName: '읽음'));

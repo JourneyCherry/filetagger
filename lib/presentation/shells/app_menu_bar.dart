@@ -177,7 +177,7 @@ class AppMenuBar extends ConsumerWidget {
   }
 
   /// 파일 목록 보기 모드 선택지(목록/아이콘/자세히). 현재 모드를 체크로 보인다.
-  /// 세그먼트 버튼과 라벨·순서를 [viewModeChoices]에서 함께 가져온다.
+  /// 세그먼트 버튼과 라벨·순서를 [viewModeChoicesOf]에서 함께 가져온다.
   List<MenuNode> _viewModeItems(
     AppLocalizations l10n,
     ViewMode current,

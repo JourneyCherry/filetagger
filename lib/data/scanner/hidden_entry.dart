@@ -5,9 +5,12 @@ import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 
 /// OS 숨김 파일/폴더 판정. 스캔은 숨김 항목을 인덱싱하지 않고 하위도 순회하지
-/// 않는다(완전 제외 — 폴더도 노드로 만들지 않는다). 판정 기준은 플랫폼마다 다르다:
-/// - POSIX(Linux/macOS): 이름이 '.'으로 시작하면 숨김(관례). 이름만으로 판정한다.
-/// - Windows: 이름이 아니라 파일시스템 숨김/시스템 **속성**으로 판정한다. dart:io는
+/// 않는다(완전 제외 — 폴더도 노드로 만들지 않는다). 두 기준을 **함께** 본다:
+/// - 이름이 '.'으로 시작하면 어느 플랫폼에서나 숨김(POSIX 관례). 도구들이 제 설정을
+///   숨기려고 쓰는 이름이라, 파일시스템 속성이 따라붙지 않는 Windows에서도 같은 뜻으로
+///   읽는다 — 작업 폴더를 깨끗이 두려고 점 폴더에 넣은 것이 플랫폼에 따라 목록에
+///   튀어나오면 그 조치가 무력해진다.
+/// - Windows는 거기에 더해 파일시스템 숨김/시스템 **속성**으로도 판정한다. dart:io는
 ///   속성 조회를 제공하지 않아 FFI로 Win32 `GetFileAttributesW`를 호출한다.
 ///
 /// Windows에서는 항목마다 [isHiddenEntry]로 묻는 대신 폴더 단위로
@@ -18,14 +21,12 @@ import 'package:path/path.dart' as p;
 /// 하위 노드는 인덱싱 범위 밖으로 밀려나 정리된다(저장소 applyScan의 사라진 노드
 /// 처리 — 불투명 전환으로 하위가 빠질 때와 같은 경로).
 bool isHiddenEntry(FileSystemEntity entity) {
-  if (Platform.isWindows) {
-    return _hasHiddenAttribute(entity.path);
-  }
-  return isHiddenName(p.basename(entity.path));
+  if (isHiddenName(p.basename(entity.path))) return true;
+  return Platform.isWindows && _hasHiddenAttribute(entity.path);
 }
 
-/// POSIX 관례의 이름 기반 숨김 판정(이름이 '.'으로 시작). 순수 함수라 유닛테스트로
-/// 커버한다. Windows는 이름이 아니라 속성으로 판정하므로 이 함수를 쓰지 않는다.
+/// 이름 기반 숨김 판정(이름이 '.'으로 시작). 순수 함수라 유닛테스트로 커버한다.
+/// 플랫폼을 가리지 않는 첫 기준이며, Windows는 속성 판정이 여기에 더해진다.
 bool isHiddenName(String name) => name.startsWith('.');
 
 /// 폴더 하나의 직속 항목들에 대한 숨김 판정기.
@@ -47,9 +48,12 @@ class DirectoryHiddenLookup {
   /// 그 항목 하나만 직접 물어 본다 — 준비분은 어디까지나 같은 답을 싸게 얻으려는
   /// 것이지, 판정 기준을 바꾸는 것이 아니다.
   bool isHidden(FileSystemEntity entity) {
+    final name = p.basename(entity.path);
+    // 이름 기준이 속성보다 앞선다 — 준비분이 있든 없든 같은 답이어야 한다.
+    if (isHiddenName(name)) return true;
     final byName = _attributesByName;
     if (byName == null) return isHiddenEntry(entity);
-    final attributes = byName[p.basename(entity.path)];
+    final attributes = byName[name];
     if (attributes == null) return isHiddenEntry(entity);
     return _isHiddenAttributes(attributes);
   }

@@ -10,6 +10,9 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
+import '../data/commands/command_export.dart';
 import '../data/commands/command_json.dart';
 import '../data/db/app_database.dart';
 import '../data/repositories/drift_file_node_repository.dart';
@@ -19,6 +22,7 @@ import '../domain/entities/external_tag_command.dart';
 import '../domain/entities/file_node.dart';
 import '../domain/entities/file_tree_node.dart';
 import '../domain/entities/system_tag.dart';
+import '../domain/entities/tag_value_type.dart';
 import '../domain/usecases/apply_external_commands.dart';
 import '../domain/usecases/build_grouped_tree.dart';
 import '../domain/usecases/export_tag_commands.dart';
@@ -263,8 +267,13 @@ class _ListShowCommand extends _TargetCommand {
     addWindowOptions(argParser, strings);
     addCountOption(argParser, strings);
     argParser
-      ..addFlag(_optSystem, help: strings.optSystemHelp)
-      ..addFlag(_optExport, negatable: false, help: strings.optExportHelp);
+      ..addFlag(_optSystem, defaultsTo: true, help: strings.optSystemHelp)
+      ..addFlag(_optExport, negatable: false, help: strings.optExportHelp)
+      ..addOption(
+        _optExportTo,
+        valueHelp: strings.tokenFile,
+        help: strings.optExportToHelp,
+      );
   }
 
   @override
@@ -286,22 +295,27 @@ class _ListShowCommand extends _TargetCommand {
   /// 한때는 `--json`이 늘 이 모양이었다. 조회 하나에 적용 방침(`op`·`missing…`)까지
   /// 실려 "무엇이 붙어 있나"를 묻는 쪽이 읽을 것이 아니었으므로, 기본은 부여를 그대로
   /// 비추는 모양이 되고 명령 목록은 이 옵션으로 옮겼다.
-  bool get asExport => argResults![_optExport] as bool;
+  bool get asExport => (argResults![_optExport] as bool) || exportPath != null;
 
-  /// 내보내기가 내는 것은 명령 **파일**이라 늘 기계용이다 — `--$optJson`을 따로 적지
-  /// 않아도 되고, 적지 않았다고 사람용 줄(머리글·갯수)이 섞여 파일을 망가뜨려서도
-  /// 안 된다.
-  @override
-  bool get asJson => asExport || super.asJson;
-
-  /// 시스템 태그를 함께 낼지.
+  /// 명령 목록을 놓을 자리. 주지 않으면 표준출력으로 간다.
   ///
-  /// **내보내기에서만 기본이 갈린다** — 명령 목록은 받는 쪽이 그대로 먹을 수 있어야
-  /// 하는데 시스템 태그는 밖에서 부여할 수 없어 거부된다. 조회는 두 형식 모두
-  /// 함께 낸다(줄마다 출처가 적혀 있어 받는 쪽이 가릴 수 있다).
-  bool get includeSystem => argResults!.wasParsed(_optSystem)
-      ? argResults![_optSystem] as bool
-      : !asExport;
+  /// **자리를 지목해야 이미지를 함께 보낼 수 있다** — 이미지 값은 캐시 키라, 받는 쪽이
+  /// 그 파일을 명령 파일 **옆에서** 찾는다. 표준출력에는 옆이 없다.
+  String? get exportPath => argResults![_optExportTo] as String?;
+
+  /// 표준출력으로 내보낸 것은 명령 **파일** 자체라 늘 기계용이다 — `--$optJson`을 따로
+  /// 적지 않아도 되고, 적지 않았다고 사람용 줄(머리글·갯수)이 섞여 파일을 망가뜨려서도
+  /// 안 된다. 자리를 지목했으면 표준출력에 남는 것은 결과 보고뿐이라 그렇지 않다.
+  @override
+  bool get asJson => (asExport && exportPath == null) || super.asJson;
+
+  /// 조회에 시스템 태그를 함께 낼지. 기본은 함께 내는 것이다 — 줄마다 출처가 적혀 있어
+  /// 받는 쪽이 가릴 수 있다.
+  ///
+  /// **내보내기에는 닿지 않는다.** 시스템 태그는 밖에서 부여할 수 없어 받는 쪽이 이름으로
+  /// 거부하므로, 명령 목록에 담아 봐야 통째로 실패할 항목만 는다(내보내기 자신도 담지
+  /// 않는다 — [buildExportCommands]). 여기서 갈래를 두면 "주면 들어간다"는 거짓말이 된다.
+  bool get includeSystem => argResults![_optSystem] as bool;
 
   @override
   Future<int> run() async {
@@ -325,8 +339,8 @@ class _ListShowCommand extends _TargetCommand {
     final window = (spec as WindowResolved).window;
 
     return withWorkspace((root, db) async {
-      if (rest.isEmpty) return _showSet(db, window);
-      return _showOne(db, rest.first, window);
+      if (rest.isEmpty) return _showSet(root, db, window);
+      return _showOne(root, db, rest.first, window);
     });
   }
 
@@ -334,7 +348,12 @@ class _ListShowCommand extends _TargetCommand {
   ///
   /// 인덱스의 부여를 통째로 읽지 않는다 — 한 항목을 묻는 명령이 폴더 전체의 부여를
   /// 끌어올 이유가 없다.
-  Future<int> _showOne(AppDatabase db, String raw, OutputWindow window) async {
+  Future<int> _showOne(
+    String root,
+    AppDatabase db,
+    String raw,
+    OutputWindow window,
+  ) async {
     final nodes = DriftFileNodeRepository(db);
     final tags = DriftTagRepository(db);
     final index = await nodes.indexByPath();
@@ -349,6 +368,17 @@ class _ListShowCommand extends _TargetCommand {
     }
     final id = node?.id;
     if (node == null || id == null) {
+      // 이름은 맞는데 갈래를 지목하지 않은 것과 정말 없는 것을 가른다 — 키워드는 경로
+      // 계층 밖이라 같은 이름의 파일과 서로를 밀어내지 않는다. "없다"로만 답하면 부르는
+      // 쪽은 있는 것을 두고 엉뚱한 데를 찾는다.
+      if (!targetIsKeyword && keywords.containsKey(raw)) {
+        return fail(
+          exitRejected,
+          ConsoleFailure.keywordWithSameName,
+          strings.keywordWithSameName(raw, '--$_optKeyword'),
+          subject: raw,
+        );
+      }
       return fail(
         exitRejected,
         ConsoleFailure.noSuchTarget,
@@ -364,18 +394,40 @@ class _ListShowCommand extends _TargetCommand {
     };
 
     if (asExport) {
+      // 데려온 키워드의 **부여도 읽어야** 그 키워드가 또 가리키는 것을 따라갈 수
+      // 있으므로, 더 들어올 것이 없을 때까지 번갈아 돈다. 한 항목을 묻는 명령이
+      // 폴더 전체의 부여를 끌어오지 않는다는 결정은 그대로다 — 읽는 것은 실제로
+      // 데려가는 노드뿐이다.
+      var chosen = <FileNode>[node];
+      while (true) {
+        for (final n in chosen) {
+          final nid = n.id;
+          if (nid == null || stored.containsKey(nid)) continue;
+          stored[nid] = await tags.assignmentsOfFile(nid);
+        }
+        final expanded = withLinkedKeywords(
+          nodes: chosen,
+          assignmentsByFile: stored,
+          nodesById: nodesById,
+        );
+        if (expanded.length == chosen.length) break;
+        chosen = expanded;
+      }
+
       final exported = buildExportCommands(
-        nodes: [node],
+        nodes: chosen,
         assignmentsByFile: stored,
         nodesById: nodesById,
-        tagIds: exportableTagIds(nodes: [node], assignmentsByFile: stored),
+        tagIds: exportableTagIds(nodes: chosen, assignmentsByFile: stored),
         includeValues: true,
         includeImages: true,
       );
       final commands = window.apply(exported.commands);
-      if (!writeCount(commands.length)) return exitOk;
-      writeJson([for (final c in commands) commandToJson(c)]);
-      return exitOk;
+      return _emitExport(
+        root,
+        commands,
+        referencedImageKeys(exported.imageKeys, commands),
+      );
     }
 
     // 링크는 저장은 대상 id로, 보이는 것은 대상 **이름**이다(화면과 같은 해석).
@@ -395,9 +447,9 @@ class _ListShowCommand extends _TargetCommand {
         : const <AssignedTag>[];
 
     // 두 갈래를 한 목록으로 이어 자른다 — 자르는 것은 "내는 줄"이지 갈래가 아니다.
-    final rows = window.apply(<_TagRow>[
-      for (final a in own) _TagRow(node.path, a, system: false),
-      for (final a in system) _TagRow(node.path, a, system: true),
+    final rows = window.apply(<TagRow>[
+      for (final a in own) TagRow(node, a, system: false),
+      for (final a in system) TagRow(node, a, system: true),
     ]);
 
     if (!writeCount(rows.length)) return exitOk;
@@ -423,7 +475,7 @@ class _ListShowCommand extends _TargetCommand {
   ///
   /// **태그가 아니라 대상을 낸다** — 이어지는 파이프가 경로를 받아 다음 명령에 넘기는
   /// 것이 이 형태의 쓰임이다. 어느 태그가 붙어 있는지는 대상 하나를 물어 본다.
-  Future<int> _showSet(AppDatabase db, OutputWindow window) async {
+  Future<int> _showSet(String root, AppDatabase db, OutputWindow window) async {
     final data = await loadQueryData(db, localeName: localeName);
     final conditions = resolveConditions(data);
     if (conditions == null) return exitUsage;
@@ -441,12 +493,17 @@ class _ListShowCommand extends _TargetCommand {
       definitionsById: data.definitionsById,
     );
 
+    // 명령 목록은 평면이라 트리 모양을 쓰지 않는다. 그래도 트리를 딛는 것은 **낼
+    // 차례가 정렬·묶기를 따르게** 하려는 것이다 — `--$optSort`로 앞에 세운 것이
+    // 조회와 내보내기에서 달라지면 자르는 자리가 둘로 갈린다.
+    if (asExport) return _exportSet(root, data, tree, window);
+
     // 자르는 것은 **맨 윗줄들**이다. 묶어서 낼 때 그 아래 딸린 것까지 세면 "몇 개를
     // 볼지"가 트리 모양에 따라 흔들린다.
     final roots = window.apply(tree);
     // **세는 것은 파일이지 줄이 아니다** — 묶어서 낼 때 그룹 머리글까지 세면 같은
     // 집합인데도 `--$optGroup`을 주었는지에 따라 수가 달라진다.
-    if (!writeCount(_countFiles(roots))) return exitOk;
+    if (!writeCount(countTreeNodes(roots))) return exitOk;
     if (asJson) {
       writeJson(_treeToJson(roots, data));
     } else {
@@ -455,13 +512,105 @@ class _ListShowCommand extends _TargetCommand {
     return exitOk;
   }
 
-  int _countFiles(List<TreeItem> items) {
-    var count = 0;
-    for (final item in items) {
-      if (item is FileTreeNode) count++;
-      count += _countFiles(item.children);
+  /// 조건에 걸린 대상들의 부여를 명령 목록으로 낸다.
+  ///
+  /// **자르는 것은 대상이지 명령이 아니다** — 명령을 자르면 한 대상의 태그가 반만
+  /// 건너가 받는 쪽에 성치 않은 항목이 앉는다. 대신 **세는 것은 명령**이다(낼 것의
+  /// 수이고, 대상 수는 내보내기를 빼면 그대로 나온다).
+  ///
+  /// 딛는 것은 **저장된 부여**다 — 시스템 태그가 얹히지 않은, 링크가 대상 id 그대로인
+  /// 목록이라야 내보내기가 그 id를 받는 쪽이 읽을 지목으로 되돌릴 수 있다.
+  Future<int> _exportSet(
+    String root,
+    WorkspaceQueryData data,
+    List<TreeItem> tree,
+    OutputWindow window,
+  ) async {
+    // 다중값 태그로 묶으면 같은 대상이 여러 버킷에 들어 트리에 여러 번 나온다 —
+    // 명령은 대상마다 한 벌이면 되므로 처음 만난 자리만 남긴다.
+    final seen = <int>{};
+    final targets = window.apply(<FileNode>[
+      for (final node in treeNodesInOrder(tree))
+        if (node.id != null && seen.add(node.id!)) node,
+    ]);
+
+    final stored = data.storedAssignmentsByFile;
+    // 링크가 가리키는 것은 **고른 밖에도 있다** — 대상을 이름으로 되돌리는 표는
+    // 인덱스 전부여야 한다.
+    final nodesById = {
+      for (final node in data.nodes)
+        if (node.id != null) node.id!: node,
+    };
+    // 자른 **뒤에** 키워드를 데려온다 — 자르는 것은 조건에 걸린 대상이고, 키워드는
+    // 값이 가리키는 것을 성립시키려 딸려 가는 것이라 그 셈에 들지 않는다.
+    final chosen = withLinkedKeywords(
+      nodes: targets,
+      assignmentsByFile: stored,
+      nodesById: nodesById,
+    );
+    final exported = buildExportCommands(
+      nodes: chosen,
+      assignmentsByFile: stored,
+      nodesById: nodesById,
+      tagIds: exportableTagIds(nodes: chosen, assignmentsByFile: stored),
+      includeValues: true,
+      includeImages: true,
+    );
+
+    // 자른 것은 대상 쪽이라 명령도 이미지도 고른 것을 그대로 따른다.
+    return _emitExport(root, exported.commands, exported.imageKeys);
+  }
+
+  /// 세운 명령 목록을 내보낸다 — 자리를 지목했으면 파일로, 아니면 표준출력으로.
+  ///
+  /// 두 갈래가 내는 **명령 목록은 같다**. 다른 것은 이미지뿐이라, 가르는 자리를 하나로
+  /// 둔다.
+  Future<int> _emitExport(
+    String root,
+    List<ExternalTagCommand> commands,
+    Set<String> imageKeys,
+  ) async {
+    final path = exportPath;
+    if (path == null) {
+      // 이미지가 조용히 빠지면 받는 쪽에서 그 태그만 실패한다. 꾸밈이 아니라 **빠진
+      // 것을 알리는 통지**라 기계용 실행에도 낸다 — 표준출력은 그대로 명령 파일이다.
+      if (imageKeys.isNotEmpty) {
+        stderr.writeln(strings.imagesNotBundled(imageKeys.length));
+      }
+      if (!writeCount(commands.length)) return exitOk;
+      writeJson([for (final c in commands) commandToJson(c)]);
+      return exitOk;
     }
-    return count;
+
+    final file = p.absolute(path);
+    final ExportWriteResult written;
+    try {
+      written = await writeCommandExport(
+        filePath: file,
+        exported: ExportedCommands(commands: commands, imageKeys: imageKeys),
+        workspaceRoot: root,
+      );
+    } on FileSystemException {
+      return fail(
+        exitIoError,
+        ConsoleFailure.fileWriteFailed,
+        strings.fileWriteFailed(file),
+        subject: file,
+      );
+    }
+
+    if (!writeCount(written.commands)) return exitOk;
+    if (asJson) {
+      writeJson({
+        _kPath: file,
+        _kCommands: written.commands,
+        _kImages: written.images,
+      });
+    } else {
+      // 갯수 줄이 이미 명령 수를 말했으므로 여기서는 딸려 간 것만 말한다.
+      stdout.writeln('${strings.labelImages}\t${written.images}');
+    }
+    return exitOk;
   }
 
   void _writeTree(
@@ -529,22 +678,32 @@ class _ListShowCommand extends _TargetCommand {
 /// **두 갈래가 같은 모양이다** — 시스템 태그도 사용자 태그와 같은 열·키를 갖는다.
 /// 갈래는 `system` 한 칸이 말한다. 예전처럼 모양을 갈라 두면 한 배열에 스키마 둘이
 /// 섞여 받는 쪽이 가리지 못한다.
-class _TagRow {
-  const _TagRow(this.path, this.tag, {required this.system});
+class TagRow {
+  const TagRow(this.node, this.tag, {required this.system});
 
-  final String path;
+  final FileNode node;
   final AssignedTag tag;
   final bool system;
 
   /// 저장된 부여를 짚는 내부 식별자. 계산으로만 서는 시스템 태그에는 없다.
   int? get assignmentId => tag.assignment.id;
 
+  /// 낼 값. **label은 값을 갖지 않는다** — 사용자 태그는 비어 있고 시스템 태그는 붙어
+  /// 있다는 표식으로 빈 글자를 들고 오는데, 그 차이를 그대로 내면 받는 쪽이 같은 값
+  /// 유형을 두 모양으로 파싱해야 한다. 값이 뜻을 갖지 않는 자리이므로 한쪽으로 눕힌다.
+  String? get value =>
+      tag.definition.valueType == TagValueType.label ? null : tag.value;
+
   Map<String, dynamic> toJson() => {
-    _kPath: path,
+    _kPath: node.path,
+    // **대상의 종류는 기계용에만 싣는다.** 줄마다 같은 값이라 사람이 읽는 표에서는
+    // 잡음이지만, 객체 하나가 홀로 건너가는 자리에서는 `path`가 파일 경로인지 키워드
+    // 이름인지를 이것 없이는 가릴 수 없다(조건으로 고른 목록도 같은 칸을 낸다).
+    _kKind: node.kind.name,
     _kTag: tag.definition.name,
     _kTagId: tag.tagDefinitionId,
     _kValueType: tag.definition.valueType.name,
-    if (tag.value != null) _kValue: tag.value,
+    if (value != null) _kValue: value,
     _kSystem: system,
     if (assignmentId != null) _kId: assignmentId,
     // 참일 때만 낸다 — 대부분의 부여에 뜻이 없는 칸이다.
@@ -553,7 +712,7 @@ class _TagRow {
 
   String line(ConsoleStrings strings) => [
     tag.definition.name,
-    tag.value ?? strings.labelNone,
+    value ?? strings.labelNone,
     tag.definition.valueType.name,
     system ? strings.labelSystem : strings.labelUser,
     '${tag.tagDefinitionId}',
@@ -561,12 +720,25 @@ class _TagRow {
   ].join('\t');
 }
 
+/// [keys] 중 [commands]가 실제로 가리키는 것만.
+///
+/// 낼 명령을 잘라 낸 뒤에 쓴다 — 잘려 나간 명령의 이미지까지 옮기면 받는 폴더에 아무도
+/// 가리키지 않는 파일이 남는다. 키가 곧 값이라 값 유형을 다시 따질 것 없이 맞대면 된다.
+Set<String> referencedImageKeys(
+  Set<String> keys,
+  List<ExternalTagCommand> commands,
+) => keys.intersection({
+  for (final c in commands)
+    if (c.value != null) c.value!,
+});
+
 const String _optKeyword = 'keyword';
 const String _optValueKeyword = 'value-keyword';
 const String _optCreateKeyword = 'create-keyword';
 const String _optKeepLink = 'keep-link';
 const String _optSystem = 'system';
 const String _optExport = 'export';
+const String _optExportTo = 'export-to';
 
 const String _kPath = 'path';
 const String _kKind = 'kind';
@@ -580,5 +752,7 @@ const String _kId = 'id';
 const String _kGroup = 'group';
 const String _kCount = 'count';
 const String _kChildren = 'children';
+const String _kCommands = 'commands';
+const String _kImages = 'images';
 
 const String _indentUnit = '  ';

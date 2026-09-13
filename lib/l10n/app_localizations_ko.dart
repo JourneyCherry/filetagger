@@ -555,9 +555,6 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get homeScanBusy => '다른 프로그램이 이 폴더를 훑고 있어 스캔을 건너뛰었습니다.';
-
-  @override
   String homeScanRootUnreadable(String path) {
     return '관리 폴더를 읽지 못해 스캔을 멈췄습니다. 태그와 목록은 그대로 둡니다: $path';
   }

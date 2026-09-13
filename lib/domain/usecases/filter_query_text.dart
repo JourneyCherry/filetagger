@@ -90,6 +90,11 @@ enum FilterQueryError {
   /// 그 이름의 태그 정의가 없다(오타이거나 삭제된 태그).
   unknownTag,
 
+  /// 잇기 접두사가 이름 안에 섞여 있다. **조각의 맨 앞**이라야 접두사로 읽히므로,
+  /// 앞 조건에 이으려면 조각을 띄우고(공백) 제외와 함께 쓸 때는 잇기가 앞이다.
+  /// 이름에 정말 그 글자가 들어 있다면 인용하거나 탈출해 적는다.
+  orPrefixMisplaced,
+
   /// 연산자를 읽지 못했거나, 태그 유형이 허용하지 않는 연산자다.
   invalidOperator,
 
@@ -180,7 +185,12 @@ FilterQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
     return FilterQueryFragment(raw, FilterQueryError.unterminatedQuote);
   }
   final def = name.value.isEmpty ? null : byName[name.value];
-  if (def == null) return FilterQueryFragment(raw, FilterQueryError.unknownTag);
+  if (def == null) {
+    return FilterQueryFragment(
+      raw,
+      _unreadableName(raw, prefixes.end, name.end),
+    );
+  }
   cursor = name.end;
 
   // 연산자가 없으면 존재 조건이다(label 태그의 유일한 형태).
@@ -232,6 +242,21 @@ FilterQuerySegment _parseChunk(String raw, Map<String, TagDefinition> byName) {
       orWithPrevious: orWithPrevious,
     ),
   );
+}
+
+/// 이름을 태그로 풀지 못한 조각의 사유. [start]~[end]는 이름이 적힌 **원문** 구간이다.
+///
+/// 맨몸으로 적은 이름 안의 잇기 접두사는 오타가 아니라 **자리를 잘못 잡은 접두사**로
+/// 본다 — 이 갈래가 없으면 "앞 조건에 이으려다 띄우지 않은 것"과 "이름을 잘못 적은 것"이
+/// 같은 말로 나와, 고칠 자리를 짚어 주지 못한다. 인용하거나 탈출해 적은 이름은 그 글자를
+/// **일부러** 이름으로 쓴 것이므로 건드리지 않는다.
+FilterQueryError _unreadableName(String raw, int start, int end) {
+  final typed = raw.substring(start, end);
+  final bare = !typed.startsWith(kQueryQuote) && !typed.contains(kQueryEscape);
+  if (bare && typed.contains(kFilterOrPrefix)) {
+    return FilterQueryError.orPrefixMisplaced;
+  }
+  return FilterQueryError.unknownTag;
 }
 
 /// [start]에서 시작하는 연산자 토큰과 그 길이. 별칭은 정식 토큰과 길이가 다를 수

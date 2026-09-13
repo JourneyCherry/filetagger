@@ -164,7 +164,6 @@
   "tipHiddenTagPreviewTitle": "Checking Hidden Tag Values",
   "tipHiddenTagPreviewBody": "Turning the eye icon off in tag management only removes the chip from list rows. The value stays and still drives filtering, sorting and grouping, and the preview pane shows everything assigned to an item — including hidden tags and system tags you have not turned on. Open the preview when you want to see all of them.",
   "homeScanFailed": "Scan failed: {error}",
-  "homeScanBusy": "Another program is scanning this folder, so the scan was skipped.",
   "homeScanRootUnreadable": "The managed folder could not be read, so the scan stopped. Tags and the list are left as they were: {path}",
   "homeNoAppForFile": "No app is available to open this file: {name}",
   "homeRevealFailed": "Could not show it in the file manager: {error}",

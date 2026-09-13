@@ -62,6 +62,44 @@ void main() {
       expect(c.matches(const []), isFalse);
     });
 
+    test('부정 연산은 값이 여럿이면 모두 그래야 만족한다', () {
+      // 하나라도로 두면 값이 섞인 노드가 ~와 !~에 동시에 걸려 둘이 서로의 여집합이
+      // 아니게 된다(세어 보면 합이 전체를 넘는다).
+      const contains = FilterCondition(
+        tagDefinitionId: 1,
+        operator: FilterOperator.contains,
+        operand: 'oat',
+      );
+      const notContains = FilterCondition(
+        tagDefinitionId: 1,
+        operator: FilterOperator.notContains,
+        operand: 'oat',
+      );
+      final mixed = [
+        _tag(1, TagValueType.text, 'Goat'),
+        _tag(1, TagValueType.text, 'Cat'),
+      ];
+      final none = [
+        _tag(1, TagValueType.text, 'Cat'),
+        _tag(1, TagValueType.text, 'Dog'),
+      ];
+
+      expect(contains.matches(mixed), isTrue);
+      expect(notContains.matches(mixed), isFalse);
+      expect(notContains.matches(none), isTrue);
+    });
+
+    test('부정 연산도 견줄 값이 하나는 있어야 만족한다', () {
+      // 태그는 붙어 있으나 값이 없는 부여뿐인 노드 — 태그가 아예 없는 것과 같은 자리다.
+      const c = FilterCondition(
+        tagDefinitionId: 1,
+        operator: FilterOperator.notEquals,
+        operand: '2',
+      );
+
+      expect(c.matches([_tag(1, TagValueType.text, null)]), isFalse);
+    });
+
     test('다중 값 중 하나라도 만족하면 통과', () {
       const c = FilterCondition(
         tagDefinitionId: 1,

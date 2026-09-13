@@ -43,23 +43,6 @@ AssignedTag _tag(
   definition: def,
 );
 
-/// 링크 값의 판별만 기본값으로 되돌린 같은 명령. 형식이 그 필드를 내지 않으므로
-/// 되받은 명령과 견줄 때 이만큼을 덜어 낸다.
-ExternalTagCommand _withoutValueKind(ExternalTagCommand c) =>
-    ExternalTagCommand(
-      targetPath: c.targetPath,
-      tagName: c.tagName,
-      operation: c.operation,
-      value: c.value,
-      missingTag: c.missingTag,
-      createValueType: c.createValueType,
-      targetKind: c.targetKind,
-      missingKeyword: c.missingKeyword,
-      missingLink: c.missingLink,
-      createAllowMultiple: c.createAllowMultiple,
-      createColor: c.createColor,
-    );
-
 ExportedCommands _build({
   required List<FileNode> nodes,
   required Map<int, List<AssignedTag>> assignments,
@@ -226,6 +209,80 @@ void main() {
     });
   });
 
+  group('참조 키워드 데려오기', () {
+    const country = FileNode(id: 4, path: '대한민국', kind: NodeKind.keyword);
+    const nodesById = {1: _file, 2: _artist, 3: _folder, 4: country};
+
+    List<FileNode> expand(
+      List<FileNode> nodes,
+      Map<int, List<AssignedTag>> assignments,
+    ) => withLinkedKeywords(
+      nodes: nodes,
+      assignmentsByFile: assignments,
+      nodesById: nodesById,
+    );
+
+    test('링크가 가리킨 키워드와 그 키워드의 태그가 함께 나간다', () {
+      // 데려오지 않으면 받는 쪽에 이름만 있는 키워드가 서고, 거기 붙어 있던 태그는
+      // 오류도 경고도 없이 사라진다.
+      final assignments = {
+        1: [_tag(_file, artistTag, '2')],
+        2: [_tag(_artist, tags, '한국')],
+      };
+      final chosen = expand([_file], assignments);
+      expect(chosen.map((n) => n.id), [1, 2]);
+
+      final exported = buildExportCommands(
+        nodes: chosen,
+        assignmentsByFile: assignments,
+        nodesById: nodesById,
+        tagIds: exportableTagIds(nodes: chosen, assignmentsByFile: assignments),
+        includeValues: true,
+        includeImages: true,
+      );
+      expect(exported.commands.map((c) => (c.targetPath, c.tagName)), [
+        ('신작/01.png', '작가'),
+        ('홍길동', '태그'),
+      ]);
+    });
+
+    test('데려온 키워드가 또 가리키는 키워드까지 따라간다', () {
+      final chosen = expand(
+        [_file],
+        {
+          1: [_tag(_file, artistTag, '2')],
+          2: [_tag(_artist, artistTag, '4')],
+        },
+      );
+      expect(chosen.map((n) => n.id), [1, 2, 4]);
+    });
+
+    test('파일·폴더는 데려오지 않는다', () {
+      // 받는 쪽 디스크에 있거나 미해결로 남으면 되는 갈래다 — 따라가기 시작하면
+      // 고른 범위가 링크를 타고 번진다.
+      final chosen = expand(
+        [_artist],
+        {
+          2: [_tag(_artist, artistTag, '1')],
+        },
+      );
+      expect(chosen.map((n) => n.id), [2]);
+    });
+
+    test('미해결 링크는 따라가지 않고, 이미 있는 키워드를 두 번 담지 않는다', () {
+      final chosen = expand(
+        [_file, _artist],
+        {
+          1: [
+            _tag(_file, artistTag, '2'),
+            _tag(_file, artistTag, '없는 작가', unresolved: true),
+          ],
+        },
+      );
+      expect(chosen.map((n) => n.id), [1, 2]);
+    });
+  });
+
   group('이미지 값', () {
     test('캐시 키를 값으로 두고 동봉할 키를 모은다', () {
       // 파일을 명령 파일 옆에 같은 이름으로 놓으면, 받는 쪽이 상대 경로를 그 폴더
@@ -254,9 +311,8 @@ void main() {
   });
 
   test('내보낸 명령은 가져오기가 그대로 읽는다(왕복)', () {
-    // 내보내기가 채우는 필드를 코덱이 하나라도 흘리면 여기서 드러난다.
-    // **링크 값의 판별만 예외다** — 형식이 그 필드를 더는 내지 않으므로(사용자 결정)
-    // 키워드를 가리키던 링크가 되받을 때 경로로 읽힌다. 값 자체는 남는다.
+    // 내보내기가 채우는 필드를 코덱이 하나라도 흘리면 여기서 드러난다 — 키워드를
+    // 가리키는 링크의 판별까지 남김없이 돌아와야 한다.
     final exported = _build(
       nodes: [_file, _artist],
       assignments: {
@@ -275,15 +331,34 @@ void main() {
     final decoded = decodeCommandFile(text);
 
     expect(text.trimLeft(), startsWith('['));
+    expect(decoded.map((i) => (i as ParsedCommand).command), exported.commands);
+  });
+
+  test('부여가 하나도 없는 대상이 섞여도 견딘다', () {
+    // 집합을 통째로 내보내는 자리(조건에 걸린 것 전부)에서는 태그 없는 대상이 대부분
+    // 이라, 부여 목록에 자리조차 없는 노드가 그냥 지나가야 한다.
+    final exported = _build(
+      nodes: [_file, _folder],
+      assignments: {
+        1: [_tag(_file, rating, '5')],
+      },
+    );
+
+    expect(exported.commands.single.targetPath, _file.path);
     expect(
-      decoded.map((i) => (i as ParsedCommand).command),
-      exported.commands.map(_withoutValueKind),
+      exportableTagIds(
+        nodes: [_file, _folder],
+        assignmentsByFile: {
+          1: [_tag(_file, rating, '5')],
+        },
+      ),
+      {rating.id},
     );
   });
 
-  test('키워드를 가리키는 링크는 판별을 잃는다', () {
-    // 잃는 것이 무엇인지 한자리에 못 박아 둔다 — 값은 이름 그대로 남고, 받는 쪽이
-    // 경로로 찾다 놓치면 `missingLink: keep`이 미해결 링크로 앉힌다.
+  test('키워드를 가리키는 링크는 판별까지 건너간다', () {
+    // 같은 파일 안의 두 링크가 키워드와 파일로 갈리므로, 판별이 빠지면 받는 쪽이
+    // 키워드를 경로로 찾다 놓치고 `missingLink: keep`이 미해결 링크로 앉힌다.
     final exported = _build(
       nodes: [_file],
       assignments: {
@@ -297,7 +372,8 @@ void main() {
 
     final read = (decoded as ParsedCommand).command;
     expect(read.value, _artist.path);
-    expect(read.valueKind, ExternalNodeKind.file);
+    expect(read.valueKind, ExternalNodeKind.keyword);
+    expect(read.missingKeyword, MissingKeywordPolicy.create);
     expect(read.missingLink, MissingLinkPolicy.keep);
   });
 }

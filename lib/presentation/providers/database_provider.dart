@@ -11,8 +11,9 @@ import 'workspace_provider.dart';
 /// 새 폴더의 `.filetagger/` DB로 다시 연다.
 ///
 /// **락을 잡지 않는다.** 다른 프로세스가 같은 DB를 고치는 것은 SQLite가 직렬화하고,
-/// 그렇게 들어온 변경은 바깥 변경 감시가 알아채 화면을 고쳐 그린다. 락이 남아 있는
-/// 자리는 전체 스캔 하나뿐이다([LockedWorkspaceScan]).
+/// 그렇게 들어온 변경은 바깥 변경 감시가 알아채 화면을 고쳐 그린다. 전체 스캔도
+/// 마찬가지다 — 겹쳐도 결과가 틀리지 않게 정합 판정을 세워 두었고, 같은 프로세스
+/// 안에서만 한 줄로 세운다([SerialWorkspaceScan]).
 final databaseProvider = Provider<AppDatabase?>((ref) {
   final root = ref.watch(workspaceRootProvider);
   if (root == null) return null;

@@ -86,6 +86,25 @@ void main() {
     });
   });
 
+  group('사라짐 판정 기준 시각', () {
+    test('훑기 전 시각을 초 단위로 내려 넘긴다', () async {
+      // 관측 도장이 초 정밀도로 저장되므로, 같은 초에 찍힌 도장이 "내 시작 전"으로
+      // 읽히지 않게 내려서 잡는다(의심스러운 한 초는 남기는 쪽으로 기운다).
+      final before = DateTime.now();
+      final scanner = _FakeScanner(batches: const [], result: [file('a.txt')]);
+
+      await usecase(scanner)('/root');
+
+      final seen = nodes.scanStartedAtSeen;
+      expect(seen, isNotNull);
+      expect(seen!.millisecond, 0);
+      expect(seen.microsecond, 0);
+      // 훑기 전에 찍어야 한다 — 훑는 동안 남이 본 노드를 내가 지우지 않으려는 기준이라,
+      // 늦게 찍으면 그 사이의 관측이 기준 아래로 깔린다.
+      expect(seen.isAfter(before), isFalse);
+    });
+  });
+
   group('이동 재연결 기준 경로', () {
     test('스캔 시작 시점의 경로를 넘긴다(미리 반영한 노드는 빼고)', () async {
       nodes.index['old.txt'] = file('old.txt');
@@ -157,6 +176,9 @@ class _FakeNodes implements FileNodeRepository {
   /// 최종 반영이 받은 "스캔 시작 시점 경로".
   Set<String> priorPathsSeen = const {};
 
+  /// 최종 반영이 받은 사라짐 판정 기준 시각.
+  DateTime? scanStartedAtSeen;
+
   bool failPartial = false;
 
   @override
@@ -174,8 +196,10 @@ class _FakeNodes implements FileNodeRepository {
     required FolderManageMode rootManageMode,
     required Set<String> priorPaths,
     required Set<String> unreadableDirs,
+    required DateTime scanStartedAt,
   }) async {
     priorPathsSeen = priorPaths;
+    scanStartedAtSeen = scanStartedAt;
     calls.add('final:${scanned.length}');
   }
 

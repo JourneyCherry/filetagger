@@ -61,13 +61,6 @@ const String viewSettingsFileName = 'view.json';
 /// 조작마다 통째로 다시 쓰이는 자리라 사용자가 손으로 만든 자산을 얹지 않기 위함이다.
 const String queryPresetsFileName = 'presets.json';
 
-/// 관리 폴더를 지금 훑고 있는 프로세스가 있는지 알리는 락 파일 이름.
-///
-/// [filetaggerDirName] 폴더 안에 둔다. 내용은 쓰지 않으며 **존재가 아니라 잠금
-/// 상태만이 뜻을 갖는다** — 프로세스가 죽으면 OS가 잠금을 풀어 주므로 남은 파일이
-/// 오해를 만들지 않는다.
-const String workspaceLockFileName = 'lock';
-
 /// 커스텀 이미지 태그가 등록한 외부 이미지의 캐시 폴더 이름.
 ///
 /// [filetaggerDirName] 폴더 안에 두어 폴더 이동·복사 시 함께 따라온다. 내용 해시를

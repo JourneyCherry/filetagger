@@ -7,8 +7,9 @@ import 'tag_value_type.dart';
 /// 필터 조건이 태그값을 어떻게 견주는지.
 ///
 /// [exists]는 값과 무관하게 태그가 붙어 있으면 만족(label 태그의 유일한 연산).
-/// 나머지는 부여된 값 중 하나라도 피연산자와의 비교를 통과하면 만족한다.
-/// 비교는 태그 유형에 맞춰 해석된다([compareTagValues]).
+/// 나머지는 부여된 값을 하나씩 견주는데, **값이 여럿일 때 몇 개가 통과해야 하는지가
+/// 연산의 성격을 탄다**([requiresEveryValue]) — 긍정 연산은 하나라도, 부정 연산은
+/// 모두다. 비교는 태그 유형에 맞춰 해석된다([compareTagValues]).
 ///
 /// 부정 연산([notEquals]·[notContains])은 조건의 [FilterCondition.exclude]와 다르다.
 /// 부정 연산은 **태그가 붙어 있어야** 만족할 수 있는 표시 조건이고, 제외는 만족하는
@@ -24,6 +25,19 @@ enum FilterOperator {
   contains,
   notContains,
 }
+
+/// 값이 여럿인 태그에서 **모든 값**이 통과해야 만족하는 연산인지.
+///
+/// 부정 연산이 그렇다. "그 값이 아니다·그 글자가 없다"는 부여 하나가 아니라 **그 태그
+/// 전체**에 대한 물음이라, 하나라도로 두면 값이 섞인 노드가 `~`와 `!~`에 **동시에**
+/// 걸려 둘이 서로의 여집합이 아니게 된다(세어 보면 합이 전체를 넘는다).
+///
+/// 긍정 연산은 하나라도가 맞다 — 다중값 태그에 "이 값을 가졌나"를 묻는 자연스러운 뜻이고,
+/// 모두로 두면 값이 둘 이상인 노드는 어떤 값으로도 골라낼 수 없다.
+///
+/// **값이 하나인 태그에서는 둘이 같은 답을 낸다** — 가르는 것은 다중값 태그뿐이다.
+bool requiresEveryValue(FilterOperator op) =>
+    op == FilterOperator.notEquals || op == FilterOperator.notContains;
 
 /// 태그 유형별로 고를 수 있는 필터 연산자. label은 값이 없어 존재 여부만,
 /// text는 부분 일치(contains)를 포함하고, number·date는 대소 비교까지 연다.
@@ -95,6 +109,10 @@ class FilterCondition {
   ///
   /// 노드마다 불리므로 해당 태그의 부여만 골라 담지 않고 한 번 훑으며 판정한다.
   /// 피연산자 해석([TagValueKey])도 값마다가 아니라 노드마다 한 번만 한다.
+  ///
+  /// 값이 여럿이면 [requiresEveryValue]가 몇 개를 봐야 하는지 정한다. 어느 쪽이든
+  /// **견줄 값이 하나는 있어야** 한다 — 값 없이 붙은 부여만 있으면 부정 연산도 만족하지
+  /// 않는다(태그가 아예 없는 노드와 같은 자리다).
   bool matches(Iterable<AssignedTag> tags) {
     if (operator == FilterOperator.exists) {
       for (final t in tags) {
@@ -102,16 +120,20 @@ class FilterCondition {
       }
       return false;
     }
+    final every = requiresEveryValue(operator);
     TagValueKey? operandKey;
+    var judged = false;
     for (final t in tags) {
       if (t.tagDefinitionId != tagDefinitionId) continue;
       // 유형은 이 태그의 첫 부여에서 읽는다(같은 태그의 부여는 유형이 같다).
       operandKey ??= TagValueKey(t.definition.valueType, operand ?? '');
       final value = t.value;
       if (value == null || value.isEmpty) continue;
-      if (_valueMatches(operandKey, value)) return true;
+      judged = true;
+      // 답이 정해지는 자리에서 끊는다(값 해석을 아끼는 자리이기도 하다).
+      if (_valueMatches(operandKey, value) != every) return !every;
     }
-    return false;
+    return every && judged;
   }
 
   bool _valueMatches(TagValueKey operandKey, String value) {

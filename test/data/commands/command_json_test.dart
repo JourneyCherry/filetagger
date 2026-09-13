@@ -95,16 +95,36 @@ void main() {
       expect((asInt as ParsedCommand).command.createColor, color);
     });
 
-    test('링크 값의 판별은 내지 않는다', () {
-      // 링크가 아닌 태그에도 값만 있으면 붙어 잡음이 되던 필드다(사용자 결정).
-      const command = ExternalTagCommand(
+    test('링크 값의 판별은 기본값과 다를 때만 낸다', () {
+      // 늘 내면 링크가 아닌 태그에도 값만 있으면 붙어 잡음이 된다. 그렇다고 빼 버리면
+      // 키워드를 가리키는 링크가 왕복하지 못한다 — 지목한 때만 적어 둘 다 면한다.
+      const toKeyword = ExternalTagCommand(
         targetPath: '신작/01.png',
         tagName: '작가',
         value: '작가 A',
         valueKind: ExternalNodeKind.keyword,
       );
+      const toPath = ExternalTagCommand(
+        targetPath: '신작/01.png',
+        tagName: '원본',
+        value: '신작/00.png',
+      );
 
-      expect(commandToJson(command).containsKey('valueNodeType'), isFalse);
+      expect(commandToJson(toKeyword)['valueNodeType'], 'keyword');
+      expect(commandToJson(toPath).containsKey('valueNodeType'), isFalse);
+    });
+
+    test('적지 않은 판별은 읽기의 기본값과 짝이 맞는다', () {
+      // 쓰기가 생략한 것을 읽기가 다른 값으로 채우면 왕복이 조용히 어긋난다.
+      const command = ExternalTagCommand(
+        targetPath: '신작/01.png',
+        tagName: '원본',
+        value: '신작/00.png',
+      );
+
+      final read = only(encodeCommandFile(command));
+
+      expect((read as ParsedCommand).command.valueKind, command.valueKind);
     });
 
     test('대상과 링크 값의 판별은 서로 독립이다', () {
@@ -182,9 +202,10 @@ void main() {
       expect(decodeCommandFile(asObject).single, isA<ParsedCommand>());
     });
 
-    test('빈 배열은 형식 오류로 본다', () {
-      // 조용히 성공으로 치면 왜 아무것도 안 됐는지 알 길이 없다.
-      expect(only(jsonEncode([])), isA<UnreadableCommand>());
+    test('빈 배열은 형식 오류가 아니라 할 일 0건이다', () {
+      // 조건에 아무것도 걸리지 않은 내보내기가 내는 모양이라, 오류로 보면 아무 일도
+      // 없는 날 자동화가 터진다.
+      expect(decodeCommandFile(jsonEncode([])), isEmpty);
     });
   });
 

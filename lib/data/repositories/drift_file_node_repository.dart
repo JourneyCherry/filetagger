@@ -67,6 +67,7 @@ class DriftFileNodeRepository implements FileNodeRepository {
     required FolderManageMode rootManageMode,
     required Set<String> priorPaths,
     required Set<String> unreadableDirs,
+    required DateTime scanStartedAt,
   }) async {
     // 경로 기준 upsert 후 사라진 노드를 정리한다. 정리 전에 (1) 스캔이 못 읽은 폴더의
     // 서브트리를 판정에서 통째로 빼고, (2) 태그된 사라진 노드를 내용 시그니처로 새
@@ -88,6 +89,12 @@ class DriftFileNodeRepository implements FileNodeRepository {
 
       final disappeared = before
           .where((r) => !scannedPaths.contains(r.path))
+          // **내 시작 뒤에 관측 도장이 찍힌 노드는 판정에서 뺀다.** 누군가(다른 스캔,
+          // 중첩 흡수)가 나보다 나중에 그것을 보았다는 뜻이라, 내가 못 봤다는 것은
+          // 그 노드에 대해 낡은 관측이다. 스냅샷 없이 겹치는 스캔들이 서로의 발견을
+          // 지우지 않게 하는 자리다(`before`는 upsert 전에 읽으므로 내 도장은 섞이지
+          // 않는다).
+          .where((r) => r.lastSeenAt.isBefore(scanStartedAt))
           .toList();
       if (disappeared.isEmpty) return;
 

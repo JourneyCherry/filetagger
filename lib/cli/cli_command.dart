@@ -14,7 +14,7 @@ import '../data/db/database_connection.dart';
 import '../data/repositories/drift_file_node_repository.dart';
 import '../data/repositories/drift_tag_repository.dart';
 import '../data/scanner/directory_scanner.dart';
-import '../data/scanner/locked_workspace_scan.dart';
+import '../data/scanner/serial_workspace_scan.dart';
 import '../data/settings/console_settings_store.dart';
 import '../data/settings/view_settings_store.dart';
 import '../domain/entities/external_tag_command.dart';
@@ -154,14 +154,11 @@ abstract class CliCommand extends Command<int> with CliOutput {
   Future<bool> scanWorkspace(String root, AppDatabase db) async {
     final mode = (await JsonViewSettingsStore(root).load()).rootManageMode;
     try {
-      await LockedWorkspaceScan(
+      await SerialWorkspaceScan(
         const DirectoryScanner(),
         DriftFileNodeRepository(db),
       )(root, rootManageMode: mode);
       return true;
-    } on WorkspaceScanBusyException {
-      fail(exitBusy, ConsoleFailure.scanBusy, strings.scanBusy);
-      return false;
     } on WorkspaceUnreadableException {
       fail(
         exitIoError,

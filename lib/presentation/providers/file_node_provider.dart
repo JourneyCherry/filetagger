@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/drift_file_node_repository.dart';
 import '../../data/scanner/directory_scanner.dart';
-import '../../data/scanner/locked_workspace_scan.dart';
+import '../../data/scanner/serial_workspace_scan.dart';
 import '../../data/watcher/directory_workspace_watcher.dart';
 import '../../domain/entities/file_node.dart';
 import '../../domain/repositories/file_node_repository.dart';
@@ -25,10 +25,14 @@ final fileNodeRepositoryProvider = Provider<FileNodeRepository?>((ref) {
 });
 
 /// 스캔→저장 오케스트레이션 유즈케이스. 열린 폴더가 없으면 null.
+///
+/// **한 폴더에 하나만 만들어 모두가 같은 것을 쓴다**(프로바이더가 값을 캐시한다).
+/// 스캔을 한 줄로 세우는 자리가 이 객체 안에 있으므로([SerialWorkspaceScan]), 부르는
+/// 자리마다 새로 만들면 서로를 못 보고 같은 폴더를 겹쳐 훑는다.
 final scanWorkspaceProvider = Provider<ScanWorkspace?>((ref) {
   final repo = ref.watch(fileNodeRepositoryProvider);
   if (repo == null) return null;
-  return LockedWorkspaceScan(ref.watch(workspaceScannerProvider), repo);
+  return SerialWorkspaceScan(ref.watch(workspaceScannerProvider), repo);
 });
 
 /// 현재 워크스페이스의 인덱싱된 파일/폴더 목록 스트림.

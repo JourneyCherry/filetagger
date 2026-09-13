@@ -10,7 +10,7 @@ import 'dart:io';
 
 import '../data/repositories/drift_file_node_repository.dart';
 import '../data/scanner/directory_scanner.dart';
-import '../data/scanner/locked_workspace_scan.dart';
+import '../data/scanner/serial_workspace_scan.dart';
 import '../data/settings/view_settings_store.dart';
 import '../domain/entities/scan_progress.dart';
 import '../domain/repositories/workspace_scanner.dart';
@@ -34,7 +34,7 @@ class ScanCommand extends CliCommand {
     if (rest.isNotEmpty) usageException(strings.takesNoArguments(name));
 
     return withWorkspace((root, db) async {
-      final scan = LockedWorkspaceScan(
+      final scan = SerialWorkspaceScan(
         const DirectoryScanner(),
         DriftFileNodeRepository(db),
       );
@@ -66,10 +66,6 @@ class ScanCommand extends CliCommand {
             );
         }
         return exitOk;
-      } on WorkspaceScanBusyException {
-        _endProgress();
-        // 실패가 아니라 하지 않기로 한 것이다. 돌고 있는 스캔이 곧 같은 결과를 만든다.
-        return fail(exitBusy, ConsoleFailure.scanBusy, strings.scanBusy);
       } on WorkspaceUnreadableException {
         _endProgress();
         return fail(

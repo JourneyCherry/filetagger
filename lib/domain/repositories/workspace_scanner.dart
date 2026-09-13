@@ -70,19 +70,6 @@ class ScanCancelledException implements Exception {
   String toString() => 'ScanCancelledException';
 }
 
-/// 다른 프로세스가 이미 이 워크스페이스를 훑고 있어 스캔을 시작하지 않았을 때.
-///
-/// 실패가 아니라 **하지 않기로 한 것**이다 — 돌고 있는 스캔이 곧 같은 결과를 만드므로
-/// 줄을 서 두 번 훑을 이유가 없다. 부르는 쪽은 이것을 사고로 알리지 않는다.
-class WorkspaceScanBusyException implements Exception {
-  const WorkspaceScanBusyException(this.workspaceRoot);
-
-  final String workspaceRoot;
-
-  @override
-  String toString() => 'WorkspaceScanBusyException: $workspaceRoot';
-}
-
 /// 워크스페이스 루트 자신을 나열하지 못해 스캔이 서지 못했을 때.
 ///
 /// 하위 폴더 하나를 못 읽는 것과 달리 **아무것도 관측하지 못한** 상태라, 결과를

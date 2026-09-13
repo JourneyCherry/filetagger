@@ -111,6 +111,10 @@ abstract class ConsoleStrings {
   /// 정식 토큰은 아니지만 입력에서 받아 주는 표기.
   String filterHelpAlias(String aliases, String canonical);
 
+  /// 값이 여럿인 태그에서 몇 개를 견주는지. [everyValueOperators]는 모두를 견주는
+  /// 연산들의 표기이며 **코드가 쥔 토큰 표에서 뽑아** 끼운다.
+  String filterHelpMultiValue(String everyValueOperators);
+
   /// 연산자 하나의 짧은 이름. 표의 오른쪽 칸에 앉는다.
   String filterOperatorName(FilterOperator op);
 
@@ -217,6 +221,15 @@ abstract class ConsoleStrings {
   String get optKeepLinkHelp;
   String get optSystemHelp;
   String get optExportHelp;
+  String get optExportToHelp;
+
+  /// 내보내기가 명령 파일 **옆에** 함께 놓은 이미지 수의 이름표.
+  String get labelImages;
+
+  /// 표준출력으로는 이미지를 함께 보낼 수 없다고 알리는 줄.
+  String imagesNotBundled(int count);
+
+  String fileWriteFailed(String path);
 
   String get labelUser;
   String get labelSystem;
@@ -227,6 +240,10 @@ abstract class ConsoleStrings {
   String get targetOrFilter;
   String get keywordWithFilter;
   String noSuchTarget(String raw);
+
+  /// 같은 이름의 키워드가 있음을 알리는 줄. [keywordOption]은 종류를 지목하는 옵션의
+  /// 표기이며 **코드가 쥔 이름을 받아** 끼운다(조건 문법 안내와 같은 자리다).
+  String keywordWithSameName(String raw, String keywordOption);
   String get noMatch;
 
   // ── `scan` ──
@@ -237,7 +254,6 @@ abstract class ConsoleStrings {
   String get labelNestedWorkspaces;
   String get labelScanning;
   String get labelIndexed;
-  String get scanBusy;
   String workspaceUnreadable(String root);
 
   // ── `import` ──

@@ -51,16 +51,30 @@ class ViewSettingsNotifier extends Notifier<WorkspaceViewSettings> {
   /// 않은 조건을 "없는 태그"로 오인해 지우고 저장하는 사고를 막기 위함.
   bool _loaded = false;
 
+  /// 지금 도는 디스크 로드. 끝났거나 불러올 저장소가 없으면 null이다.
+  Future<void>? _loading;
+
   @override
   WorkspaceViewSettings build() {
     final repo = ref.watch(viewSettingsRepositoryProvider);
     _repo = repo;
     _loaded = false;
+    _loading = null;
     // 태그 정의가 바뀌면(삭제 등) 사라진 태그를 참조하는 필터·정렬 조건을 정리한다.
     ref.listen(tagDefinitionsProvider, (_, next) => _reconcileWith(next));
-    if (repo != null) _load(repo);
+    if (repo != null) _loading = _load(repo);
     return const WorkspaceViewSettings();
   }
+
+  /// 저장된 설정이 실릴 때까지 기다린다. 이미 실렸거나 불러올 것이 없으면 곧 끝난다.
+  ///
+  /// **설정을 읽어 일을 벌이는 쪽은 이것을 먼저 기다려야 한다.** 로드가 끝나기 전의
+  /// 상태는 기본값(폴더를 바꿔 열었다면 직전 폴더의 값)이라, 그것을 그대로 믿고 도는
+  /// 작업은 사용자가 저장해 둔 것과 다른 일을 한다 — 스캔이 루트 관리 방식을 이렇게
+  /// 잘못 읽으면 관리 범위가 좁은 쪽으로 읽혀 하위가 인덱스에서 **지워진다**
+  /// (태그까지 함께). 화면에 보여 주는 쪽은 기다릴 필요가 없다 — 로드가 끝나면 상태가
+  /// 갱신되어 다시 그려진다.
+  Future<void> ensureLoaded() => _loading ?? Future<void>.value();
 
   Future<void> _load(ViewSettingsRepository repo) async {
     final loaded = await repo.load();

@@ -1082,12 +1082,6 @@ abstract class AppLocalizations {
   /// **'스캔에 실패했습니다: {error}'**
   String homeScanFailed(String error);
 
-  /// 다른 프로세스가 이미 스캔 중이라 스캔을 시작하지 않았을 때의 알림
-  ///
-  /// In ko, this message translates to:
-  /// **'다른 프로그램이 이 폴더를 훑고 있어 스캔을 건너뛰었습니다.'**
-  String get homeScanBusy;
-
   /// 루트 폴더 자체를 나열하지 못해 스캔이 서지 못했을 때의 알림
   ///
   /// In ko, this message translates to:

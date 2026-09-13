@@ -6,7 +6,10 @@ import 'package:filetagger/domain/entities/file_tree_node.dart';
 import 'package:filetagger/domain/entities/node_kind.dart';
 import 'package:filetagger/domain/entities/tag_assignment.dart';
 import 'package:filetagger/domain/entities/tag_definition.dart';
+import 'package:filetagger/domain/entities/folder_manage_mode.dart';
 import 'package:filetagger/domain/entities/tag_value_type.dart';
+import 'package:filetagger/domain/entities/workspace_view_settings.dart';
+import 'package:filetagger/domain/repositories/view_settings_repository.dart';
 import 'package:filetagger/presentation/providers/file_node_provider.dart';
 import 'package:filetagger/presentation/providers/file_view_provider.dart';
 import 'package:filetagger/presentation/providers/tag_provider.dart';
@@ -29,7 +32,51 @@ Future<ProviderContainer> _containerWith(FileFilter filter) async {
   return container;
 }
 
+/// 로드가 **늦게** 끝나는 가짜 저장소. 폴더를 열자마자 설정을 읽는 쪽이 기본값을
+/// 집어 가는지를 드러낸다.
+class _SlowStore implements ViewSettingsRepository {
+  _SlowStore(this._stored);
+
+  final WorkspaceViewSettings _stored;
+
+  @override
+  Future<WorkspaceViewSettings> load() async {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    return _stored;
+  }
+
+  @override
+  Future<void> save(WorkspaceViewSettings settings) async {}
+}
+
 void main() {
+  // 스캔은 이 값으로 인덱싱 범위를 정한다. 저장값이 실리기 전의 기본값으로 훑으면
+  // 범위가 좁은 쪽으로 읽혀 하위 노드가 태그와 함께 정리된다.
+  test('저장된 루트 관리 방식은 로드를 기다린 뒤에 읽힌다', () async {
+    final container = ProviderContainer(
+      overrides: [
+        viewSettingsRepositoryProvider.overrideWithValue(
+          _SlowStore(
+            const WorkspaceViewSettings(
+              rootManageMode: FolderManageMode.managedRecursive,
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(viewSettingsProvider.notifier);
+    // 기다리지 않고 읽으면 기본값이다 — 여기서 훑으면 안 된다.
+    expect(container.read(rootManageModeProvider), kDefaultRootManageMode);
+
+    await notifier.ensureLoaded();
+    expect(
+      container.read(rootManageModeProvider),
+      FolderManageMode.managedRecursive,
+    );
+  });
+
   // 스캔 표시를 띄울지 가르는 기준. 이 둘을 같은 것으로 보면, 인덱스가 이미 차
   // 있는데도 조건이 아무것도 못 내는 순간 목록이 스캔 표시에 가려진다.
   group('인덱스가 비었는지와 조건에 맞는 것이 없는지는 다른 상태다', () {

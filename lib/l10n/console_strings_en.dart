@@ -82,7 +82,7 @@ class ConsoleStringsEn extends ConsoleStrings {
       '  <tag>                     the tag is attached\n'
       '  <tag><operator><value>    compare the value\n'
       '  $excludePrefix<tag condition>           hide what matches (exclude)\n'
-      '  $orPrefix<tag condition>           join the previous condition (OR)\n'
+      '  $orPrefix<tag condition>           join the previous condition (OR — goes at the chunk head)\n'
       '\n'
       '  Every condition must hold; joined ones need only one of them.\n'
       '\n'
@@ -90,6 +90,9 @@ class ConsoleStringsEn extends ConsoleStrings {
   @override
   String filterHelpAlias(String aliases, String canonical) =>
       '($aliases reads as $canonical too)';
+  @override
+  String filterHelpMultiValue(String everyValueOperators) =>
+      'A tag with several values matches on any of them; $everyValueOperators need all of them.';
   @override
   String filterOperatorName(FilterOperator op) => switch (op) {
     FilterOperator.exists => 'exists',
@@ -281,10 +284,20 @@ class ConsoleStringsEn extends ConsoleStrings {
       'Keep what was written as an unresolved link when the target is not found.';
   @override
   String get optSystemHelp =>
-      'Emit derived system tags too. By default they show when listing and not when exporting.';
+      'List derived system tags too. They never go into an export either way — the receiving side rejects them.';
   @override
   String get optExportHelp =>
       'Emit a command file (JSON) another workspace can eat. import reads this format.';
+  @override
+  String get optExportToHelp =>
+      'Write the command file here and put the images it carries next to it.';
+  @override
+  String get labelImages => 'images';
+  @override
+  String imagesNotBundled(int count) =>
+      '$count image(s) could not go along — name a destination and they are placed next to the file.';
+  @override
+  String fileWriteFailed(String path) => 'Could not write the file: $path';
 
   @override
   String get labelUser => 'user';
@@ -304,6 +317,9 @@ class ConsoleStringsEn extends ConsoleStrings {
   String get keywordWithFilter =>
       'A keyword target cannot be used when picking by condition.';
   @override
+  String keywordWithSameName(String raw, String keywordOption) =>
+      'A keyword of that name exists. Pass $keywordOption to mean the keyword: $raw';
+  @override
   String noSuchTarget(String raw) => 'Target not found: $raw';
   @override
   String get noMatch => 'No target matched the condition.';
@@ -321,9 +337,6 @@ class ConsoleStringsEn extends ConsoleStrings {
   String get labelScanning => 'walking';
   @override
   String get labelIndexed => 'indexed';
-  @override
-  String get scanBusy =>
-      'Skipped: another program is already walking this folder.';
   @override
   String workspaceUnreadable(String root) =>
       'Could not list the managed folder: $root';

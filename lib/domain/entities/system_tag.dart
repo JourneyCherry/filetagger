@@ -189,7 +189,8 @@ bool isSystemTagId(int id) => id < 0;
 /// 없앤 id는 다시 쓰지 않는다는 규칙 덕에 따로 목록을 들 필요가 없다. 이 갈래는
 /// 사용자가 지운 태그와 **성격이 다르다**: 사용자 태그는 실수로 지웠을 수 있어 저장된
 /// 참조를 남겨 두지만(불러올 때만 걸러 낸다), 없앤 시스템 태그는 **영영 돌아오지
-/// 않으므로** 남겨 둘 값이 없다([purgeRetiredSystemTags]).
+/// 않으므로** 남겨 둘 값이 없다 — 보기 설정과 조건 프리셋에서 걷어내는 것이
+/// [purgeRetiredFromViewSettings]·[purgeRetiredFromPresets]이다.
 bool isRetiredSystemTagId(int id) => isSystemTagId(id) && _tagsById[id] == null;
 
 /// 이 부여를 칩에서 눌러 값을 편집할 수 있는지. 시스템 태그는 수정 가능한 것

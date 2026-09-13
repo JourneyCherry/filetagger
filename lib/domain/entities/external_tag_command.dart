@@ -242,6 +242,10 @@ enum CommandFailureDetail {
   /// 그 이름의 키워드가 없다(파일 대상이 없는 것과 가른다).
   keywordMissing,
 
+  /// 그 경로에 파일은 없지만 **같은 이름의 키워드는 있다**. 키워드는 경로 계층 밖이라
+  /// 대상 종류로만 가리므로, 종류를 바로잡으면 그대로 서는 자리다.
+  keywordWithSameName,
+
   /// 값을 숫자로 읽지 못했다.
   notNumber,
 

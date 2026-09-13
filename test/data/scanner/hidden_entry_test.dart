@@ -4,7 +4,7 @@ import 'package:filetagger/data/scanner/hidden_entry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('isHiddenName (POSIX 이름 기반 판정)', () {
+  group('isHiddenName (이름 기반 판정 — 플랫폼 공통)', () {
     test('이름이 .으로 시작하면 숨김이다', () {
       expect(isHiddenName('.gitignore'), isTrue);
       expect(isHiddenName('.secret'), isTrue);
@@ -59,7 +59,7 @@ void main() {
   );
 
   // 폴더 단위 조회는 항목별 판정을 싸게 대신하는 것이므로, 답이 달라지면 안 된다.
-  // Windows에서는 나열로 받은 속성을, POSIX에서는 이름을 보게 된다.
+  // 이름은 어디서나 보고, Windows는 나열로 받은 속성을 더 본다.
   group('hiddenLookupFor (폴더 단위 숨김 조회)', () {
     late Directory tempRoot;
 
@@ -111,6 +111,17 @@ void main() {
 
       expect(lookup.isHidden(late), isTrue);
       expect(lookup.isHidden(plain), isFalse);
+    });
+
+    test('점으로 시작하는 이름은 숨김 속성이 없어도 숨김이다', () {
+      // Windows에서도 걸리는 규칙이다 — 도구가 만든 점 폴더에는 대개 숨김 속성이
+      // 붙지 않아, 속성만 보면 관리 폴더 목록에 그대로 튀어나온다.
+      final dir = Directory('${tempRoot.path}${Platform.pathSeparator}.claude')
+        ..createSync();
+
+      expect(isHiddenEntry(dir), isTrue);
+      // 폴더 단위 조회도 같은 답이어야 한다(준비분은 답을 바꾸지 않는다).
+      expect(hiddenLookupFor(tempRoot.path).isHidden(dir), isTrue);
     });
 
     test('나열할 수 없는 경로여도 판정은 계속된다', () {

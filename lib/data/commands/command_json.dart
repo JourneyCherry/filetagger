@@ -49,9 +49,6 @@ enum CommandReadError {
   /// 파일이 JSON이 아니다.
   notJson,
 
-  /// 최상위 배열에 명령이 하나도 없다.
-  emptyArray,
-
   /// 항목이 JSON 객체가 아니다.
   notObject,
 
@@ -101,11 +98,9 @@ List<CommandRecord> decodeCommandFile(String text) {
     return const [UnreadableCommand(CommandReadError.notJson)];
   }
   if (decoded is List) {
-    // 빈 배열은 할 일이 없다. 조용히 성공으로 치면 부르는 쪽이 "왜 아무것도 안 됐지"를
-    // 알 길이 없으므로 형식 오류로 본다.
-    if (decoded.isEmpty) {
-      return const [UnreadableCommand(CommandReadError.emptyArray)];
-    }
+    // **빈 배열은 형식 오류가 아니라 할 일 0건이다.** 조건에 아무것도 걸리지 않은
+    // 내보내기가 내는 것이 이 모양이라, 오류로 보면 아무 일도 없는 날 자동화가
+    // 터진다. 왜 아무것도 안 됐는지는 파일이 비어 있다는 사실과 0건 보고가 말한다.
     return [for (final element in decoded) _decodeItem(element)];
   }
   return [_decodeItem(decoded)];
@@ -168,7 +163,7 @@ CommandRecord _decodeItem(Object? element) {
 
   final rawValueNodeType = source[_kValueNodeType];
   final valueKind = rawValueNodeType == null
-      ? ExternalNodeKind.file
+      ? _defaultValueKind
       : enumByName(ExternalNodeKind.values, rawValueNodeType);
   if (valueKind == null) {
     return UnreadableCommand(
@@ -257,7 +252,8 @@ CommandRecord _decodeItem(Object? element) {
 
 /// 명령 하나를 파일 내용으로 쓴다(읽기와 대칭 — 테스트가 쓴다).
 ///
-/// 기본값이 있는 필드도 적어 파일만 보고 뜻을 알 수 있게 한다.
+/// 기본값이 있는 필드도 적어 파일만 보고 뜻을 알 수 있게 한다 — 뜻을 갖는 자리가
+/// 좁은 값 판별만 예외다([commandToJson]).
 String encodeCommandFile(ExternalTagCommand command) =>
     encodeCommandObjects([commandToJson(command)], asArray: false);
 
@@ -273,16 +269,21 @@ String encodeCommandObjects(
 
 /// 명령 하나의 JSON 객체 표현.
 ///
-/// **[ExternalTagCommand.valueKind]는 내지 않는다**(읽기는 그대로 받는다 — 사용자
-/// 결정). 링크가 아닌 태그에서도 값만 있으면 붙어 잡음이 되던 필드라 걷어냈고, 그
-/// 대가로 **키워드를 가리키는 링크가 왕복하지 못한다** — 받는 쪽이 기본값(경로)으로
-/// 읽어 대상을 찾지 못하고, [MissingLinkPolicy.keep]이면 미해결 링크로 앉는다.
+/// **[ExternalTagCommand.valueKind]는 기본값과 다를 때만 낸다.** 이 필드는 값이 노드를
+/// 가리킬 때(link)만 뜻이 있는데 명령 표현만 보고는 태그의 값 유형을 알 수 없어, 늘
+/// 내면 글자 값을 가진 태그에도 붙어 잡음이 된다. 그렇다고 통째로 빼면 **키워드를
+/// 가리키는 링크가 왕복하지 못한다** — 받는 쪽이 기본값(경로)으로 읽어 대상을 찾지
+/// 못하고, [MissingLinkPolicy.keep]이면 미해결 링크로 앉는다. 그래서 **부르는 쪽이
+/// 일부러 다른 것을 지목했을 때만** 적는다(적지 않은 것이 곧 기본값이다 — 읽기의
+/// 기본값과 짝이 맞는다).
 Map<String, dynamic> commandToJson(ExternalTagCommand command) => {
   _kPath: command.targetPath,
   _kNodeType: command.targetKind.name,
   _kOp: command.operation.name,
   _kTag: command.tagName,
   if (command.value != null) _kValue: command.value,
+  if (command.valueKind != _defaultValueKind)
+    _kValueNodeType: command.valueKind.name,
   _kMissing: command.missingTag.name,
   _kMissingKeyword: command.missingKeyword.name,
   _kMissingLink: command.missingLink.name,
@@ -294,6 +295,10 @@ Map<String, dynamic> commandToJson(ExternalTagCommand command) => {
 };
 
 // ── 직렬화 세부 ──
+
+/// 값이 가리키는 대상의 종류를 적지 않았을 때의 뜻. 쓰기가 이 값을 생략하고 읽기가
+/// 이 값으로 채우므로, **한 자리에 두어야** 둘이 갈리지 않는다.
+const ExternalNodeKind _defaultValueKind = ExternalNodeKind.file;
 
 const String _kPath = 'path';
 const String _kOp = 'op';

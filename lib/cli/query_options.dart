@@ -57,6 +57,8 @@ String filterHelpText(ConsoleStrings strings, {required String localeName}) {
     ...rows,
     '  ${strings.filterHelpAlias(_equalsAliases, _canonicalEquals)}',
     '',
+    '  ${strings.filterHelpMultiValue(_everyValueOperators)}',
+    '',
     '--$optSort',
     strings.filterHelpSort(kSortDescendingPrefix, kSortRandomPrefix),
     '',
@@ -64,6 +66,14 @@ String filterHelpText(ConsoleStrings strings, {required String localeName}) {
     strings.filterHelpGroup(folderHierarchyNameFor(localeName)),
   ].join('\n');
 }
+
+/// 값 여럿을 모두 견주는 연산들의 표기. 안내가 기호를 손으로 적지 않도록 토큰 표에서
+/// 뽑는다(연산자 표와 같은 자리다).
+final String _everyValueOperators = [
+  for (final op in FilterOperator.values)
+    if (requiresEveryValue(op))
+      if (filterOperatorToken(op) case final token?) token,
+].join(' ');
 
 /// 정식 토큰이 아니라 **입력에서만 받는** 같음의 별칭들.
 final String _equalsAliases = [

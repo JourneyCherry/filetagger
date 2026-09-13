@@ -75,7 +75,7 @@ class ConsoleStringsKo extends ConsoleStrings {
       '  <태그>                그 태그가 붙어 있으면 걸린다\n'
       '  <태그><연산자><값>    값을 견준다\n'
       '  $excludePrefix<태그 조건>          걸리는 것을 숨긴다(제외)\n'
-      '  $orPrefix<태그 조건>          앞 조건과 한 묶음으로 잇는다(OR)\n'
+      '  $orPrefix<태그 조건>          앞 조건과 한 묶음으로 잇는다(OR — 조각 맨 앞에 붙인다)\n'
       '\n'
       '  조건은 모두 만족해야 걸리고, 이어붙인 것끼리는 하나만 만족하면 된다.\n'
       '\n'
@@ -83,6 +83,9 @@ class ConsoleStringsKo extends ConsoleStrings {
   @override
   String filterHelpAlias(String aliases, String canonical) =>
       '($aliases 도 $canonical 으로 읽는다)';
+  @override
+  String filterHelpMultiValue(String everyValueOperators) =>
+      '값이 여럿인 태그는 하나라도 맞으면 걸린다. $everyValueOperators 만 모든 값이 그래야 한다.';
   @override
   String filterOperatorName(FilterOperator op) => switch (op) {
     FilterOperator.exists => '있음',
@@ -253,10 +256,20 @@ class ConsoleStringsKo extends ConsoleStrings {
   @override
   String get optKeepLinkHelp => '링크 대상을 찾지 못해도 적은 원문을 미해결 링크로 남긴다.';
   @override
-  String get optSystemHelp => '파생되는 시스템 태그를 함께 낸다. 주지 않으면 조회에는 나오고 내보내기에는 빠진다.';
+  String get optSystemHelp =>
+      '파생되는 시스템 태그를 조회에 함께 낸다. 내보내기에는 어느 쪽이든 담기지 않는다(받는 쪽이 거부한다).';
   @override
   String get optExportHelp =>
       '다른 관리 폴더에 먹일 수 있는 명령 파일(JSON)로 낸다. import가 이 형식을 읽는다.';
+  @override
+  String get optExportToHelp => '명령 파일을 이 자리에 쓰고, 딸린 이미지를 그 옆에 함께 놓는다.';
+  @override
+  String get labelImages => '이미지';
+  @override
+  String imagesNotBundled(int count) =>
+      '이미지 $count개는 함께 나가지 못했습니다 — 자리를 지목해 내보내면 파일 옆에 함께 놓입니다.';
+  @override
+  String fileWriteFailed(String path) => '파일을 쓰지 못했습니다: $path';
 
   @override
   String get labelUser => '사용자';
@@ -274,6 +287,9 @@ class ConsoleStringsKo extends ConsoleStrings {
   @override
   String get keywordWithFilter => '조건으로 고를 때는 키워드 대상을 쓸 수 없습니다.';
   @override
+  String keywordWithSameName(String raw, String keywordOption) =>
+      '같은 이름의 키워드가 있습니다. 키워드를 지목하려면 $keywordOption을 함께 주십시오: $raw';
+  @override
   String noSuchTarget(String raw) => '대상을 찾을 수 없습니다: $raw';
   @override
   String get noMatch => '조건에 걸린 대상이 없습니다.';
@@ -290,8 +306,6 @@ class ConsoleStringsKo extends ConsoleStrings {
   String get labelScanning => '훑는 중';
   @override
   String get labelIndexed => '인덱싱';
-  @override
-  String get scanBusy => '다른 프로그램이 이미 이 폴더를 훑고 있어 건너뛰었습니다.';
   @override
   String workspaceUnreadable(String root) => '관리 폴더를 나열하지 못했습니다: $root';
 

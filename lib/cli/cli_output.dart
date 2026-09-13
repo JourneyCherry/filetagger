@@ -32,9 +32,6 @@ const int exitRejected = 65;
 /// 관리 폴더가 아니다.
 const int exitNoWorkspace = 66;
 
-/// 지금은 할 수 없다 — 다른 프로세스가 이미 전체 스캔을 돌리고 있다.
-const int exitBusy = 69;
-
 /// 파일을 읽고 쓰지 못했다.
 const int exitIoError = 74;
 
@@ -76,11 +73,11 @@ enum ConsoleFailure {
   /// 관리 폴더를 읽지 못했다.
   workspaceUnreadable,
 
-  /// 다른 프로세스가 이미 전체 스캔을 돌리고 있다.
-  scanBusy,
-
   /// 파일을 읽지 못했다.
   fileUnreadable,
+
+  /// 파일을 쓰지 못했다.
+  fileWriteFailed,
 
   /// 이미지로 읽히지 않는다.
   notAnImage,
@@ -99,6 +96,9 @@ enum ConsoleFailure {
 
   /// 인덱스에 그 대상이 없다.
   noSuchTarget,
+
+  /// 그 경로의 대상은 없지만 같은 이름의 키워드가 있다. 종류를 지목하면 서는 자리다.
+  keywordWithSameName,
 
   /// 시스템 태그는 콘솔이 다루지 않는다.
   systemTag,

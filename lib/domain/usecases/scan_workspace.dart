@@ -36,6 +36,11 @@ class ScanWorkspace {
     void Function(ScanProgress progress)? onProgress,
     ScanCancellation? cancel,
   }) async {
+    // 사라짐 판정의 기준 시각. **훑기 전에** 찍어 둔다 — 이 뒤에 관측 도장이 찍힌
+    // 노드는 누군가 나보다 나중에 그것을 보았다는 뜻이라, 내가 못 봤다고 해서 사라진
+    // 것으로 읽으면 안 된다([FileNodeRepository.applyScan]).
+    final scanStartedAt = _flooredToSecond(DateTime.now());
+
     // 직전 인덱스를 넘겨, 크기·수정시각이 그대로인 파일은 저장된 해시를 재사용해
     // 재해시(파일 재읽기)를 건너뛰게 하고, 폴더 관리 방식(override)도 이어받게 한다.
     final priorIndex = await _repository.indexByPath();
@@ -68,7 +73,19 @@ class ScanWorkspace {
       // 있으므로 저장된 것이 아니라 스캔 시작 시점을 기준으로 삼아야 한다.
       priorPaths: priorIndex.keys.toSet(),
       unreadableDirs: result.unreadableDirs.toSet(),
+      scanStartedAt: scanStartedAt,
     );
     return result;
   }
+
+  /// 초 미만을 버린 시각. **관측 도장은 초 정밀도로 저장되므로**(이동 추적이 수정
+  /// 시각을 초 단위로 비교하는 것과 같은 이유), 기준 시각을 그대로 쓰면 같은 초에
+  /// 찍힌 도장이 "내 시작 전"으로 읽힌다. 내려서 잡아 **의심스러운 한 초는 남기는
+  /// 쪽으로** 기운다 — 잘못 남기면 다음 스캔이 정리하지만, 잘못 지우면 태그가 함께
+  /// 사라진다.
+  static DateTime _flooredToSecond(DateTime t) =>
+      DateTime.fromMillisecondsSinceEpoch(
+        (t.millisecondsSinceEpoch ~/ 1000) * 1000,
+        isUtc: t.isUtc,
+      );
 }

@@ -33,11 +33,21 @@ abstract interface class FileNodeRepository {
   /// [priorPaths]는 **스캔이 시작될 때** 인덱스에 있던 경로들이다. 이동 재연결은
   /// "이번 스캔에서 처음 본 경로"를 알아야 하는데, 스캔 도중 [applyPartialScan]으로
   /// 미리 반영한 노드가 있으면 지금 저장된 것만 봐서는 그 판정이 서지 않는다.
+  ///
+  /// [scanStartedAt]은 이 스캔이 **훑기 시작한 시각**이다. 관측 도장([FileNode]의
+  /// 마지막 관측 시각)이 이보다 새로운 노드는 **누군가 내 시작 뒤에 그것을 보았다**는
+  /// 뜻이므로 사라짐 판정에서 뺀다 — 내 관측이 그 노드에 대해서는 낡았다.
+  ///
+  /// **스캔의 관측은 스냅샷이 아니라 구간**이라 이 기준이 필요하다. 큰 폴더를 훑는
+  /// 동안 짧은 재스캔이 끼어들어 먼저 끝날 수 있고, 그때 늦게 끝난 쪽이 "내가 못 본
+  /// 것은 사라졌다"로 덮으면 **더 오래된 관측이 새 관측을 지운다**. 이 조건은 그 덮어
+  /// 쓰기만 막고, 진짜로 사라진 노드(아무도 새로 보지 못한 노드)는 그대로 정리한다.
   Future<void> applyScan(
     List<FileNode> scanned, {
     required FolderManageMode rootManageMode,
     required Set<String> priorPaths,
     required Set<String> unreadableDirs,
+    required DateTime scanStartedAt,
   });
 
   /// 스캔 **도중** 관측된 노드를 목록에 미리 반영한다(경로 기준 upsert만).

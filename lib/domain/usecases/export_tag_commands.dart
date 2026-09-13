@@ -104,6 +104,57 @@ ExportedCommands buildExportCommands({
   return ExportedCommands(commands: commands, imageKeys: imageKeys);
 }
 
+/// [nodes]에 **링크 값이 가리키는 키워드**를 더한 목록. 내보낼 대상을 정하는 자리가
+/// 후보 태그([exportableTagIds])와 명령([buildExportCommands])을 세우기 전에 통과하는
+/// 관문이다.
+///
+/// 키워드는 경로 계층 밖에 있어 조건에 걸린 대상 집합에도, 파일을 짚은 선택에도 딸려
+/// 오지 않는다. 그대로 내보내면 받는 쪽에는 이름만 있는 키워드가 서고(`missingKeyword`)
+/// 그 키워드에 붙어 있던 태그는 통째로 사라진다 — 오류도 경고도 없이. 링크 값을 살려
+/// 보내기로 한 결정이 **가리키는 대상 자신에게서** 끊기는 자리라 여기서 잇는다.
+///
+/// **데려오는 것은 키워드뿐이다.** 파일·폴더는 받는 쪽 디스크에 있거나 미해결 링크로
+/// 남으면 되고, 그것까지 데려오기 시작하면 고른 범위가 링크를 따라 번진다. 키워드는
+/// 앱이 만들어야만 존재해 그 갈래가 아니다.
+///
+/// 데려온 키워드가 또 링크를 가지면 그것도 따라간다(더 들어올 것이 없을 때까지).
+/// 차례는 준 것이 앞이고 데려온 것이 뒤이며, 이미 있는 노드를 두 번 담지 않는다.
+List<FileNode> withLinkedKeywords({
+  required List<FileNode> nodes,
+  required Map<int, List<AssignedTag>> assignmentsByFile,
+  required Map<int, FileNode> nodesById,
+}) {
+  final present = <int>{
+    for (final node in nodes)
+      if (node.id != null) node.id!,
+  };
+  final result = [...nodes];
+  // 새로 들어온 것만 다시 훑는다 — 이미 본 노드를 되풀어 훑을 이유가 없다.
+  var frontier = nodes;
+  while (frontier.isNotEmpty) {
+    final found = <FileNode>[];
+    for (final node in frontier) {
+      final id = node.id;
+      if (id == null) continue;
+      for (final a in assignmentsByFile[id] ?? const <AssignedTag>[]) {
+        // 시스템 태그는 내보내지 않으므로 그 값이 무엇을 가리켜도 데려올 이유가 없다.
+        if (isSystemTagId(a.tagDefinitionId)) continue;
+        if (a.definition.valueType != TagValueType.link) continue;
+        // 미해결 값은 id가 아니라 원문이라 가리키는 노드를 짚을 수 없다.
+        if (a.valueUnresolved) continue;
+        final target = nodesById[int.tryParse(a.value ?? '')];
+        if (target == null || !target.isKeyword) continue;
+        final targetId = target.id;
+        if (targetId == null || !present.add(targetId)) continue;
+        found.add(target);
+      }
+    }
+    result.addAll(found);
+    frontier = found;
+  }
+  return result;
+}
+
 /// [nodes]가 실제로 가진, 내보낼 수 있는 태그 정의 id. 다이얼로그의 후보 목록이다 —
 /// 워크스페이스의 모든 태그를 내걸면 고를 것이 태반 쓸모없다.
 Set<int> exportableTagIds({
@@ -112,7 +163,7 @@ Set<int> exportableTagIds({
 }) => {
   for (final node in nodes)
     if (node.id != null)
-      for (final a in assignmentsByFile[node.id]!)
+      for (final a in assignmentsByFile[node.id] ?? const <AssignedTag>[])
         if (!isSystemTagId(a.tagDefinitionId)) a.tagDefinitionId,
 };
 

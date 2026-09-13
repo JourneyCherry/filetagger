@@ -697,10 +697,6 @@
       }
     }
   },
-  "homeScanBusy": "다른 프로그램이 이 폴더를 훑고 있어 스캔을 건너뛰었습니다.",
-  "@homeScanBusy": {
-    "description": "다른 프로세스가 이미 스캔 중이라 스캔을 시작하지 않았을 때의 알림"
-  },
   "homeScanRootUnreadable": "관리 폴더를 읽지 못해 스캔을 멈췄습니다. 태그와 목록은 그대로 둡니다: {path}",
   "@homeScanRootUnreadable": {
     "description": "루트 폴더 자체를 나열하지 못해 스캔이 서지 못했을 때의 알림",

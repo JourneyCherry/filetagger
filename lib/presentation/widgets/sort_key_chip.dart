@@ -12,8 +12,7 @@ import 'tag_capsule.dart';
 ///
 /// 정렬 방법은 구분선 오른쪽에 아이콘으로 둔다. 방법을 가리지 않는 태그(label)는
 /// 화살표 대신 존재 정렬 아이콘을 보여준다. 순서 변경 손잡이·삭제 버튼은
-/// [showHandle]/[dragIndex]·[showDelete]/[onDelete]로 켠다(도구모음은 동작까지,
-/// 텍스트 입력 안 캡슐은 모양만).
+/// [dragIndex]·[onDelete]로 켠다(도구모음은 동작까지, 텍스트 입력 안 캡슐은 모양만).
 class SortKeyChip extends StatelessWidget {
   const SortKeyChip({
     super.key,

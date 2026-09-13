@@ -13,8 +13,8 @@ import 'tag_capsule.dart';
 /// 것(제외 아이콘·이름/조건 나누기·색)만 얹는다.
 ///
 /// 제외 조건은 흐린 회색에 금지 아이콘, 표시 조건은 태그색으로 채운다. 순서 변경
-/// 손잡이·삭제 버튼은 [showHandle]/[dragIndex]·[showDelete]/[onDelete]로 켠다(도구모음은
-/// 동작까지, 텍스트 입력 안 캡슐은 모양만).
+/// 손잡이·삭제 버튼은 [dragIndex]·[onDelete]로 켠다(도구모음은 동작까지, 텍스트 입력
+/// 안 캡슐은 모양만).
 class FilterConditionChip extends StatelessWidget {
   const FilterConditionChip({
     super.key,

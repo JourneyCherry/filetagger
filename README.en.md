@@ -244,7 +244,6 @@ filetagger_cli -C ~/pictures list add 2026/new.png source pixiv --auto-scan
   the index, so a later walk cannot recover what was never picked.
 - **It judges again only once.** A second hold is not a race but a place a walk does
   not reach, so repeating would give the same answer.
-- If another program is already walking, it is skipped and the earlier hold stands.
 
 A full scan is expensive, so it is **not the default**. A script that touches many
 files is far better off calling `scan` once and attaching the rest.
@@ -357,10 +356,11 @@ tag, and the answer is not a rejection but "not yet" (exit code `75`). Run `scan
 first, or wait for the scan the app runs when it opens the folder or notices a
 file-system change, and it goes through.
 
-A **lock is held** while a full scan runs. A scan decides that "a node not observed
-is a node that is gone", so two overlapping scans would read the part one of them has
-not reached yet as deleted. If something is already walking the folder, the command
-does not queue up — it skips (exit code `69`).
+Full scans **may overlap.** A scan decides that "a node not observed is a node that is
+gone", and that decision also looks at when each node was last observed — if someone
+saw a node after this scan began, this scan does not delete it just because it did not
+see it. So walking from the console while the app walks does not overwrite what the
+other one found (it does cost walking the same folder twice).
 
 #### The app may be running
 
@@ -410,7 +410,6 @@ external tool or an AI to take the result and act on it.
 | `64` | The command was used wrongly |
 | `65` | The command was rejected (no such tag, a value type mismatch, and so on — the reason comes with it) |
 | `66` | Not a managed folder |
-| `69` | Something else is already walking the folder, so the scan was skipped |
 | `74` | A file could not be read or written |
 | `75` | **Not yet** — the index does not know the target. `scan` has to run first |
 

@@ -565,10 +565,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get homeScanBusy =>
-      'Another program is scanning this folder, so the scan was skipped.';
-
-  @override
   String homeScanRootUnreadable(String path) {
     return 'The managed folder could not be read, so the scan stopped. Tags and the list are left as they were: $path';
   }

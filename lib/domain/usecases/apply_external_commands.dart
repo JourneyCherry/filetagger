@@ -88,6 +88,7 @@ class ApplyExternalCommands {
       final resolved = await _resolveDiskTarget(
         command.targetPath,
         index,
+        keywordIndex,
         indexingDirs,
       );
       final failure = resolved.failure;
@@ -213,6 +214,7 @@ class ApplyExternalCommands {
   Future<({int? id, _Verdict? failure})> _resolveDiskTarget(
     String raw,
     Map<String, FileNode> index,
+    Map<String, FileNode> keywordIndex,
     Set<String> indexingDirs,
   ) async {
     final path = normalizeWorkspaceRelPath(raw);
@@ -231,9 +233,17 @@ class ApplyExternalCommands {
     if (id != null) return (id: id, failure: null);
 
     if (!await environment.targetExists(path)) {
+      // 디스크에 없는 이름이 키워드로는 있을 수 있다 — 두 키 공간이 갈라져 있어 서로를
+      // 밀어내지 않는다. 종류만 바로잡으면 서는 자리를 "없다"로만 답하면, 부르는 쪽은
+      // 있는 것을 두고 엉뚱한 데를 찾는다.
       return (
         id: null,
-        failure: const _Failed(CommandFailureReason.targetMissing),
+        failure: _Failed(
+          CommandFailureReason.targetMissing,
+          keywordIndex.containsKey(raw)
+              ? CommandFailureDetail.keywordWithSameName
+              : null,
+        ),
       );
     }
     if (!indexingDirs.contains(parentDirPath(path))) {

@@ -215,18 +215,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final root = ref.read(workspaceRootProvider);
     if (usecase == null || root == null) return;
 
-    final rootMode = ref.read(rootManageModeProvider);
     final epoch = _workspaceEpoch;
     final cancel = ScanCancellation();
     _activeScans.add(cancel);
+    // **표시를 먼저 세운다.** 설정을 기다리는 동안에도, 앞 스캔이 접히기를 기다리는
+    // 동안에도 이 스캔은 이미 예약된 것이다 — 그 사이에 들어온 조용한 재스캔이 이
+    // 플래그를 보고 물러나야 같은 폴더를 겹쳐 훑지 않는다.
     setState(() {
       _scanning = true;
       _scanProgress = null;
     });
     try {
+      // **저장된 보기 설정이 실린 뒤에 모드를 읽는다.** 폴더를 열면 곧바로 여기로
+      // 오는데 그때 설정은 아직 디스크에서 오는 중이고, 기다리지 않으면 기본값
+      // (비재귀)으로 훑어 하위가 통째로 인덱싱 범위 밖이 된다 — 태그가 붙어 있어도
+      // 정리된다.
+      await ref.read(viewSettingsProvider.notifier).ensureLoaded();
+      if (!mounted || epoch != _workspaceEpoch) return;
       final result = await usecase(
         root,
-        rootManageMode: rootMode,
+        rootManageMode: ref.read(rootManageModeProvider),
         cancel: cancel,
         onProgress: (progress) => _reportScanProgress(epoch, progress),
       );
@@ -234,11 +242,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await _reconcileNestedDecisions(result.nestedFiletaggerDirs);
     } on ScanCancelledException {
       // 실패가 아니라 우리가 시킨 중단이다 — 알릴 것이 없다.
-    } on WorkspaceScanBusyException {
-      // 사고가 아니라 하지 않기로 한 것이다. 돌고 있는 스캔이 곧 같은 결과를 만든다.
-      if (mounted && epoch == _workspaceEpoch) {
-        _showSnack(AppLocalizations.of(context).homeScanBusy);
-      }
     } on WorkspaceUnreadableException catch (e) {
       // 원인이 분명한 실패라 예외 원문 대신 무엇이 일어났는지로 알린다. 정합이 돌지
       // 않았으므로 태그도 목록도 그대로임을 함께 말해 준다.
@@ -280,18 +283,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final root = ref.read(workspaceRootProvider);
     if (usecase == null || root == null) return;
 
-    final rootMode = ref.read(rootManageModeProvider);
     final epoch = _workspaceEpoch;
     final cancel = ScanCancellation();
     _activeScans.add(cancel);
+    // 전면 스캔과 같은 이유로 플래그를 먼저 세운다 — 기다리는 동안 들어온 다음 변화
+    // 신호가 이것을 보고 물러난다.
     setState(() {
       _backgroundScanning = true;
       _scanProgress = null;
     });
     try {
+      // 전면 스캔과 같은 이유로 설정이 실릴 때까지 기다린다 — watcher 신호는 폴더를
+      // 연 직후에도 온다.
+      await ref.read(viewSettingsProvider.notifier).ensureLoaded();
+      if (!mounted || epoch != _workspaceEpoch) return;
       await usecase(
         root,
-        rootManageMode: rootMode,
+        rootManageMode: ref.read(rootManageModeProvider),
         cancel: cancel,
         onProgress: (progress) => _reportScanProgress(epoch, progress),
       );
@@ -371,7 +379,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// 선택한 폴더의 펼침/접힘을 뒤집는다(메뉴·전용 단축키). 방향이 정해진 펼치기·접기는
-  /// [_setRowExpanded]가 맡는다.
+  /// [_expandCursorRow]·[_collapseCursorRow]가 맡는다.
   void _toggleExpandSelected() {
     final node = _expandableSelected;
     if (node != null) _toggleExpand(node.path);
@@ -1113,15 +1121,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (root == null) return;
     final selection = ref.read(selectionControllerProvider);
     final byId = ref.read(fileNodesByIdProvider);
-    final nodes = [
+    final selected = [
       for (final id in selection.selectedIds)
         if (byId[id] != null) byId[id]!,
     ];
-    if (nodes.isEmpty) return;
+    if (selected.isEmpty) return;
 
     // 값이 캐시 키·노드 id 그대로인 원본 맵을 쓴다 — 내보내기가 그것을 경로·이름으로
     // 직접 풀고, 이미지는 캐시 키로 파일을 찾아야 한다.
     final assignments = ref.read(effectiveAssignmentsByFileProvider);
+    // 고른 것이 링크로 가리키는 키워드를 함께 데려간다 — 그러지 않으면 받는 쪽에
+    // 이름만 있는 키워드가 서고 그 태그는 사라진다.
+    final nodes = withLinkedKeywords(
+      nodes: selected,
+      assignmentsByFile: assignments,
+      nodesById: byId,
+    );
     final candidateIds = exportableTagIds(
       nodes: nodes,
       assignmentsByFile: assignments,
@@ -1536,8 +1551,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
       if (ok != true) return;
     }
-    // 저장만 하면 rootManageMode 리스너가 재스캔을 트리거한다.
     ref.read(viewSettingsProvider.notifier).updateRootManageMode(newMode);
+    // 폴더 override를 바꾸는 쪽과 같은 자리에서 새 범위를 반영한다 — 바꾼 쪽이
+    // 재스캔까지 부르므로, 값이 바뀌는 것만 보고 훑는 구독은 두지 않는다(뷰 설정이
+    // 디스크에서 실릴 때도 값은 바뀌는데, 그때는 훑을 일이 아니다).
+    await _backgroundScan();
   }
 
   /// 폴더 [changedPath]의 override를 [newMode]로 바꿀 때 더 이상 인덱싱되지 않을
@@ -1869,12 +1887,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // 디스크 변화(watcher, 디바운스됨)를 구독해 백그라운드 재스캔을 트리거한다.
     ref.listen(workspaceChangesProvider, (_, next) {
       next.whenData((_) => _backgroundScan());
-    });
-
-    // 루트 관리 방식이 바뀌면(사용자 토글, 또는 폴더 열 때 뷰 설정 비동기 로드
-    // 완료로 기본값→저장값) 새 범위를 반영해 재스캔한다.
-    ref.listen(rootManageModeProvider, (prev, next) {
-      if (prev != null && prev != next) _backgroundScan();
     });
 
     // 링크 캡슐 더블탭 등의 "노드로 이동" 요청을 받아 그 노드로 옮긴다.

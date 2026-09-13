@@ -66,6 +66,22 @@ int countTreeNodes(List<TreeItem> roots) {
   return count;
 }
 
+/// 트리에 남은 실제 파일/폴더 노드를 **낸 차례대로** 편다(그룹 헤더는 빼고, 그 안으로
+/// 내려간다). [countTreeNodes]가 세는 것과 같은 목록이라, 값 그룹이 걸리면 다중값
+/// 중복만큼 같은 노드가 여러 번 나온다 — 대상마다 한 번이어야 하는 자리는 거르고 쓴다.
+List<FileNode> treeNodesInOrder(List<TreeItem> roots) {
+  final nodes = <FileNode>[];
+  void walk(List<TreeItem> items) {
+    for (final item in items) {
+      if (item is FileTreeNode) nodes.add(item.node);
+      walk(item.children);
+    }
+  }
+
+  walk(roots);
+  return nodes;
+}
+
 /// 트리 아래 리프 항목 수(파일·폴더를 가리지 않는다). 그룹 헤더의
 /// [GroupHeaderNode.itemCount]가 이 값을 담는다.
 ///

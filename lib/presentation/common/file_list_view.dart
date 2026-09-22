@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart'
     show PointerDeviceKind, kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:super_sliver_list/super_sliver_list.dart'
+    show ListController, SuperListView;
 
 import '../../domain/entities/assigned_tag.dart';
 import '../../domain/entities/file_node.dart';
@@ -115,9 +117,14 @@ class FileListView extends ConsumerStatefulWidget {
 class _FileListViewState extends ConsumerState<FileListView>
     with CursorRevealMixin<FileListView> {
   /// 커서 행을 화면으로 끌어올 때 쓰는 컨트롤러. 만들어져 있는 행은
-  /// [EnsureVisibleOnFocus]가 스스로 드러내고, 아직 없는 행은 이 컨트롤러로 그 언저리로
-  /// 옮겨 만들어 낸다([CursorRevealMixin]).
+  /// [EnsureVisibleOnFocus]가 스스로 드러내고, 아직 없는 행은 [stepTowardRow]가 이
+  /// 컨트롤러를 옮겨 만들어 낸다([CursorRevealMixin]).
   final ScrollController _scroll = ScrollController();
+
+  /// 목록이 제 행들의 길이를 재어 들고 있는 손잡이. **인덱스로 곧장 건너뛰는 통로다** —
+  /// 기본 `ListView`는 사이의 행을 하나하나 만들며 지나가야 해서, 긴 목록의 먼 자리로
+  /// 갈수록 한 프레임이 길어지고 빠른 탐색의 입력까지 밀린다.
+  final ListController _list = ListController();
 
   /// 이번 build의 표시 행(커서 대상 행 인덱스를 찾을 때 쓴다).
   List<TreeRow> _rows = const [];
@@ -161,6 +168,7 @@ class _FileListViewState extends ConsumerState<FileListView>
   @override
   void dispose() {
     _scroll.dispose();
+    _list.dispose();
     super.dispose();
   }
 
@@ -169,6 +177,22 @@ class _FileListViewState extends ConsumerState<FileListView>
 
   @override
   int get revealRowCount => _rows.length;
+
+  /// 아직 만들어지지 않은 커서 행으로 **사이를 건너뛰어 한 걸음에** 간다. 목록이 제
+  /// 행 길이를 들고 있어 어림을 되풀이할 일이 없다.
+  ///
+  /// 가운데로 잡는 것은 아직 재지 않은 행의 길이가 어림값이라 착지가 조금 빗나갈 수
+  /// 있기 때문이다 — 앞뒤로 반 화면씩 여유를 두면 그래도 행이 만들어지고, 거기서부터는
+  /// [EnsureVisibleOnFocus]가 모자란 만큼만 마저 민다. 이 걸음은 커서 행이 아직 없을
+  /// 때만 쓰이므로 커서가 화면 한가운데 붙박이가 되지는 않는다.
+  @override
+  bool stepTowardRow(int index) {
+    if (!_list.isAttached || !_scroll.hasClients) return false;
+    final before = _scroll.position.pixels;
+    _list.jumpToItem(index: index, scrollController: _scroll, alignment: 0.5);
+    // 움직이지 않았으면(이미 그 자리거나 목록 끝) 되풀이해도 달라질 것이 없다.
+    return (_scroll.position.pixels - before).abs() >= 1;
+  }
 
   /// 커서가 가리키는 표시 행의 위치. 헤더 행이면 펼침 키로, 노드 행이면 노드 id로 찾는다.
   @override
@@ -236,8 +260,9 @@ class _FileListViewState extends ConsumerState<FileListView>
           // 순회에서만 빼는 것이라 클릭·탭은 그대로 닿는다.
           child: FocusTraversalGroup(
             descendantsAreTraversable: false,
-            child: ListView.builder(
+            child: SuperListView.builder(
               controller: _scroll,
+              listController: _list,
               padding: widget.padding,
               itemCount: rows.length,
               itemBuilder: (context, index) {

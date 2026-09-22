@@ -183,8 +183,60 @@ void main() {
     });
   });
 
+  group('measuredRowOffset', () {
+    testWidgets('깔려 있는 행은 정확한 자리를 낸다', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final cursor = ValueNotifier(0);
+      addTearDown(cursor.dispose);
+      await _pumpList(
+        tester,
+        request: RowRevealRequest(),
+        cursor: cursor,
+        controller: controller,
+      );
+
+      // 화면에 있는 행은 어림이 아니라 렌더 트리에서 잰 값이다.
+      expect(measuredRowOffset(controller, 2, _rowCount), 2 * _rowHeight);
+    });
+
+    testWidgets('아직 없는 행은 깔린 구간의 국소 평균으로 외삽한다', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final cursor = ValueNotifier(0);
+      addTearDown(cursor.dispose);
+      await _pumpList(
+        tester,
+        request: RowRevealRequest(),
+        cursor: cursor,
+        controller: controller,
+      );
+
+      // 높이가 고르면 외삽도 정확하다.
+      expect(measuredRowOffset(controller, 30, _rowCount), 30 * _rowHeight);
+    });
+
+    testWidgets('행 범위 밖이거나 붙은 목록이 없으면 잴 것이 없다', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      expect(measuredRowOffset(controller, 3, _rowCount), isNull); // 붙은 목록 없음
+      final cursor = ValueNotifier(0);
+      addTearDown(cursor.dispose);
+      await _pumpList(
+        tester,
+        request: RowRevealRequest(),
+        cursor: cursor,
+        controller: controller,
+      );
+
+      expect(measuredRowOffset(controller, -1, _rowCount), isNull);
+      expect(measuredRowOffset(controller, _rowCount, _rowCount), isNull);
+      expect(measuredRowOffset(controller, 0, 0), isNull);
+    });
+  });
+
   group('jumpNearRow', () {
-    testWidgets('평균 행 높이로 어림해 그 행이 가운데 오도록 옮긴다', (tester) async {
+    testWidgets('잰 자리를 기준으로 그 행이 가운데 오도록 옮긴다', (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
       final cursor = ValueNotifier(0);
@@ -199,7 +251,7 @@ void main() {
       expect(jumpNearRow(controller, 30, _rowCount), isTrue);
       await tester.pump();
 
-      // 행 높이가 고르면 어림이 정확하다: 3000에서 반 화면 앞.
+      // 30번 행 앞머리(3000)에서 반 화면 앞.
       expect(controller.offset, 3000 - _viewport / 2);
     });
 
@@ -220,7 +272,7 @@ void main() {
       expect(jumpNearRow(controller, 30, _rowCount), isFalse);
     });
 
-    testWidgets('행 범위 밖이거나 붙은 목록이 없으면 아무 일도 하지 않는다', (tester) async {
+    testWidgets('잴 것이 없으면 아무 일도 하지 않는다', (tester) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
       expect(jumpNearRow(controller, 3, _rowCount), isFalse); // 붙은 목록 없음
@@ -240,9 +292,9 @@ void main() {
   });
 
   group('CursorRevealMixin', () {
-    testWidgets('행 높이가 들쭉날쭉해 어림이 크게 빗나가도 끝내 그 행을 드러낸다', (tester) async {
-      // 앞 30줄은 얕고 뒤 10줄은 깊어 평균이 어느 쪽과도 맞지 않는다. 어림 착지만으로는
-      // 그 행이 만들어지지 않아, 앞뒤를 더듬어 찾아내야 한다.
+    testWidgets('행 높이가 들쭉날쭉해도 되풀이가 그 행으로 수렴한다', (tester) async {
+      // 앞 30줄은 얕고 뒤 10줄은 깊어 전체 평균은 어느 쪽과도 맞지 않는다. 한 번 옮길
+      // 때마다 깔린 구간이 목표 쪽으로 가므로 다음 번 어림이 더 정확해져야 한다.
       final controller = ScrollController();
       addTearDown(controller.dispose);
       await tester.pumpWidget(
@@ -267,7 +319,163 @@ void main() {
       expect(controller.offset, 2400 - _viewport);
       expect(find.text('행 35'), findsOneWidget);
     });
+
+    testWidgets('긴 행 쪽에서 짧은 행 쪽으로 건너뛰어도 드러낸다', (tester) async {
+      // 어림이 **넘겨짚는** 방향이다 — 깊은 행들 사이에 서서 얕은 행을 겨누면 목표를
+      // 지나쳐 내리게 되고, 그 길에 스쳐 만들어진 커서 행이 요청만 삼킬 수 있다.
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: SizedBox(
+              height: _viewport,
+              child: _UnevenList(controller: controller),
+            ),
+          ),
+        ),
+      );
+      final state = tester.state<_UnevenListState>(find.byType(_UnevenList));
+
+      state.moveCursor(35);
+      await tester.pumpAndSettle();
+      state.moveCursor(20);
+      await tester.pumpAndSettle();
+
+      // 20번 행(800~840)이 가운데 오도록 내려앉고, 거기서 이미 온전히 보이므로 더
+      // 움직이지 않는다.
+      expect(find.text('행 20'), findsOneWidget);
+      expect(controller.offset, 800 - _viewport / 2);
+    });
   });
+
+  group('stepTowardRow', () {
+    testWidgets('행이 아직 없으면 뷰가 정한 걸음으로 옮긴다', (tester) async {
+      // 제 행 자리를 아는 목록은 어림을 되풀이할 것 없이 한 걸음에 닿는다. 그 걸음을
+      // 뷰가 갈아 끼울 수 있어야 한다 — 목록 보기가 인덱스 점프로 갈아 끼운 자리다.
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final calls = <int>[];
+      await _pumpStepped(
+        tester,
+        controller: controller,
+        calls: calls,
+        step: (index) => index * _rowHeight,
+      );
+
+      tester.state<_SteppedListState>(find.byType(_SteppedList)).moveCursor(30);
+      await tester.pumpAndSettle();
+
+      // 한 걸음이면 닿으므로 그 뒤로는 다시 부르지 않는다(행이 요청을 받아 갔다).
+      expect(calls, [30]);
+      expect(controller.offset, 30 * _rowHeight);
+      expect(find.text('행 30'), findsOneWidget);
+    });
+
+    testWidgets('더 갈 데 없다고 하면 되풀이를 멈춘다', (tester) async {
+      // 걸음이 false를 내면 요청을 접어야 한다. 접지 않으면 프레임을 다 쓸 때까지
+      // 같은 자리를 헛되이 다시 겨눈다.
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final calls = <int>[];
+      await _pumpStepped(
+        tester,
+        controller: controller,
+        calls: calls,
+        step: (_) => null,
+      );
+
+      tester.state<_SteppedListState>(find.byType(_SteppedList)).moveCursor(30);
+      await tester.pumpAndSettle();
+
+      expect(calls, [30]);
+      expect(controller.offset, 0);
+    });
+  });
+}
+
+/// [_SteppedList]를 뷰포트에 띄운다.
+Future<void> _pumpStepped(
+  WidgetTester tester, {
+  required ScrollController controller,
+  required List<int> calls,
+  required double? Function(int index) step,
+}) => tester.pumpWidget(
+  MaterialApp(
+    locale: const Locale('ko'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(
+      body: SizedBox(
+        height: _viewport,
+        child: _SteppedList(controller: controller, calls: calls, step: step),
+      ),
+    ),
+  ),
+);
+
+/// 커서 행으로 가는 **한 걸음을 밖에서 정하는** 목록. 행 높이가 고른 것은 기대 위치를
+/// 손으로 셀 수 있게 하려는 것이다(여기서 보려는 것은 어림의 정확도가 아니라 걸음을
+/// 갈아 끼울 수 있는지다).
+class _SteppedList extends StatefulWidget {
+  const _SteppedList({
+    required this.controller,
+    required this.calls,
+    required this.step,
+  });
+
+  final ScrollController controller;
+
+  /// 걸음이 불린 행 번호를 순서대로 담는다.
+  final List<int> calls;
+
+  /// 한 걸음에 갈 자리. null이면 더 갈 데가 없다고 알린다.
+  final double? Function(int index) step;
+
+  @override
+  State<_SteppedList> createState() => _SteppedListState();
+}
+
+class _SteppedListState extends State<_SteppedList>
+    with CursorRevealMixin<_SteppedList> {
+  int _cursor = 0;
+
+  @override
+  ScrollController get revealScrollController => widget.controller;
+
+  @override
+  int get cursorRowIndex => _cursor;
+
+  @override
+  int get revealRowCount => _rowCount;
+
+  @override
+  bool stepTowardRow(int index) {
+    widget.calls.add(index);
+    final to = widget.step(index);
+    if (to == null) return false;
+    widget.controller.jumpTo(to);
+    return true;
+  }
+
+  void moveCursor(int index) {
+    setState(() => _cursor = index);
+    requestCursorReveal();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView.builder(
+    controller: widget.controller,
+    itemCount: _rowCount,
+    itemBuilder: (context, index) => EnsureVisibleOnFocus(
+      active: index == _cursor,
+      request: cursorReveal,
+      child: SizedBox(height: _rowHeight, child: Text('행 $index')),
+    ),
+  );
 }
 
 /// 앞뒤 행 높이가 크게 다른 목록(어림이 빗나가는 상황을 만든다).

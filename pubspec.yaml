@@ -85,6 +85,9 @@ dependencies:
   # 콘솔 진입점의 하위 명령·옵션 해석. Dart 팀 공식(publisher tools.dart.dev)이며
   # 도움말 출력과 사용법 오류까지 함께 낸다.
   args: ^2.7.0
+  # 인덱스로 곧장 건너뛰는 목록(SuperListView). 공식 패키지가 없어 고른
+  # 서드파티(publisher matejknopp.com) — 사유는 ARCHITECTURE.md의 의존성 메모에 있다.
+  super_sliver_list: ^0.4.1
 
 dev_dependencies:
   flutter_test:

@@ -515,6 +515,13 @@ class AppLocalizationsKo extends AppLocalizations {
       '링크 태그는 썸네일 외에도 쓸 수 있습니다. 링크 캡슐을 더블클릭(모바일은 더블탭)하면 가리키는 항목으로 곧장 이동하므로, 만화의 다음 권처럼 이어 보는 순서를 태그로 이어 둘 수 있습니다.';
 
   @override
+  String get tipWebUrlValueTitle => '태그값에 적은 주소를 브라우저로 열기';
+
+  @override
+  String get tipWebUrlValueBody =>
+      '텍스트 태그의 값에 웹 주소를 적어 두면(스킴까지, 예: https://) 캡슐의 값에 밑줄이 그이고, 더블클릭(모바일은 더블탭)하면 기본 브라우저로 엽니다. 자료의 출처나 관련 페이지를 항목 옆에 붙여 두는 데 쓸 수 있습니다.';
+
+  @override
   String get tipNameTagTitle => '파일 이름 대신 태그값을 이름으로 보기';
 
   @override
@@ -844,6 +851,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chipUnresolvedHint => '가리키는 대상을 찾지 못했습니다. 더블클릭해 다시 연결하거나 x로 지웁니다.';
+
+  @override
+  String get chipUrlHint => '더블클릭해 브라우저에서 엽니다.';
+
+  @override
+  String get chipUrlOpenFailed => '주소를 열지 못했습니다.';
 
   @override
   String get chipDeletedTag => '(삭제된 태그)';

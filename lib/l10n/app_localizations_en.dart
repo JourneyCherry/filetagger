@@ -524,6 +524,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Link tags are good for more than thumbnails. Double-clicking a link capsule (double-tap on mobile) jumps straight to the item it points at, so you can chain a reading order through tags, such as the next volume of a comic.';
 
   @override
+  String get tipWebUrlValueTitle => 'Opening an Address Stored in a Tag Value';
+
+  @override
+  String get tipWebUrlValueBody =>
+      'Put a web address in a text tag\'s value, including the scheme (for example https://), and the value gets underlined in the capsule. Double-click it (double-tap on mobile) to open it in your default browser — handy for keeping a source or a related page next to an item.';
+
+  @override
   String get tipNameTagTitle => 'Showing a Tag Value Instead of the File Name';
 
   @override
@@ -863,6 +870,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get chipUnresolvedHint =>
       'The target could not be found. Double-click to reconnect it, or press x to remove it.';
+
+  @override
+  String get chipUrlHint => 'Double-click to open it in your browser.';
+
+  @override
+  String get chipUrlOpenFailed => 'Could not open the address.';
 
   @override
   String get chipDeletedTag => '(deleted tag)';

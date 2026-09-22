@@ -2095,23 +2095,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _openNode(node);
   }
 
-  /// 링크 캡슐이 요청한 노드로 이동한다: 조상 폴더를 모두 펼쳐 목록에 드러내고, 그
-  /// 노드를 단일 선택한 뒤 파일이면 프리뷰를 연다. 현재 필터에 가려 목록에 없는
-  /// 노드면 안내만 한다(선택은 유지되나 목록엔 나타나지 않을 수 있다).
+  /// 링크 캡슐이 요청한 노드로 이동한다: 그 노드를 단일 선택하고 파일이면 프리뷰를
+  /// 연다. 목록 보기라면 숨어 있던 자리를 드러내고 커서까지 옮긴다.
+  ///
+  /// **커서를 옮기는 것이 목록을 스크롤시킨다** — 선택만으로는 화면이 따라오지 않는다
+  /// (목록은 커서의 드러내기 번호를 보고 움직인다, [NavigationCursor.revealSerial]).
+  ///
+  /// 아이콘·자세히 보기는 각자 커서를 쥐고 있어 같은 신호를 **스스로** 받아 처리한다
+  /// ([FileIconView]·[FileDetailView]). 여기서 펼침·커서를 건드리는 것은 목록 보기의
+  /// 몫뿐이다 — 다른 보기가 떠 있을 때 저장되는 펼침 집합을 불리지 않기 위함이다.
   void _revealNode(int id) {
     final node = ref.read(fileNodesByIdProvider)[id];
     if (node == null) return;
-    // 대상의 모든 조상 폴더 경로를 펼침 집합에 더한다(경로는 '/'로 구분).
-    final parts = node.path.split('/');
-    final keys = <String>[];
-    var acc = '';
-    for (var i = 0; i < parts.length - 1; i++) {
-      acc = acc.isEmpty ? parts[i] : '$acc/${parts[i]}';
-      keys.add(acc);
-    }
-    ref.read(viewSettingsProvider.notifier).expandFolders(keys);
+    if (ref.read(viewModeProvider) == ViewMode.list) _revealNodeInList(id);
     ref.read(selectionControllerProvider.notifier).selectSingle(id);
     if (!node.isDirectory && !node.isMissing) _showPreview(node);
+  }
+
+  /// 목록 보기에서 [id] 노드가 놓인 행을 드러내고 커서를 세운다.
+  ///
+  /// 접힘을 무시하고 편 트리에서 그 행을 찾는 것은 **조상이 폴더만이 아니어서**다 —
+  /// 그룹화가 걸려 있으면 그 노드를 감싸는 것은 폴더가 아니라 그룹 헤더고, 경로를
+  /// 쪼개 만든 폴더 키로는 열리지 않는다. 빠른 탐색이 숨은 항목을 드러내는 것과 같은
+  /// 길을 쓴다([_revealRow]).
+  ///
+  /// **필터에 걸려 목록에 아예 없으면 아무것도 하지 않는다** — 사용자가 건 조건을 앱이
+  /// 몰래 풀지 않는다. 선택과 프리뷰는 그대로 걸리므로 무엇을 가리켰는지는 볼 수 있다.
+  void _revealNodeInList(int id) {
+    final roots = ref.read(fileTreeProvider).valueOrNull;
+    if (roots == null) return;
+    final full = flattenTree(roots, expandedFolders: const {}, expandAll: true);
+    final index = full.rows.indexWhere((r) {
+      final item = r.item;
+      return item is FileTreeNode && item.node.id == id;
+    });
+    if (index < 0) return;
+    _revealRow(full.rows, index, id);
+    ref.read(navigationCursorProvider.notifier).moveTo(id);
   }
 
   /// 모바일 행 끝: 선택 모드면 체크박스, 아니면 폴더의 관리 방식 시트 버튼.

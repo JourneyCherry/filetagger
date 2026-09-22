@@ -100,6 +100,11 @@ List<UsageTip> usageTipsOf(AppLocalizations l10n) => [
     icon: Icons.link,
   ),
   UsageTip(
+    title: l10n.tipWebUrlValueTitle,
+    body: l10n.tipWebUrlValueBody,
+    icon: Icons.open_in_new,
+  ),
+  UsageTip(
     title: l10n.tipNameTagTitle,
     body: l10n.tipNameTagBody,
     icon: Icons.text_fields,

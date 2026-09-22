@@ -13,6 +13,7 @@ import '../../domain/usecases/cell_value_edit.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/file_node_provider.dart';
 import '../providers/file_view_provider.dart';
+import '../providers/node_reveal_provider.dart';
 import '../widgets/link_target_picker.dart';
 import '../providers/system_tag_provider.dart';
 import '../providers/tag_provider.dart';
@@ -194,6 +195,11 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
     final scale = ref.watch(currentViewScaleProvider);
     _displayNames = ref.watch(displayNameByIdProvider);
     final l10n = AppLocalizations.of(context);
+    // 링크 캡슐이 올린 "이 노드로 가라"를 직접 받는다 — 이 표의 커서는 셸이 쥔 목록
+    // 커서와 별개라, 셸이 대신 옮겨 줄 수 없다.
+    ref.listen(nodeRevealProvider, (_, next) {
+      if (next != null) _revealNode(next.nodeId);
+    });
 
     final columns = _columnsFrom(l10n, tagCols);
 
@@ -343,6 +349,18 @@ class _FileDetailViewState extends ConsumerState<FileDetailView>
     if (id == null) return;
     setState(() => _cursorNodeId = id);
     ref.read(selectionControllerProvider.notifier).selectSingle(id);
+    requestCursorReveal();
+  }
+
+  /// 밖에서(링크 캡슐 더블클릭) 온 "이 노드로 가라"를 처리한다: 커서를 그 행에 세우고
+  /// 화면 밖이면 끌어온다. 열 커서는 그대로 둔다(행 이동과 같은 규칙, [_moveRow]).
+  ///
+  /// **선택은 건드리지 않는다** — 같은 신호를 받은 셸이 이미 단일 선택으로 바꾼다.
+  /// 필터에 걸려 표에 없는 행이면 커서를 옮기지 않는다(갈 곳 없는 요청에 커서를
+  /// 잃지 않는다).
+  void _revealNode(int nodeId) {
+    if (!_rowsNow.any((n) => n.id == nodeId)) return;
+    setState(() => _cursorNodeId = nodeId);
     requestCursorReveal();
   }
 

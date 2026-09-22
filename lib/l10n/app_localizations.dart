@@ -1019,6 +1019,18 @@ abstract class AppLocalizations {
   /// 도움말 사용 팁 — 제목
   ///
   /// In ko, this message translates to:
+  /// **'태그값에 적은 주소를 브라우저로 열기'**
+  String get tipWebUrlValueTitle;
+
+  /// 도움말 사용 팁 — 본문
+  ///
+  /// In ko, this message translates to:
+  /// **'텍스트 태그의 값에 웹 주소를 적어 두면(스킴까지, 예: https://) 캡슐의 값에 밑줄이 그이고, 더블클릭(모바일은 더블탭)하면 기본 브라우저로 엽니다. 자료의 출처나 관련 페이지를 항목 옆에 붙여 두는 데 쓸 수 있습니다.'**
+  String get tipWebUrlValueBody;
+
+  /// 도움말 사용 팁 — 제목
+  ///
+  /// In ko, this message translates to:
   /// **'파일 이름 대신 태그값을 이름으로 보기'**
   String get tipNameTagTitle;
 
@@ -1597,6 +1609,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'가리키는 대상을 찾지 못했습니다. 더블클릭해 다시 연결하거나 x로 지웁니다.'**
   String get chipUnresolvedHint;
+
+  /// 값이 웹 주소인 텍스트 태그 칩의 툴팁 — 밑줄이 무엇을 뜻하는지 알린다
+  ///
+  /// In ko, this message translates to:
+  /// **'더블클릭해 브라우저에서 엽니다.'**
+  String get chipUrlHint;
+
+  /// 태그값의 웹 주소를 받아 줄 프로그램을 띄우지 못했을 때의 알림
+  ///
+  /// In ko, this message translates to:
+  /// **'주소를 열지 못했습니다.'**
+  String get chipUrlOpenFailed;
 
   /// 정의가 사라진 태그를 가리키는 조건 칩의 이름 자리
   ///

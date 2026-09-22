@@ -397,6 +397,15 @@ class FileNodeTile extends StatelessWidget {
   /// 목록 좌우 여백(들여쓰기의 기준점이자 가이드 라인의 시작 x).
   static const double _rowInset = 4;
 
+  /// 행 내용과 선택 배경 사이의 좌우 숨통. `ListTile` 기본값은 **오른쪽이 더 넓은데**
+  /// (M3가 trailing 컨트롤 자리를 비워 두는 규격이다) 이 행에는 그 자리가 늘 있는 것이
+  /// 아니라, 좌우를 같게 두고 남는 폭은 이름·태그 줄에 돌린다. 오른쪽은 세로 스크롤바가
+  /// 겹쳐 그려지는 폭보다 넓어야 마지막 태그 칩이 손잡이에 가리지 않는다.
+  ///
+  /// **그룹 헤더도 같은 값을 쓴다** — 헤더는 `ListTile`을 쓰지 않아 이 여백이 없었고,
+  /// 그만큼 파일 행의 내용만 오른쪽으로 밀려 캐럿 자리가 한 세로줄에 서지 않았다.
+  static const double _contentInset = 8;
+
   /// 크기 배율 1.0일 때의 기준 치수(펼침 캐럿 자리 폭·캐럿 아이콘·썸네일 한 변).
   /// zoom 배율을 곱해 쓰며, 그룹 헤더 타일도 캐럿 자리를 맞추려 같은 값을 참조한다.
   static const double _caretSlot = 28;
@@ -525,6 +534,9 @@ class FileNodeTile extends StatelessWidget {
               child: ListTile(
                 dense: true,
                 selected: selected,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: _contentInset,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -841,7 +853,10 @@ class _GroupHeaderTile extends StatelessWidget {
               hoverColor: Colors.transparent,
               mouseCursor: SystemMouseCursors.basic,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FileNodeTile._contentInset,
+                  vertical: 4,
+                ),
                 child: Row(
                   children: [
                     // 캐럿 자리는 자식 없는 헤더도 비워 파일 타일과 세로줄을 맞춘다.
@@ -876,7 +891,6 @@ class _GroupHeaderTile extends StatelessWidget {
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(width: 4),
                   ],
                 ),
               ),
